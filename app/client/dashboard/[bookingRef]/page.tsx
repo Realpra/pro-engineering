@@ -1,0 +1,151 @@
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import { verifyMagicToken } from '@/app/client/login/actions'
+import ClientDashboard from './ClientDashboard'
+
+function AccessCard({ message }: { message: string }) {
+  return (
+    <div className="min-h-screen bg-[#1F3864] flex items-center justify-center">
+      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 text-center">
+        <h1 className="text-[#1F3864] text-2xl font-bold">PRO ENGINEERING</h1>
+        <p className="text-gray-600 text-sm mt-4">{message}</p>
+        <Link
+          href="/client/login"
+          className="inline-block mt-6 bg-[#1F3864] text-white font-bold px-6 py-3 rounded-xl"
+        >
+          Go to Login
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+export default async function ClientDashboardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ bookingRef: string }>
+  searchParams: Promise<{ token?: string }>
+}) {
+  const { bookingRef } = await params
+  const { token } = await searchParams
+
+  const supabase = await createClient()
+
+  let accessGranted = false
+
+  if (token) {
+    const result = await verifyMagicToken(token)
+    if (result.error) {
+      return <AccessCard message="This link is invalid or has expired. Please request a new link." />
+    }
+    accessGranted = true
+  } else {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (session) {
+      const { data: match } = await supabase
+        .from('guest_enquiries')
+        .select('id')
+        .eq('client_user_id', session.user.id)
+        .eq('booking_ref', bookingRef)
+        .maybeSingle()
+
+      accessGranted = !!match
+    }
+  }
+
+  // TODO: remove dev bypass before production
+  if (!accessGranted) {
+    const { data: devMatch } = await supabase
+      .from('guest_enquiries')
+      .select('id')
+      .eq('booking_ref', bookingRef)
+      .maybeSingle()
+
+    accessGranted = !!devMatch
+  }
+
+  if (!accessGranted) {
+    return <AccessCard message="Please sign in to view this dashboard." />
+  }
+
+  const [
+    { data: enquiryData },
+    { data: boqData },
+    { data: milestonesData },
+    { data: substagesData },
+    { data: responseData },
+  ] = await Promise.all([
+    supabase.from('guest_enquiries').select('*').eq('booking_ref', bookingRef).single(),
+    supabase
+      .from('boq_generated')
+      .select('*')
+      .eq('booking_ref', bookingRef)
+      .neq('status', 'draft')
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('milestone_payment_schedule')
+      .select('*')
+      .eq('booking_ref', bookingRef)
+      .order('milestone_number', { ascending: true }),
+    supabase
+      .from('job_milestone_substages')
+      .select('*')
+      .eq('booking_ref', bookingRef)
+      .order('milestone_code')
+      .order('planned_day'),
+    supabase
+      .from('estimate_client_responses')
+      .select('*')
+      .eq('booking_ref', bookingRef)
+      .order('responded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  // eslint-disable-next-line no-console
+  console.log('[page] clientResponse for', bookingRef, ':', responseData)
+
+  if (!enquiryData) {
+    return <AccessCard message="Booking not found." />
+  }
+
+  const [coordinatorResult, supervisorResult] = await Promise.all([
+    enquiryData.supervisor_id
+      ? supabase.from('users').select('full_name').eq('id', enquiryData.supervisor_id).single()
+      : Promise.resolve({ data: null as { full_name: string } | null }),
+    enquiryData.supervisor_id
+      ? supabase.from('workers').select('full_name').eq('id', enquiryData.supervisor_id).single()
+      : Promise.resolve({ data: null as { full_name: string } | null }),
+  ])
+
+  if (!boqData) {
+    return (
+      <div className="min-h-screen bg-[#1F3864] flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 text-center">
+          <h1 className="text-[#1F3864] text-2xl font-bold">PRO ENGINEERING</h1>
+          <p className="text-gray-600 text-sm mt-4">
+            Your estimate is being prepared by your coordinator. Please check back soon.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <ClientDashboard
+      enquiry={enquiryData}
+      boq={boqData}
+      milestones={milestonesData ?? []}
+      substages={substagesData ?? []}
+      clientResponse={responseData ?? null}
+      coordinator={coordinatorResult.data ?? null}
+      supervisor={supervisorResult.data ?? null}
+    />
+  )
+}

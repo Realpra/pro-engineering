@@ -1,0 +1,29 @@
+﻿isCustom:false LINE: 330 |          isCustom: false,
+328|          unskilledWorkersPerDay: existing?.unskilled_workers_per_day ?? defaultUnskilled,
+329|          evidenceRequired: existing?.evidence_required ?? sub.evidence_checklist ?? [],
+330|          status: existing?.status ?? 'pending',
+331|          isCustom: false,
+332|        }
+333|      })
+334|
+335|    // Coordinator-added rows under this same (known) milestone_code that don't
+---
+isCustom:true LINES: [ 347, 385 ]
+--- block at line 347 ---
+345|        unskilledWorkersPerDay: r.unskilled_workers_per_day,
+346|        evidenceRequired: r.evidence_required ?? [],
+347|        status: r.status,
+348|        isCustom: true,
+349|        labourAssignments: r.labour_assignments ?? [],
+350|      }))
+351|    extraSubs.forEach(s => consumedKeys.add(`${st.milestone_code}::${s.substageCode}`))
+352|
+--- block at line 385 ---
+383|        unskilledWorkersPerDay: r.unskilled_workers_per_day,
+384|        evidenceRequired: r.evidence_required ?? [],
+385|        status: r.status,
+386|        isCustom: true,
+387|        labourAssignments: r.labour_assignments ?? [],
+388|      }))
+389|    stages.push({
+390|      milestoneCode: code,

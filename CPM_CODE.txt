@@ -1,0 +1,55 @@
+628|export async function computeCPMSchedule(bookingRef: string): Promise<{success:boolean;error?:string}> {
+629|  const supabase = await createClient()
+630|  const { data: subs, error } = await supabase
+631|    .from('job_milestone_substages')
+632|    .select('id,substage_code,planned_day,lag_days,lag_hours,dependency_type,predecessor_substage_code')
+633|    .eq('booking_ref', bookingRef)
+634|    .order('sequence_order')
+635|  if (error||!subs) return {success:false,error:error?.message}
+636|  const map: Record<string,typeof subs[0]> = {}
+637|  subs.forEach(s=>{ if(s.substage_code) map[s.substage_code]=s })
+638|  const earlyStart: Record<string,Date> = {}
+639|  const earlyFinish: Record<string,Date> = {}
+640|  const base = new Date(); base.setHours(0,0,0,0)
+641|  for (const s of subs) {
+642|    const code = s.substage_code; if(!code) continue
+643|    const dur = s.planned_day||1
+644|    const lagDays = (s.lag_days||0)+((s.lag_hours||0)/24)
+645|    const pred = s.predecessor_substage_code
+646|    const dep = s.dependency_type||'FS'
+647|    let start = new Date(base)
+648|    if(pred && earlyStart[pred] && earlyFinish[pred]){
+649|      if(dep==='FS'){ start=new Date(earlyFinish[pred]); start.setDate(start.getDate()+Math.ceil(lagDays)) }
+650|      else if(dep==='SS'){ start=new Date(earlyStart[pred]); start.setDate(start.getDate()+Math.ceil(lagDays)) }
+651|      else if(dep==='FF'){ const f=new Date(earlyFinish[pred]); f.setDate(f.getDate()+Math.ceil(lagDays)); start=new Date(f); start.setDate(start.getDate()-dur) }
+652|      else if(dep==='SF'){ start=new Date(earlyFinish[pred]); start.setDate(start.getDate()+Math.ceil(lagDays)) }
+653|    }
+654|    const finish=new Date(start); finish.setDate(finish.getDate()+dur)
+655|    earlyStart[code]=start; earlyFinish[code]=finish
+656|  }
+657|  await Promise.all(subs.filter(s=>s.substage_code&&earlyStart[s.substage_code]).map(s=>
+658|    supabase.from('job_milestone_substages').update({
+659|      early_start_date:earlyStart[s.substage_code!].toISOString().split('T')[0],
+660|      early_finish_date:earlyFinish[s.substage_code!].toISOString().split('T')[0],
+661|    }).eq('id',s.id)
+662|  ))
+663|  return {success:true}
+664|}
+665|
+666|export async function saveDependency(substageId: string, fields: {predecessorCode?: string;dependencyType?: string;lagDays?: number;lagHours?: number;isCriticalPath?: boolean}): Promise<{success:boolean;error?:string}> {
+667|  const supabase = await createClient()
+668|  const { error } = await supabase.from("job_milestone_substages").update({predecessor_substage_code: fields.predecessorCode??null,dependency_type: fields.dependencyType??"FS",lag_days: fields.lagDays??0,lag_hours: fields.lagHours??0,is_critical_path: fields.isCriticalPath??false}).eq("id", substageId)
+669|  if(error) return {success:false,error:error.message}
+670|  return {success:true}
+671|}
+672|export async function cleanSubstagePredecessor(
+673|  bookingRef: string,
+674|  substageCode: string,
+675|  val: string | null
+676|): Promise<{ success: boolean; error?: string }> {
+677|  const supabase = await createClient()
+678|  const { error } = await supabase
+679|    .from('job_milestone_substages')
+680|    .update({ predecessor_substage_code: val })
+681|    .eq('booking_ref', bookingRef)
+682|    .eq('substage_code', substageCode)

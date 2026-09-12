@@ -1,0 +1,52 @@
+139|  substageDescription?: string
+140|  plannedHours?: number
+141|  startTimeSlot?: string
+142|  plannedStartDate?: string
+143|  tradeType?: string
+144|  predecessorCode?: string
+145|  dependencyType?: string
+146|  lagDays?: number
+147|  lagHours?: number
+148|  floatDays?: number
+149|  bufferDays?: number
+150|  isCriticalPath?: boolean
+151|  resourceConstraint?: string
+152|  constraintType?: string
+153|  constraintDate?: string
+154|  weatherDelayDays?: number
+155|  supervisorChecklist?: string[]
+156|  subcoordinatorChecklist?: string[]
+157|  coordinatorChecklist?: string[]
+158|  labourAssignments?: LabourAssignment[]
+159|}
+160|
+161|export type MilestonePlanStage = {
+162|  milestoneCode: string
+---
+304|                    </tr>
+305|                    {expandedSubstage===sub.substageCode && (
+306|                      <tr key={sub.substageCode+'-expand'}>
+307|                        <td colSpan={4} className="px-4 py-4 bg-blue-50/40 border-t border-blue-100">
+308|                          <div className="space-y-3">
+309|                            <div className="flex items-center justify-between">
+310|                              <p className="text-xs font-bold text-[#1F3864] uppercase tracking-wide">Labour Assignment — {sub.substageCode}</p>
+311|                              <button type="button" onClick={e=>{e.stopPropagation();const rows=sub.labourAssignments||[];const newRow:LabourAssignment={rowId:Date.now().toString(),trade:sub.tradeType||'Mason',skillType:'skilled',qty:1,startTime:'08:00',endTime:'17:00',hoursPerDay:8,daysNeeded:sub.plannedDay||1,canUseMultiskill:true,minSkillLevel:'mid'};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:[...rows,newRow]})}} className="text-xs bg-[#2E74B5] text-white px-3 py-1 rounded-lg hover:bg-[#1F3864]">+ Add Trade Row</button>
+312|                            </div>
+313|                            {(sub.labourAssignments||[]).length===0 && (
+314|                              <p className="text-xs text-gray-400 italic">No labour rows defined. Click + Add Trade Row to begin.</p>
+315|                            )}
+316|                            {(sub.labourAssignments||[]).map((row,ri)=>(
+317|                              <div key={row.rowId} className="grid grid-cols-8 gap-2 items-center bg-white rounded-lg px-3 py-2 border border-gray-200">
+318|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">Trade</label><select className="w-full border rounded px-1 py-1 text-xs" value={row.trade} onClick={e=>e.stopPropagation()} onChange={e=>{const rows=[...(sub.labourAssignments||[])];rows[ri]={...rows[ri],trade:e.target.value};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}}><option>Mason</option><option>Plumber</option><option>Electrician</option><option>Waterproofer</option><option>Tiler</option><option>Helper</option><option>Supervisor</option><option>Carpenter</option></select></div>
+319|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">Type</label><select className="w-full border rounded px-1 py-1 text-xs" value={row.skillType} onClick={e=>e.stopPropagation()} onChange={e=>{const rows=[...(sub.labourAssignments||[])];rows[ri]={...rows[ri],skillType:e.target.value as 'skilled'|'unskilled'};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}}><option value="skilled">Skilled</option><option value="unskilled">Unskilled</option></select></div>
+320|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">Qty</label><input type="number" min="1" className="w-full border rounded px-1 py-1 text-xs" value={row.qty} onClick={e=>e.stopPropagation()} onChange={e=>{const rows=[...(sub.labourAssignments||[])];rows[ri]={...rows[ri],qty:parseInt(e.target.value)||1};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}}/></div>
+321|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">Start</label><input type="time" className="w-full border rounded px-1 py-1 text-xs" value={row.startTime} onClick={e=>e.stopPropagation()} onChange={e=>{const rows=[...(sub.labourAssignments||[])];const hrs=calcHours(e.target.value,rows[ri].endTime);rows[ri]={...rows[ri],startTime:e.target.value,hoursPerDay:hrs};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}}/></div>
+322|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">End</label><input type="time" className="w-full border rounded px-1 py-1 text-xs" value={row.endTime} onClick={e=>e.stopPropagation()} onChange={e=>{const rows=[...(sub.labourAssignments||[])];const hrs=calcHours(rows[ri].startTime,e.target.value);rows[ri]={...rows[ri],endTime:e.target.value,hoursPerDay:hrs};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}}/></div>
+323|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">Days</label><input type="number" min="1" className="w-full border rounded px-1 py-1 text-xs" value={row.daysNeeded} onClick={e=>e.stopPropagation()} onChange={e=>{const rows=[...(sub.labourAssignments||[])];rows[ri]={...rows[ri],daysNeeded:parseInt(e.target.value)||1};updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}}/></div>
+324|                                <div className="col-span-1"><label className="block text-xs text-gray-400 mb-0.5">Hrs · Total</label><p className="text-xs font-bold text-[#1F3864]">{row.hoursPerDay}h · {(row.hoursPerDay*(row.daysNeeded||1)*(row.qty||1)).toFixed(0)}h</p></div>
+325|                                <div className="col-span-1 flex items-end justify-end"><button type="button" onClick={e=>{e.stopPropagation();const rows=(sub.labourAssignments||[]).filter((_,i)=>i!==ri);updateSubstage(stage.milestoneCode,sub.substageCode,{labourAssignments:rows})}} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 border border-red-200 rounded">✕</button></div>
+326|                              </div>
+327|                            ))}
+328|                            {(sub.labourAssignments||[]).length>0 && (
+329|                              <div className="flex gap-6 text-xs text-gray-600 px-3 pt-1 border-t border-blue-100">
+330|                                <span>Skilled Hours: <strong className="text-[#1F3864]">{(sub.labourAssignments||[]).filter(r=>r.skillType==='skilled').reduce((s,r)=>s+r.hoursPerDay*(r.daysNeeded||1)*(r.qty||1),0).toFixed(0)}h</strong></span>

@@ -1,0 +1,419 @@
+=== ALL MATCHES ===
+
+app/admin/estimate/[bookingRef]/actions.ts:107  [fn: processClientRemarks]  *** CALC_SITE ***
+    const subtotalLabour = round2(
+
+app/admin/estimate/[bookingRef]/actions.ts:125  [fn: processClientRemarks]  *** CALC_SITE ***
+    const coreTotal = subtotalLabour + subtotalMaterial
+
+app/admin/estimate/[bookingRef]/actions.ts:132  [fn: processClientRemarks]  *** CALC_SITE ***
+    const platformPremium   = round2((subtotalLabour + subtotalMaterial) * (platformPremiumPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:133  [fn: processClientRemarks]  *** CALC_SITE ***
+    const bocwCessAmount    = round2(subtotalLabour * (bocwCessPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:135  [fn: processClientRemarks]  *** CALC_SITE ***
+    const contingencyAmount = round2((subtotalLabour + subtotalMaterial) * (contingencyPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:137  [fn: processClientRemarks]  *** CALC_SITE ***
+      subtotalLabour + subtotalMaterial + subtotalRiskRemaining +
+
+app/admin/estimate/[bookingRef]/actions.ts:231  [fn: processClientRemarks]
+      subtotal_labour:         subtotalLabour,
+
+app/admin/estimate/[bookingRef]/actions.ts:298  [fn: processClientRemarks]
+    subtotalLabour: number
+
+app/admin/estimate/[bookingRef]/actions.ts:472  [fn: saveEstimate]
+        subtotal_labour:         totals.subtotalLabour,
+
+app/admin/estimate/[bookingRef]/actions.ts:552  [fn: sendToClient]
+    subtotalLabour?: number
+
+app/admin/estimate/[bookingRef]/actions.ts:805  [fn: riskDecisions]  *** CALC_SITE ***
+    const subtotalLabour = round2(
+
+app/admin/estimate/[bookingRef]/actions.ts:811  [fn: riskDecisions]  *** CALC_SITE ***
+    const platformFee = round2((subtotalLabour + subtotalMaterial) * 0.12)
+
+app/admin/estimate/[bookingRef]/actions.ts:812  [fn: riskDecisions]  *** CALC_SITE ***
+    const bocwCess    = round2(subtotalLabour * 0.01)
+
+app/admin/estimate/[bookingRef]/actions.ts:814  [fn: riskDecisions]  *** CALC_SITE ***
+    const totalAmount = round2(subtotalLabour + subtotalMaterial + subtotalRiskFlags + platformFee + bocwCess + gstAmount)
+
+app/admin/estimate/[bookingRef]/actions.ts:845  [fn: riskDecisions]
+        subtotal_labour:         subtotalLabour,
+
+app/admin/estimate/[bookingRef]/actions.ts:884  [fn: riskDecisions]
+      subtotalLabour,
+
+app/admin/estimate/[bookingRef]/actions.ts:194  [fn: processClientRemarks]
+            subtotal_labour:         subLabour,
+
+app/admin/estimate/[bookingRef]/actions.ts:136  [fn: processClientRemarks]  *** CALC_SITE ***
+    const totalAmount = round2(
+
+app/admin/estimate/[bookingRef]/actions.ts:238  [fn: processClientRemarks]
+      total_amount:            totalAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:276  [fn: processClientRemarks]
+      newTotal:          totalAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:309  [fn: processClientRemarks]
+    totalAmount: number
+
+app/admin/estimate/[bookingRef]/actions.ts:481  [fn: saveEstimate]
+        total_amount:            totals.totalAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:557  [fn: sendToClient]
+    totalAmount?: number
+
+app/admin/estimate/[bookingRef]/actions.ts:856  [fn: riskDecisions]
+        total_amount:            totalAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:875  [fn: riskDecisions]
+      totalAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:889  [fn: riskDecisions]
+      totalAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:901  [fn: writeMilestoneSchedule]
+    totalAmount: number,
+
+app/admin/estimate/[bookingRef]/actions.ts:920  [fn: base]  *** CALC_SITE ***
+      payment_amount: round2(totalAmount * pct / 100),
+
+app/admin/estimate/[bookingRef]/actions.ts:131  [fn: processClientRemarks]
+    // 6. Recompute total_amount using stored rate percentages (never hardcode)
+
+app/admin/estimate/[bookingRef]/actions.ts:205  [fn: processClientRemarks]
+            total_amount:            subTotal,
+
+app/admin/estimate/[bookingRef]/actions.ts:302  [fn: processClientRemarks]
+    platformFee: number
+
+app/admin/estimate/[bookingRef]/actions.ts:476  [fn: saveEstimate]
+        platform_premium_amount: totals.platformFee,
+
+app/admin/estimate/[bookingRef]/actions.ts:554  [fn: sendToClient]
+    platformFee?: number
+
+app/admin/estimate/[bookingRef]/actions.ts:813  [fn: riskDecisions]  *** CALC_SITE ***
+    const gstAmount   = round2(platformFee * 0.18)
+
+app/admin/estimate/[bookingRef]/actions.ts:849  [fn: riskDecisions]
+        platform_premium_amount: platformFee,
+
+app/admin/estimate/[bookingRef]/actions.ts:886  [fn: riskDecisions]
+      platformFee,
+
+app/admin/estimate/[bookingRef]/actions.ts:198  [fn: processClientRemarks]
+            platform_premium_amount: subPlatformFee,
+
+app/admin/estimate/[bookingRef]/actions.ts:234  [fn: processClientRemarks]
+      platform_premium_amount: platformPremium,
+
+app/admin/estimate/[bookingRef]/actions.ts:104  [fn: processClientRemarks]
+    const bocwCessPct        = Number(boq.bocw_cess_percent   ?? 1)
+
+app/admin/estimate/[bookingRef]/actions.ts:138  [fn: processClientRemarks]  *** CALC_SITE ***
+      platformPremium + bocwCessAmount + gstAmount + contingencyAmount
+
+app/admin/estimate/[bookingRef]/actions.ts:167  [fn: processClientRemarks]  *** CALC_SITE ***
+      const subBocwCess    = round2(subLabour * (bocwCessPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:199  [fn: processClientRemarks]
+            bocw_cess_percent:       bocwCessPct,
+
+app/admin/estimate/[bookingRef]/actions.ts:235  [fn: processClientRemarks]
+      bocw_cess_amount:        bocwCessAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:303  [fn: processClientRemarks]
+    bocwCess: number
+
+app/admin/estimate/[bookingRef]/actions.ts:477  [fn: saveEstimate]
+        bocw_cess_amount:        totals.bocwCess,
+
+app/admin/estimate/[bookingRef]/actions.ts:555  [fn: sendToClient]
+    bocwCess?: number
+
+app/admin/estimate/[bookingRef]/actions.ts:851  [fn: riskDecisions]
+        bocw_cess_amount:        bocwCess,
+
+app/admin/estimate/[bookingRef]/actions.ts:887  [fn: riskDecisions]
+      bocwCess,
+
+app/admin/estimate/[bookingRef]/actions.ts:200  [fn: processClientRemarks]
+            bocw_cess_amount:        subBocwCess,
+
+app/admin/estimate/[bookingRef]/actions.ts:134  [fn: processClientRemarks]  *** CALC_SITE ***
+    const gstAmount         = round2(platformPremium * 0.18)
+
+app/admin/estimate/[bookingRef]/actions.ts:236  [fn: processClientRemarks]
+      gst_amount:              gstAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:304  [fn: processClientRemarks]
+    gstAmount: number
+
+app/admin/estimate/[bookingRef]/actions.ts:478  [fn: saveEstimate]
+        gst_amount:              totals.gstAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:556  [fn: sendToClient]
+    gstAmount?: number
+
+app/admin/estimate/[bookingRef]/actions.ts:853  [fn: riskDecisions]
+        gst_amount:              gstAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:888  [fn: riskDecisions]
+      gstAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:202  [fn: processClientRemarks]
+            gst_amount:              subGst,
+
+app/admin/estimate/[bookingRef]/actions.ts:237  [fn: processClientRemarks]
+      contingency_amount:      contingencyAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:306  [fn: processClientRemarks]
+    contingencyAmount: number
+
+app/admin/estimate/[bookingRef]/actions.ts:480  [fn: saveEstimate]
+        contingency_amount:      totals.contingencyAmount,
+
+app/admin/estimate/[bookingRef]/actions.ts:204  [fn: processClientRemarks]
+            contingency_amount:      0,
+
+app/admin/estimate/[bookingRef]/actions.ts:855  [fn: riskDecisions]
+        contingency_amount:      0,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:347  [fn: totals]
+      const subtotalLabour = lineItems
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:356  [fn: platformFee]  *** CALC_SITE ***
+      const platformFee = (subtotalLabour + subtotalMaterial) * (platformPremiumPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:357  [fn: platformFee]  *** CALC_SITE ***
+      const bocwCess = subtotalLabour * (bocwCessPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:359  [fn: contingencyAmount]  *** CALC_SITE ***
+      const contingencyAmount = (subtotalLabour + subtotalMaterial) * (contingencyPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:360  [fn: contingencyAmount]  *** CALC_SITE ***
+      const discountAmount = subtotalLabour * (discountPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:361  [fn: contingencyAmount]  *** CALC_SITE ***
+      const totalAmount = subtotalLabour + subtotalMaterial + subtotalRiskFlags + platformFee + bocwCess + gstAmount + contingencyAmount - discountAmount
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:362  [fn: contingencyAmount]
+      return { subtotalLabour, subtotalMaterial, subtotalRiskFlags, platformFee, platformPremiumPct, bocwCess, gstAmount, contingencyAmount, discountAmount, totalAmount }
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:420  [fn: handleRegenerate]
+      subtotalLabour: totals.subtotalLabour,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:704  [fn: handleSendToClient]
+                ...(totals.subtotalLabour > 0 ? [{ label: 'Subtotal Labour', value: totals.subtotalLabour, bold: true }] : []),
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:40  [fn: (unknown)]
+    subtotal_labour: number
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:52  [fn: (unknown)]
+    subtotal_labour: number
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:431  [fn: handleRegenerate]
+      totalAmount: totals.totalAmount,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:779  [fn: handleSendToClient]
+                <p className="text-3xl font-bold text-[#1F3864]">₹ {fmtInr(totals.totalAmount)}</p>
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:845  [fn: handleSendToClient]
+            disabled={saving || regenerating || totals.totalAmount <= 0 || hasClientRemarks}
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:850  [fn: handleSendToClient]
+                : totals.totalAmount <= 0
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:59  [fn: (unknown)]
+    total_amount: number
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:358  [fn: platformFee]  *** CALC_SITE ***
+      const gstAmount = platformFee * 0.18
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:424  [fn: handleRegenerate]
+      platformFee: totals.platformFee,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:708  [fn: handleSendToClient]
+                { label: `Platform Premium (${totals.platformPremiumPct}%)`, value: totals.platformFee, bold: false },
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:55  [fn: (unknown)]
+    platform_premium_amount: number
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:346  [fn: totals]
+      const bocwCessPct = generatedBOQ?.bocw_cess_percent ?? 1
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:425  [fn: handleRegenerate]
+      bocwCess: totals.bocwCess,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:709  [fn: handleSendToClient]
+                { label: 'BOCW Cess (1%)',                                  value: totals.bocwCess,    bold: false },
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:57  [fn: (unknown)]
+    bocw_cess_amount: number
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:426  [fn: handleRegenerate]
+      gstAmount: totals.gstAmount,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:710  [fn: handleSendToClient]
+                { label: 'GST on Platform Premium (18%)',                   value: totals.gstAmount,   bold: false },
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:58  [fn: (unknown)]
+    gst_amount: number
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:428  [fn: handleRegenerate]
+      contingencyAmount: totals.contingencyAmount,
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:726  [fn: handleSendToClient]
+                  {contingencyPct}% &nbsp;·&nbsp; + ₹ {fmtInr(totals.contingencyAmount)}
+
+app/admin/estimate/[bookingRef]/page.tsx:16  [fn: (unknown)]
+    subtotal_labour: number
+
+app/admin/estimate/[bookingRef]/page.tsx:93  [fn: EstimatePage]
+          .select('id, version, status, line_items, subtotal_labour, contingency_pct, discount_pct, coordinator_notes')
+
+app/admin/estimate/[bookingRef]/page.tsx:135  [fn: existingEstimate]
+      subtotal_labour: number
+
+app/admin/estimate/[bookingRef]/page.tsx:23  [fn: (unknown)]
+    total_amount: number
+
+app/admin/estimate/[bookingRef]/page.tsx:19  [fn: (unknown)]
+    platform_premium_amount: number
+
+app/admin/estimate/[bookingRef]/page.tsx:21  [fn: (unknown)]
+    bocw_cess_amount: number
+
+app/admin/estimate/[bookingRef]/page.tsx:22  [fn: (unknown)]
+    gst_amount: number
+
+app/client/dashboard/ClientDashboard.tsx:385  [fn: subtotalRisk]
+    const subtotalLabour = Number(boq?.subtotal_labour) || 0
+
+app/client/dashboard/ClientDashboard.tsx:802  [fn: decDesc]
+                { label: 'Subtotal Labour',                                         value: subtotalLabour,              show: true,                      bold: true },
+
+app/client/dashboard/ClientDashboard.tsx:45  [fn: (unknown)]
+    subtotal_labour: number
+
+app/client/dashboard/ClientDashboard.tsx:386  [fn: subtotalRisk]
+    console.log('boq subtotals:', boq?.subtotal_labour, boq?.subtotal_material, boq?.subtotal_risk_flags, boq?.total_amount) // TODO: remove console.logs before production
+
+app/client/dashboard/ClientDashboard.tsx:56  [fn: (unknown)]
+    total_amount: number
+
+app/client/dashboard/ClientDashboard.tsx:817  [fn: decDesc]
+                <p className="text-2xl font-bold text-[#1F3864]">₹ {fmtInr(boq.total_amount)}</p>
+
+app/client/dashboard/ClientDashboard.tsx:926  [fn: decDesc]  *** CALC_SITE ***
+                  amount:    boq ? boq.total_amount * m.pct / 100 : 0,
+
+app/client/dashboard/ClientDashboard.tsx:936  [fn: decDesc]
+                const balance = boq ? boq.total_amount - cumulative : 0
+
+app/client/dashboard/ClientDashboard.tsx:49  [fn: (unknown)]
+    platform_premium_amount: number
+
+app/client/dashboard/ClientDashboard.tsx:805  [fn: decDesc]
+                { label: `Platform Premium (${boq.platform_premium_pct ?? 12}%)`,  value: boq.platform_premium_amount, show: true,                      bold: false },
+
+app/client/dashboard/ClientDashboard.tsx:51  [fn: (unknown)]
+    bocw_cess_amount: number
+
+app/client/dashboard/ClientDashboard.tsx:806  [fn: decDesc]
+                { label: `BOCW Cess (${boq.bocw_cess_percent ?? 1}%)`,             value: boq.bocw_cess_amount,        show: boq.bocw_cess_amount > 0,  bold: false },
+
+app/client/dashboard/ClientDashboard.tsx:53  [fn: (unknown)]
+    gst_amount: number
+
+app/client/dashboard/ClientDashboard.tsx:807  [fn: decDesc]
+                { label: `GST on Premium (${boq.gst_percent ?? 18}%)`,             value: boq.gst_amount,              show: true,                      bold: false },
+
+app/client/dashboard/ClientDashboard.tsx:55  [fn: (unknown)]
+    contingency_amount: number
+
+app/client/dashboard/ClientDashboard.tsx:808  [fn: decDesc]
+                { label: `Contingency (${boq.contingency_percent}%)`,              value: boq.contingency_amount,      show: boq.contingency_amount > 0, bold: false },
+
+
+=== CALC_SITES ONLY ===
+
+app/admin/estimate/[bookingRef]/actions.ts:107  [fn: processClientRemarks]
+    const subtotalLabour = round2(
+
+app/admin/estimate/[bookingRef]/actions.ts:125  [fn: processClientRemarks]
+    const coreTotal = subtotalLabour + subtotalMaterial
+
+app/admin/estimate/[bookingRef]/actions.ts:132  [fn: processClientRemarks]
+    const platformPremium   = round2((subtotalLabour + subtotalMaterial) * (platformPremiumPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:133  [fn: processClientRemarks]
+    const bocwCessAmount    = round2(subtotalLabour * (bocwCessPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:135  [fn: processClientRemarks]
+    const contingencyAmount = round2((subtotalLabour + subtotalMaterial) * (contingencyPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:137  [fn: processClientRemarks]
+      subtotalLabour + subtotalMaterial + subtotalRiskRemaining +
+
+app/admin/estimate/[bookingRef]/actions.ts:805  [fn: riskDecisions]
+    const subtotalLabour = round2(
+
+app/admin/estimate/[bookingRef]/actions.ts:811  [fn: riskDecisions]
+    const platformFee = round2((subtotalLabour + subtotalMaterial) * 0.12)
+
+app/admin/estimate/[bookingRef]/actions.ts:812  [fn: riskDecisions]
+    const bocwCess    = round2(subtotalLabour * 0.01)
+
+app/admin/estimate/[bookingRef]/actions.ts:814  [fn: riskDecisions]
+    const totalAmount = round2(subtotalLabour + subtotalMaterial + subtotalRiskFlags + platformFee + bocwCess + gstAmount)
+
+app/admin/estimate/[bookingRef]/actions.ts:136  [fn: processClientRemarks]
+    const totalAmount = round2(
+
+app/admin/estimate/[bookingRef]/actions.ts:920  [fn: base]
+      payment_amount: round2(totalAmount * pct / 100),
+
+app/admin/estimate/[bookingRef]/actions.ts:813  [fn: riskDecisions]
+    const gstAmount   = round2(platformFee * 0.18)
+
+app/admin/estimate/[bookingRef]/actions.ts:138  [fn: processClientRemarks]
+      platformPremium + bocwCessAmount + gstAmount + contingencyAmount
+
+app/admin/estimate/[bookingRef]/actions.ts:167  [fn: processClientRemarks]
+      const subBocwCess    = round2(subLabour * (bocwCessPct / 100))
+
+app/admin/estimate/[bookingRef]/actions.ts:134  [fn: processClientRemarks]
+    const gstAmount         = round2(platformPremium * 0.18)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:356  [fn: platformFee]
+      const platformFee = (subtotalLabour + subtotalMaterial) * (platformPremiumPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:357  [fn: platformFee]
+      const bocwCess = subtotalLabour * (bocwCessPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:359  [fn: contingencyAmount]
+      const contingencyAmount = (subtotalLabour + subtotalMaterial) * (contingencyPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:360  [fn: contingencyAmount]
+      const discountAmount = subtotalLabour * (discountPct / 100)
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:361  [fn: contingencyAmount]
+      const totalAmount = subtotalLabour + subtotalMaterial + subtotalRiskFlags + platformFee + bocwCess + gstAmount + contingencyAmount - discountAmount
+
+app/admin/estimate/[bookingRef]/EstimateConsole.tsx:358  [fn: platformFee]
+      const gstAmount = platformFee * 0.18
+
+app/client/dashboard/ClientDashboard.tsx:926  [fn: decDesc]
+                  amount:    boq ? boq.total_amount * m.pct / 100 : 0,
+
+
+Total matches (deduplicated): 114
+Total CALC_SITEs (deduplicated): 23

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Users\\\\A K SINGH\\\\Desktop\\\\pro-engineering\\\\lib\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Users\\\\A K SINGH\\\\Desktop\\\\pro-engineering\\\\lib\" })",
+      "PowerShell(cd \"C:\\\\Users\\\\A K SINGH\\\\Desktop\\\\pro-engineering\"; Get-ChildItem -Recurse -Depth 2 | Where-Object { -not $_.FullName.Contains\\('node_modules'\\) -and -not $_.FullName.Contains\\('.next'\\) } | Select-Object FullName)",
+      "PowerShell(New-Item *)",
+      "PowerShell(node -e \"console.log\\(require\\('./node_modules/lucide-react/package.json'\\).version\\)\")",
+      "PowerShell(node -e \"const lr = require\\('./node_modules/lucide-react'\\); const icons = ['Home','Droplets','Building2','Monitor','Zap','FlaskConical','Layers','BarChart3','Settings','ArrowLeft','TrendingDown','TrendingUp','Minus','Info','Calendar','Clock','MapPin','CheckCircle2','Circle','AlertTriangle','ChevronRight','CreditCard','Smartphone','Landmark','CheckCheck','Shield','Star','HardHat','Factory','Cpu','Wind','Microscope']; icons.forEach\\(i => console.log\\(i, lr[i] ? 'OK' : 'MISSING'\\)\\)\")",
+      "PowerShell(cd \"C:\\\\Users\\\\A K SINGH\\\\Desktop\\\\pro-engineering\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"actions\\\\.ts\" } | Select-Object -First 30)",
+      "PowerShell(cd \"C:\\\\Users\\\\A K SINGH\\\\Desktop\\\\pro-engineering\"; $out = npx tsc --noEmit 2>&1; $out | Select-String \"estimate\" | Select-Object -First 20; Write-Host \"---TOTAL ERRORS---\"; \\($out | Measure-Object -Line\\).Lines)",
+      "PowerShell(node -e \"const fs=require\\('fs'\\);const c=fs.readFileSync\\('app/superadmin/login/page.tsx','utf8'\\);console.log\\(c\\)\")",
+      "PowerShell(node check-lines.js)",
+      "PowerShell(npx tsc --noEmit)",
+      "PowerShell(node -e \"const fs=require\\('fs'\\);const t=fs.readFileSync\\('app/admin/estimate/[bookingRef]/MilestonePlanTab.tsx','utf8'\\);const tl=t.split\\('\\\\n'\\);const i1=tl.findIndex\\(l=>l.includes\\('predecessorCode'\\)&&l.includes\\('updateSubstage'\\)\\);process.stdout.write\\('PRED:'+i1+'\\\\n'+tl[i1]+'\\\\n'\\);const i2=tl.findIndex\\(l=>l.includes\\('updateSubstage'\\)&&\\(l.includes\\('function'\\)||l.includes\\('const'\\)\\)\\);process.stdout.write\\('FN:'+i2+'\\\\n'\\);tl.slice\\(i2,i2+6\\).forEach\\(\\(l,i\\)=>process.stdout.write\\(\\(i2+i+1\\)+'|'+l+'\\\\n'\\)\\)\")",
+      "PowerShell(node \"C:\\\\Users\\\\AKSING~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-A-K-SINGH-Desktop-pro-engineering\\\\082b0518-9745-40cb-b769-5c28d232e630\\\\scratchpad\\\\diag1.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\AKSING~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-A-K-SINGH-Desktop-pro-engineering\\\\082b0518-9745-40cb-b769-5c28d232e630\\\\scratchpad\\\\diag2.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\AKSING~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-A-K-SINGH-Desktop-pro-engineering\\\\2f490b21-a0b4-409b-9530-ef20d26606a0\\\\scratchpad\\\\script3.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\AKSING~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-A-K-SINGH-Desktop-pro-engineering\\\\2f490b21-a0b4-409b-9530-ef20d26606a0\\\\scratchpad\\\\script4.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\AKSING~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-A-K-SINGH-Desktop-pro-engineering\\\\2f490b21-a0b4-409b-9530-ef20d26606a0\\\\scratchpad\\\\script5.js\")",
+      "PowerShell(node _script_tmp.js)",
+      "PowerShell(node -e \"const fs=require\\('fs'\\);const a=fs.readFileSync\\('app/login/page.tsx','utf8'\\).split\\('\\\\n'\\);a.slice\\(0,5\\).forEach\\(\\(l,i\\)=>process.stdout.write\\(\\(i+1\\)+'|'+l+'\\\\n'\\)\\)\")"
+    ]
+  }
+}
