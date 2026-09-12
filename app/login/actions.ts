@@ -11,8 +11,16 @@ export async function loginAction(formData: FormData) {
     if (error) return { error: error.message }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Could not get user' }
-    const { data: profile } = await supabase.from('users').select('platform_role').eq('id', user.id).single()
-    const role = profile?.platform_role
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('platform_role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profileError) {
+      console.error('loginAction: platform_role lookup failed for user', user.id, profileError)
+      return { error: 'Could not verify account role. Please try again or contact administrator.' }
+    }
+    const role = profile?.platform_role?.trim()
     if (role === 'super_admin') redirect('/superadmin/dashboard')
     else if (role === 'supervisor') redirect('/supervisor/dashboard')
     else if (role === 'sub_coordinator') redirect('/sub-coordinator/dashboard')
@@ -20,7 +28,8 @@ export async function loginAction(formData: FormData) {
     else if (role === 'client') redirect('/client/dashboard')
     else if (role === 'coordinator') redirect('/coordinator/dashboard')
     else if (role === 'admin') redirect('/admin/dashboard')
-    else return { error: 'Role not recognised. Contact administrator.' }
+    else if (!profile) return { error: `No profile record found for user ${user.id}. Contact administrator.` }
+    else return { error: `Unrecognised role "${profile.platform_role}". Contact administrator.` }
   } catch(e) {
     if (isRedirectError(e)) throw e
     return { error: 'Login failed. Please try again.' }
