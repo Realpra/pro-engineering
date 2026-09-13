@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { tradeName } from './utils'
 
 function tradeCode(trade: string): string {
   const map: Record<string, string> = {
@@ -10,15 +11,6 @@ function tradeCode(trade: string): string {
     helper:'HLP', supervisor:'SUP',
   }
   return map[trade.toLowerCase()] ?? 'WRK'
-}
-
-export function tradeName(trade: string): string {
-  const map: Record<string, string> = {
-    mason:'Mason', plumber:'Plumber', electrician:'Electrician',
-    waterproofer:'Waterproofer', painter:'Painter', carpenter:'Carpenter',
-    'false-ceiling-installer':'False Ceiling Installer', helper:'Helper', supervisor:'Supervisor',
-  }
-  return map[trade.toLowerCase()] ?? trade
 }
 
 export async function submitWorkerRegistration(trade: string, data: {

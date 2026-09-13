@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { submitWorkerRegistration, createWorkerAuthAccount, checkPhoneExists, tradeName } from './actions'
+import { submitWorkerRegistration, createWorkerAuthAccount, checkPhoneExists } from './actions'
+import { tradeName } from './utils'
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
