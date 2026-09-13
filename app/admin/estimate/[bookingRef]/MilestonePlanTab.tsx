@@ -294,7 +294,7 @@ export default function MilestonePlanTab({ bookingRef, jobCardType }: Props) {
                         </div>
                       </td>
                       <td className="px-3 py-3 text-right" onClick={e=>e.stopPropagation()}>
-                        <input type="number" value={sub.plannedDay} onChange={e=>updateSubstage(stage.milestoneCode,sub.substageCode,{plannedDay:parseFloat(e.target.value)||0})} className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#2E74B5]/40"/>
+                        <input type="number" value={sub.plannedDay} onChange={e=>updateSubstage(stage.milestoneCode,sub.substageCode,{plannedDay:parseFloat(e.target.value)||0})} onBlur={async()=>{if(sub.id)await saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:sub.dependencyType,lagDays:sub.lagDays,lagHours:sub.lagHours,isCriticalPath:sub.isCriticalPath,plannedDay:sub.plannedDay});await computeCPMSchedule(bookingRef);window.location.reload()}} className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#2E74B5]/40"/>
                       </td>
                       <td className="px-3 py-3 text-right" onClick={e=>e.stopPropagation()}>
                         <input type="number" value={sub.skilledWorkersPerDay} onChange={e=>updateSubstage(stage.milestoneCode,sub.substageCode,{skilledWorkersPerDay:parseFloat(e.target.value)||0})} className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#2E74B5]/40"/>
@@ -342,7 +342,7 @@ export default function MilestonePlanTab({ bookingRef, jobCardType }: Props) {
                                 </div>
                                 <div>
                                   <label className="block text-xs text-gray-400 mb-0.5">Dependency Type</label>
-                                  <select className="w-full border rounded px-1 py-1 text-xs" value={sub.dependencyType||'FS'} onClick={e=>e.stopPropagation()} onChange={async e=>{updateSubstage(stage.milestoneCode,sub.substageCode,{dependencyType:e.target.value});if(sub.id)saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:e.target.value,lagDays:sub.lagDays,lagHours:sub.lagHours,isCriticalPath:sub.isCriticalPath})}}>
+                                  <select className="w-full border rounded px-1 py-1 text-xs" value={sub.dependencyType||'FS'} onClick={e=>e.stopPropagation()} onChange={async e=>{updateSubstage(stage.milestoneCode,sub.substageCode,{dependencyType:e.target.value});if(sub.id)saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:e.target.value,lagDays:sub.lagDays,lagHours:sub.lagHours,isCriticalPath:sub.isCriticalPath})}} onBlur={async()=>{await computeCPMSchedule(bookingRef);window.location.reload()}}>
                                     <option value="FS">FS — Finish to Start</option>
                                     <option value="SS">SS — Start to Start</option>
                                     <option value="FF">FF — Finish to Finish</option>
@@ -351,11 +351,11 @@ export default function MilestonePlanTab({ bookingRef, jobCardType }: Props) {
                                 </div>
                                 <div>
                                   <label className="block text-xs text-gray-400 mb-0.5">Lag Days</label>
-                                  <input type="number" min="0" step="0.5" className="w-full border rounded px-1 py-1 text-xs" value={sub.lagDays||0} onClick={e=>e.stopPropagation()} onChange={async e=>{const v=parseFloat(e.target.value)||0;updateSubstage(stage.milestoneCode,sub.substageCode,{lagDays:v});if(sub.id)saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:sub.dependencyType,lagDays:v,lagHours:sub.lagHours,isCriticalPath:sub.isCriticalPath})}}/>
+                                  <input type="number" min="0" step="0.5" className="w-full border rounded px-1 py-1 text-xs" value={sub.lagDays||0} onClick={e=>e.stopPropagation()} onChange={async e=>{const v=parseFloat(e.target.value)||0;updateSubstage(stage.milestoneCode,sub.substageCode,{lagDays:v});if(sub.id)saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:sub.dependencyType,lagDays:v,lagHours:sub.lagHours,isCriticalPath:sub.isCriticalPath})}} onBlur={async()=>{await computeCPMSchedule(bookingRef);window.location.reload()}}/>
                                 </div>
                                 <div>
                                   <label className="block text-xs text-gray-400 mb-0.5">Lag Hours</label>
-                                  <input type="number" min="0" step="1" className="w-full border rounded px-1 py-1 text-xs" value={sub.lagHours||0} onClick={e=>e.stopPropagation()} onChange={async e=>{const v=parseFloat(e.target.value)||0;updateSubstage(stage.milestoneCode,sub.substageCode,{lagHours:v});if(sub.id)saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:sub.dependencyType,lagDays:sub.lagDays,lagHours:v,isCriticalPath:sub.isCriticalPath})}}/>
+                                  <input type="number" min="0" step="1" className="w-full border rounded px-1 py-1 text-xs" value={sub.lagHours||0} onClick={e=>e.stopPropagation()} onChange={async e=>{const v=parseFloat(e.target.value)||0;updateSubstage(stage.milestoneCode,sub.substageCode,{lagHours:v});if(sub.id)saveDependency(sub.id,{predecessorCode:sub.predecessorCode,dependencyType:sub.dependencyType,lagDays:sub.lagDays,lagHours:v,isCriticalPath:sub.isCriticalPath})}} onBlur={async()=>{await computeCPMSchedule(bookingRef);window.location.reload()}}/>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3 mt-2">

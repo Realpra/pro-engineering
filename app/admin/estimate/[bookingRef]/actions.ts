@@ -875,6 +875,8 @@ export async function generateBOQ(
     if (!formula) continue
     if (baseQty <= 0) continue
 
+    const isRiskFlagItem = sku.item_type === 'risk' || sku.category === 'risk'
+
     lineItems.push({
       skuCode:           sku.sku_code,
       skuName:           sku.sku_name || sku.sku_code,
@@ -884,7 +886,7 @@ export async function generateBOQ(
       // sectionName: for client dashboard grouping by section
       // NOTE: existing BOQs generated before this fix have category: null
       // they display correctly in 5A via the !isRiskFlag filter
-      category:          (sku.item_type ?? sku.category ?? 'labour') as 'labour' | 'material' | 'risk',
+      category:          (isRiskFlagItem ? 'risk' : (sku.item_type ?? sku.category ?? 'labour')) as 'labour' | 'material' | 'risk',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sectionName:       (sku as any).section_name ?? null,
       unit:              sku.unit,
@@ -892,7 +894,7 @@ export async function generateBOQ(
       wastageMultiplier: wastage,
       rate,
       amount,
-      isRiskFlag:        false,
+      isRiskFlag:        isRiskFlagItem,
       missingRate:       rate === 0,
     })
   }

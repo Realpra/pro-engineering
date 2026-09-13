@@ -189,15 +189,12 @@ export default function ClientDashboard({
   }
 
   const lineItems = asArray(boq.line_items)
-  const riskItems = asArray(boq.risk_flag_items)
+  const riskItems = lineItems.filter(item => item.isRiskFlag === true)
 
   // eslint-disable-next-line no-console
   console.log('[5A] line_items raw:', boq?.line_items)
 
-  // TODO: item.category === 'labour' was not matching live data — showing all
-  // non-risk items in 5A for now. Split labour vs material properly once the
-  // real field is confirmed.
-  const labourItems = lineItems.filter(item => !item.isRiskFlag)
+  const labourItems = lineItems.filter(item => item.category === 'labour' && !item.isRiskFlag)
   const materialItems = lineItems.filter(item => item.category === 'material' && !item.isRiskFlag)
   const serviceModel = (enquiry.service_model ?? '').toLowerCase()
   const showMaterials =
@@ -829,7 +826,7 @@ export default function ClientDashboard({
                 </thead>
                 <tbody>
                   {acceptedRiskItems.map((item, idx) => (
-                    <tr key={item.key ?? idx} className="border-b last:border-0">
+                    <tr key={item.skuCode ?? idx} className="border-b last:border-0">
                       <td className="py-2 pr-2">{idx + 1}</td>
                       <td className="py-2 pr-2">{item.description}</td>
                       <td className="py-2 pr-2">{money(item.amount)}</td>

@@ -707,9 +707,11 @@ export async function computeCPMSchedule(bookingRef: string): Promise<{success:b
   return {success:true}
 }
 
-export async function saveDependency(substageId: string, fields: {predecessorCode?: string;dependencyType?: string;lagDays?: number;lagHours?: number;isCriticalPath?: boolean}): Promise<{success:boolean;error?:string}> {
+export async function saveDependency(substageId: string, fields: {predecessorCode?: string;dependencyType?: string;lagDays?: number;lagHours?: number;isCriticalPath?: boolean;plannedDay?: number}): Promise<{success:boolean;error?:string}> {
   const supabase = await createClient()
-  const { error } = await supabase.from("job_milestone_substages").update({predecessor_substage_code: fields.predecessorCode??null,dependency_type: fields.dependencyType??"FS",lag_days: fields.lagDays??0,lag_hours: fields.lagHours??0,is_critical_path: fields.isCriticalPath??false}).eq("id", substageId)
+  const updatePayload: Record<string, unknown> = {predecessor_substage_code: fields.predecessorCode??null,dependency_type: fields.dependencyType??"FS",lag_days: fields.lagDays??0,lag_hours: fields.lagHours??0,is_critical_path: fields.isCriticalPath??false}
+  if (fields.plannedDay != null) updatePayload.planned_day = fields.plannedDay
+  const { error } = await supabase.from("job_milestone_substages").update(updatePayload).eq("id", substageId)
   if(error) return {success:false,error:error.message}
   return {success:true}
 }
