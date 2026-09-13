@@ -77,6 +77,19 @@ function StatusBadge({ status }: { status: string | null | undefined }) {
   return <Pill className={cls}>{s.replace(/_/g, ' ').toUpperCase()}</Pill>
 }
 
+function MilestoneStatusBadge({ status }: { status: string | null | undefined }) {
+  const s = status ?? 'pending'
+  const map: Record<string, string> = {
+    pending: 'bg-gray-200 text-gray-700',
+    supervisor_submitted: 'bg-amber-100 text-amber-800',
+    coordinator_approved: 'bg-blue-100 text-blue-800',
+    admin_approved: 'bg-green-100 text-green-800',
+    payment_released: 'bg-green-800 text-white',
+  }
+  const cls = map[s] ?? 'bg-gray-100 text-gray-700'
+  return <Pill className={cls}>{s.replace(/_/g, ' ').toUpperCase()}</Pill>
+}
+
 function TierBadge({ tier }: { tier: string | null | undefined }) {
   const t = (tier ?? '').toLowerCase()
   const map: Record<string, string> = {
@@ -191,18 +204,10 @@ export default function ClientDashboard({
   const lineItems = asArray(boq.line_items)
   const riskItems = lineItems.filter(item => item.isRiskFlag === true)
 
-  // eslint-disable-next-line no-console
-  console.log('[5A] line_items raw:', boq?.line_items)
-
   const labourItems = lineItems.filter(item => item.category === 'labour' && !item.isRiskFlag)
   const materialItems = lineItems.filter(item => item.category === 'material' && !item.isRiskFlag)
-  const serviceModel = (enquiry.service_model ?? '').toLowerCase()
-  const showMaterials =
-    serviceModel === 'r1' ||
-    serviceModel === 'lm' ||
-    serviceModel === 'turnkey' ||
-    serviceModel.includes('material') ||
-    (boq?.job_card_type ?? '').toUpperCase().includes('M')
+  const jobCardType = (boq?.job_card_type ?? '').toUpperCase()
+  const showMaterials = jobCardType === 'LM' || jobCardType === 'M'
 
   function itemKey(item: AnyRecord, idx: number, prefix: string) {
     return item.skuCode ?? item.sku_code ?? item.key ?? `${prefix}-${idx}`
@@ -215,12 +220,18 @@ export default function ClientDashboard({
 
   const declinedRiskItems = riskItems
     .map((item, idx) => ({ item, idx, key: item.skuCode ?? `risk-${idx}` }))
-    .filter(({ item }) => responseMap[item.skuCode]?.decision === 'rejected')
+    .filter(({ item }) => responseMap[item.skuCode]?.decision === 'declined')
 
   const paidToDate = milestones
     .filter(m => m.payment_released_at)
     .reduce((sum, m) => sum + (Number(m.payment_amount) || 0), 0)
   const outstanding = (Number(boq.total_amount) || 0) - paidToDate
+
+  let _cumulative = 0
+  const milestonesWithCumulative: AnyRecord[] = milestones.map(m => {
+    _cumulative += Number(m.payment_amount) || 0
+    return { ...m, cumulativeAmount: _cumulative } as AnyRecord
+  })
 
   // ---- FIX 4: BOQ line item review flow (Section 5A / 5B) ----
   async function handleItemAccept(item: AnyRecord, idx: number, prefix: string) {
@@ -262,9 +273,10 @@ export default function ClientDashboard({
 
   async function handleRiskInclude(item: AnyRecord, idx: number) {
     const key = item.skuCode ?? `risk-${idx}`
-    await runAction(`risk-${key}`, () =>
-      submitLineItemResponse(enquiry.booking_ref, boq!.id, key, 'accepted', ''),
-    )
+    await runAction(`risk-${key}`, async () => {
+      await acknowledgeRiskFlag(enquiry.booking_ref, boq!.id, key)
+      return submitLineItemResponse(enquiry.booking_ref, boq!.id, key, 'accepted', '')
+    })
   }
 
   async function handleRiskSubmitReview(item: AnyRecord, idx: number) {
@@ -279,7 +291,7 @@ export default function ClientDashboard({
   async function handleRiskConfirmDecline(item: AnyRecord, idx: number) {
     const key = item.skuCode ?? `risk-${idx}`
     await runAction(`risk-${key}`, () =>
-      submitLineItemResponse(enquiry.booking_ref, boq!.id, key, 'rejected', ''),
+      submitLineItemResponse(enquiry.booking_ref, boq!.id, key, 'declined', ''),
     )
     closeRiskPanel(idx)
   }
@@ -423,20 +435,18 @@ export default function ClientDashboard({
       <div className="border-b border-[#1F3864]/20 pb-8 mb-8">
         {/* SECTION 3 — PROJECT UNDERSTANDING */}
         <SectionHeading title="3. Project Understanding" />
-        <div className="border-l-4 border-[#1F3864] bg-blue-50 rounded-r-xl p-4">
-          {boq.client_summary ? (
-            <>
-              <p className="text-gray-800 text-sm">{boq.client_summary}</p>
-              {boq.client_negotiation_notes && (
-                <p className="text-gray-500 text-xs italic mt-2">Coordinator note: {boq.client_negotiation_notes}</p>
-              )}
-            </>
-          ) : (
-            <p className="text-gray-400 italic text-sm">
-              Your coordinator is preparing the project summary. It will appear here before the estimate is sent.
-            </p>
-          )}
-        </div>
+        {!boq.client_summary ? (
+          <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl p-4 text-sm text-amber-700">
+            Your coordinator is preparing the project summary. It will appear here once ready.
+          </div>
+        ) : (
+          <div className="bg-blue-50 border-l-4 border-[#1F3864] rounded-r-xl p-4 text-sm text-gray-700 leading-relaxed">
+            {boq.client_summary}
+            {boq.client_negotiation_notes && (
+              <p className="text-gray-500 text-xs italic mt-2">Coordinator note: {boq.client_negotiation_notes}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* SECTION 4 — RISK FLAGS */}
@@ -556,7 +566,7 @@ export default function ClientDashboard({
                         UNDER REVIEW{response.responded_at ? ` — ${fmtDate(response.responded_at)}` : ''}
                       </Pill>
                     )}
-                    {response.decision === 'rejected' && (
+                    {response.decision === 'declined' && (
                       <Pill className="bg-red-100 text-red-800">
                         DECLINED{response.responded_at ? ` — ${fmtDate(response.responded_at)}` : ''}
                       </Pill>
@@ -593,9 +603,9 @@ export default function ClientDashboard({
         />
 
         <p className="text-[#F97316] font-semibold mb-2">5A. Labour Activities</p>
-        {lineItems.length === 0 ? (
+        {labourItems.length === 0 ? (
           <div className="bg-gray-50 rounded-xl p-4 text-gray-500 text-sm mb-6">
-            Scope items will appear here once the estimate is finalised.
+            No labour activities in this estimate.
           </div>
         ) : (
           <div className="overflow-x-auto mb-6">
@@ -729,7 +739,7 @@ export default function ClientDashboard({
                       <Fragment key={key}>
                         <tr className="border-b last:border-0">
                           <td className="py-2 pr-2">{idx + 1}</td>
-                          <td className="py-2 pr-2">{item.description}</td>
+                          <td className="py-2 pr-2">{item.description || item.skuName}</td>
                           <td className="py-2 pr-2">{item.unit}</td>
                           <td className="py-2 pr-2">{item.quantity}</td>
                           <td className="py-2 pr-2">{money(item.rate)}</td>
@@ -849,7 +859,7 @@ export default function ClientDashboard({
                 <td className="text-gray-600 text-sm px-4 py-2">Labour Subtotal</td>
                 <td className="text-gray-800 text-sm font-medium px-4 py-2 text-right">{money(boq.subtotal_labour)}</td>
               </tr>
-              {Number(boq.subtotal_material) > 0 && (
+              {showMaterials && (
                 <tr>
                   <td className="text-gray-600 text-sm px-4 py-2">Material Subtotal</td>
                   <td className="text-gray-800 text-sm font-medium px-4 py-2 text-right">{money(boq.subtotal_material)}</td>
@@ -871,16 +881,16 @@ export default function ClientDashboard({
                   <td className="text-gray-800 text-sm font-medium px-4 py-2 text-right">{money(boq.bocw_cess_amount)}</td>
                 </tr>
               )}
-              <tr>
-                <td className="text-gray-600 text-sm px-4 py-2">GST ({boq.gst_percent}%)</td>
-                <td className="text-gray-800 text-sm font-medium px-4 py-2 text-right">{money(boq.gst_amount)}</td>
-              </tr>
               {Number(boq.contingency_amount) > 0 && (
                 <tr>
                   <td className="text-gray-600 text-sm px-4 py-2">Contingency ({boq.contingency_percent}%)</td>
                   <td className="text-gray-800 text-sm font-medium px-4 py-2 text-right">{money(boq.contingency_amount)}</td>
                 </tr>
               )}
+              <tr>
+                <td className="text-gray-600 text-sm px-4 py-2">GST ({boq.gst_percent}%)</td>
+                <td className="text-gray-800 text-sm font-medium px-4 py-2 text-right">{money(boq.gst_amount)}</td>
+              </tr>
               {boq.tds_applicable && (
                 <tr>
                   <td className="text-gray-600 text-sm px-4 py-2">TDS Deductible ({boq.tds_rate_pct}%)</td>
@@ -912,21 +922,28 @@ export default function ClientDashboard({
             return (
               <div key={m.id} className="flex items-center gap-4">
                 <div className="bg-white rounded-xl border p-4 min-w-48 flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-[#1F3864] text-white text-sm font-bold flex items-center justify-center">
-                    {milestoneBadgeLabel(m)}
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-full bg-[#1F3864] text-white text-sm font-bold flex items-center justify-center">
+                      {milestoneBadgeLabel(m)}
+                    </div>
+                    <MilestoneStatusBadge status={m.status} />
                   </div>
                   <p className="font-semibold mt-2">{m.milestone_name}</p>
-                  <p className="text-gray-500 text-xs">{fmtDate(m.planned_date)}</p>
+                  {m.description && <p className="text-gray-500 text-xs mt-1">{m.description}</p>}
+                  <p className="text-gray-500 text-xs">{money(m.payment_amount)} · {fmtDate(m.planned_date)}</p>
                   <p className="text-[#F97316] text-xs font-bold">{m.payment_percent}%</p>
                   <div className="border-t my-2" />
                   {stages.length > 0 ? (
                     <ul className="space-y-1">
                       {stages.map(s => (
-                        <li key={s.id} className="text-xs flex items-center gap-1">
-                          <span>•</span>
+                        <li key={s.id} className="text-xs flex items-center gap-1 flex-wrap">
+                          <span className="text-gray-400">{s.substage_code}</span>
                           <span>{s.substage_name}</span>
+                          {s.trade_type && <span className="text-gray-400">({s.trade_type})</span>}
                           <span className="text-gray-400">Day {s.planned_day}</span>
-                          {s.is_critical_path && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                          {s.is_critical_path && (
+                            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">CRITICAL</span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -951,8 +968,11 @@ export default function ClientDashboard({
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-blue-800 text-sm">
           Payments are released as each milestone is completed and verified.
         </div>
-        {milestones.map(m => {
+        {milestonesWithCumulative.map(m => {
           const works = asArray(m.works_completed_this_milestone)
+          const cumulativePct = (Number(boq.total_amount) || 0) > 0
+            ? Math.min(100, (m.cumulativeAmount / Number(boq.total_amount)) * 100)
+            : 0
           return (
             <div key={m.id} className="bg-white rounded-xl border shadow-sm overflow-hidden mb-4">
               <div className="bg-[#1F3864] text-white px-4 py-3 flex justify-between items-center">
@@ -960,7 +980,7 @@ export default function ClientDashboard({
                   <span className="bg-white/20 rounded-full px-2 py-0.5 text-xs">{milestoneBadgeLabel(m)}</span>
                   {m.milestone_name}
                 </span>
-                <StatusBadge status={m.status} />
+                <MilestoneStatusBadge status={m.status} />
               </div>
               <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm">
                 Payment triggered when: {m.trigger_condition}
@@ -994,6 +1014,15 @@ export default function ClientDashboard({
                   <p>{m.payment_released_at ? fmtDate(m.payment_released_at) : 'Pending'}</p>
                 </div>
               </div>
+              <div className="px-4 pb-4">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>Cumulative: {money(m.cumulativeAmount)}</span>
+                  <span>{cumulativePct.toFixed(0)}% of total</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div className="bg-[#F97316] h-2 rounded-full" style={{ width: `${cumulativePct}%` }} />
+                </div>
+              </div>
             </div>
           )
         })}
@@ -1022,16 +1051,21 @@ export default function ClientDashboard({
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-red-800 text-sm">
             You have declined the following risk items. Please review the consequences below.
           </div>
-          {declinedRiskItems.map(({ item, idx, key }) => {
+          {declinedRiskItems.map(({ item, key }) => {
             const response = getResponseFor(key)
             return (
               <div key={key} className="bg-white rounded-xl border p-4 mb-3">
-                <p className="text-red-700 font-bold">DRN-{String(idx + 1).padStart(3, '0')}</p>
+                <div className="bg-red-600 text-white text-sm font-bold px-3 py-2 rounded-lg -mt-1 mb-2">
+                  DECLINED RISK NOTICE — {item.skuCode}
+                </div>
                 <p className="text-gray-800 font-semibold mt-1">{item.skuName}</p>
                 <p className="text-gray-700 text-sm mt-1">{item.description}</p>
                 {item.consequence && (
                   <div className="bg-amber-50 border border-amber-200 rounded p-2 text-sm mt-2">{item.consequence}</div>
                 )}
+                <p className="text-gray-500 text-xs italic mt-2">
+                  Pro Engineering holds no liability for damage arising from this declined item.
+                </p>
                 <div className="mt-2 flex items-center gap-2">
                   <Pill className="bg-red-100 text-red-800">DECLINED — {fmtDate(response?.responded_at)}</Pill>
                 </div>
@@ -1059,13 +1093,13 @@ export default function ClientDashboard({
         {/* SECTION 10 — TERMS AND CONDITIONS */}
         <SectionHeading title="10. Terms and Conditions" />
         {[
+          { title: 'Scope', body: 'The scope of work is as defined in Section 5 above. Any work outside this scope must be raised as a formal scope change request.' },
           { title: 'Payment Terms', body: 'Payments are released per the milestone payment schedule shown above, upon verified completion of each milestone.' },
-          { title: 'Scope Change', body: 'Any change to the agreed scope of work must be raised via a formal scope change request and approved before execution.' },
+          { title: 'Quality', body: 'All work is executed as per standard construction quality benchmarks and is subject to supervisor and coordinator inspection at each milestone.' },
           { title: 'Warranty', body: 'All workmanship is covered under a 12-month warranty from the date of completion.' },
           { title: 'Cancellation', body: 'Cancellation after work has commenced may be subject to charges for work completed and materials procured.' },
+          { title: 'Liability', body: 'Pro Engineering holds liability only for work executed within the accepted scope. Declined risk items and client-directed changes fall outside this liability, as noted in the relevant sections above.' },
           { title: 'Dispute Resolution', body: 'Any dispute shall be resolved through arbitration, with exclusive jurisdiction in Noida.' },
-          { title: 'Escrow Account', body: 'Client payments are held in an escrow account and released to the service provider per milestone completion.' },
-          { title: 'Public Liability Insurance', body: 'The project is covered under a public liability insurance policy for the duration of the work.' },
         ].map(card => (
           <div key={card.title} className="border-l-4 border-[#F97316] bg-white rounded-r-xl p-4 mb-3 shadow-sm">
             <p className="text-[#1F3864] font-bold text-sm mb-1">{card.title}</p>
@@ -1095,7 +1129,12 @@ export default function ClientDashboard({
               {termsError && <p className="text-red-600 text-sm mt-2">{termsError}</p>}
             </>
           ) : (
-            <Pill className="bg-green-100 text-green-800">Terms accepted</Pill>
+            <div className="flex items-center gap-2 text-green-700">
+              <span className="text-xl">✓</span>
+              <span className="text-sm font-semibold">
+                Terms accepted {boq.terms_accepted_at ? `on ${fmtDate(boq.terms_accepted_at)}` : ''}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -1119,7 +1158,7 @@ export default function ClientDashboard({
                 </button>
               </div>
               <p className="text-gray-400 text-sm mt-2">
-                Please accept the Terms and Conditions above before submitting your response.
+                Please accept the Terms and Conditions above before responding.
               </p>
             </div>
           ) : (
@@ -1183,12 +1222,14 @@ export default function ClientDashboard({
           </div>
         ) : clientResponse?.response_type === 'review_requested' ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-1">
+            <p>Review Requested on {fmtDate(clientResponse?.responded_at)}.</p>
             <p>{clientResponse?.overall_remarks}</p>
             <p>Your coordinator has been notified.</p>
           </div>
         ) : (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
-            Your coordinator will be in touch to discuss your requirements.
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800 space-y-1">
+            <p>Estimate Declined on {fmtDate(clientResponse?.responded_at)}.</p>
+            <p>Your coordinator will be in touch to discuss your requirements.</p>
           </div>
         )}
 

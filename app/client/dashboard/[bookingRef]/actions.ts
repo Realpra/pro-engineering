@@ -167,21 +167,27 @@ export async function acknowledgeRiskFlag(
 }
 
 export async function acceptTerms(bookingRef: string, boqId: string): Promise<ActionResult> {
-  // eslint-disable-next-line no-console
-  console.log('[acceptTerms] boqId:', boqId)
-
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // terms_accepted_by is TEXT, not UUID — store the user's email or full_name, never the raw id
+  let acceptedBy: string | null = user?.email ?? null
+  if (user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('full_name, email')
+      .eq('id', user.id)
+      .maybeSingle()
+    acceptedBy = profile?.full_name ?? profile?.email ?? user.email ?? null
+  }
 
   const { error } = await supabase
     .from('boq_generated')
-    .update({ terms_accepted_at: new Date().toISOString() })
+    .update({ terms_accepted_at: new Date().toISOString(), terms_accepted_by: acceptedBy })
     .eq('id', boqId)
 
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.log('[acceptTerms] error:', error)
-    return { error: error.message }
-  }
+  if (error) return { error: error.message }
 
   revalidatePath('/client/dashboard/' + bookingRef)
   return { success: true }
