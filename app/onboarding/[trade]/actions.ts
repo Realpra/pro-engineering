@@ -26,7 +26,12 @@ export async function submitWorkerRegistration(trade: string, data: {
   emergencyName?: string; emergencyPhone?: string
 }) {
   try {
-    const supabase = await createClient()
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabase = serviceKey
+      ? createAdminClient('https://xhlpdbcrncpznrqpcrht.supabase.co', serviceKey, {
+          auth: { autoRefreshToken: false, persistSession: false }
+        })
+      : await createClient()
     const code = tradeCode(trade)
     const year = new Date().getFullYear()
     const rand = Math.floor(1000 + Math.random() * 9000)
