@@ -57,17 +57,6 @@ export default async function ClientDashboardPage({
     }
   }
 
-  // TODO: remove dev bypass before production
-  if (!accessGranted) {
-    const { data: devMatch } = await supabase
-      .from('guest_enquiries')
-      .select('id')
-      .eq('booking_ref', bookingRef)
-      .maybeSingle()
-
-    accessGranted = !!devMatch
-  }
-
   if (!accessGranted) {
     return <AccessCard message="Please sign in to view this dashboard." />
   }
