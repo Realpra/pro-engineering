@@ -19,7 +19,8 @@ export default async function ClientDashboardPage() {
         <div className="bg-white rounded-2xl shadow-sm p-8 max-w-md w-full text-center">
           <div className="text-[#1F3864] font-bold text-xl mb-4">PRO ENGINEERING</div>
           <div className="text-gray-800 font-semibold text-lg mb-2">No Project Found</div>
-          <div className="text-gray-500 text-sm">We could not find any projects linked to your account. Please contact your coordinator.</div>
+          <div className="text-gray-500 text-sm mb-6">We could not find any projects linked to your account. Please contact your coordinator.</div>
+          <a href="/" className="text-[#1F3864] text-sm font-medium underline">Go to Home</a>
         </div>
       </div>
     )
@@ -29,7 +30,7 @@ export default async function ClientDashboardPage() {
     redirect('/client/dashboard/' + bookings[0].booking_ref)
   }
 
-  const statusLabel: Record<string, { label: string; color: string }> = {
+  const statusConfig: Record<string, { label: string; color: string }> = {
     new: { label: 'New', color: 'bg-gray-100 text-gray-600' },
     confirmed: { label: 'Confirmed', color: 'bg-blue-100 text-blue-700' },
     site_visit: { label: 'Site Visit', color: 'bg-purple-100 text-purple-700' },
@@ -48,7 +49,7 @@ export default async function ClientDashboardPage() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="text-[#1F3864] font-bold text-lg mb-4">Your Projects</div>
         {bookings.map((booking) => {
-          const status = statusLabel[booking.status] ?? { label: booking.status, color: 'bg-gray-100 text-gray-600' }
+          const status = statusConfig[booking.status] ?? { label: booking.status, color: 'bg-gray-100 text-gray-600' }
           return (
             <Link
               key={booking.booking_ref}
