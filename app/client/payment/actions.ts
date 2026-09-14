@@ -99,6 +99,20 @@ export async function verifyPayment(
   coordinatorId: string,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('platform_role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!['coordinator', 'admin', 'super_admin'].includes(profile?.platform_role ?? '')) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
   const now = new Date().toISOString()
 
   const [pcUpdate, milestoneUpdate, enquiryUpdate, boqUpdate] = await Promise.all([
@@ -136,6 +150,19 @@ export async function rejectPayment(
   rejectionReason: string,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('platform_role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!['coordinator', 'admin', 'super_admin'].includes(profile?.platform_role ?? '')) {
+    return { success: false, error: 'Unauthorized' }
+  }
 
   const [pcUpdate, enquiryUpdate] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
