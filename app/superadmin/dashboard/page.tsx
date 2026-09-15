@@ -19,7 +19,11 @@ export default async function SuperAdminDashboardPage() {
   if (profile?.platform_role !== 'super_admin') redirect('/admin/dashboard')
 
   // Parallel fetch of all policy data
-  const [premiumResult, contingencyResult, approvalsResult, historyResult] = await Promise.all([
+  const [
+    premiumResult, contingencyResult, approvalsResult, historyResult,
+    boqTemplatesResult, milestoneTemplatesResult, checklistTemplatesResult,
+    platformUsersResult, allBookingsResult, allWorkersResult, allBOQsResult, allZonesResult,
+  ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('platform_premium_policy')
@@ -44,6 +48,42 @@ export default async function SuperAdminDashboardPage() {
       .select('id, table_name, old_value, new_value, change_reason, created_at')
       .order('created_at', { ascending: false })
       .limit(50),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('boq_sku_catalogue')
+      .select('sku_code,sku_name,category,unit,sequence_order,wastage_multiplier,applicable_tiers,applicable_job_types,is_active')
+      .order('sku_code'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('milestone_stage_templates')
+      .select('milestone_code,milestone_name,milestone_number,payment_percent,planned_day,trade_type,sector,is_active')
+      .order('milestone_number'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('substage_checklist_templates')
+      .select('id,substage_code,trade_type,item_text,item_type,sequence_order,is_active')
+      .order('sequence_order'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('users')
+      .select('id,full_name,email,platform_role,created_at,is_active')
+      .order('created_at', { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('guest_enquiries')
+      .select('booking_ref,status,zone,job_type,created_at'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('workers')
+      .select('id,full_name,trade,skill_level,approval_status,is_active,is_bocw_registered,bocw_registration_number,pf_uan,esic_ip_number'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('boq_generated')
+      .select('booking_ref,total_amount,platform_fee,tier,status,created_at'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('geo_hierarchy')
+      .select('id,name,type,created_at'),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,6 +94,22 @@ export default async function SuperAdminDashboardPage() {
   const pendingApprovals = (approvalsResult.data ?? []) as any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const changeHistory = (historyResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const boqTemplates = (boqTemplatesResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const milestoneTemplates = (milestoneTemplatesResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const checklistTemplates = (checklistTemplatesResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const platformUsers = (platformUsersResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allBookings = (allBookingsResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allWorkers = (allWorkersResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allBOQs = (allBOQsResult.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allZones = (allZonesResult.data ?? []) as any[]
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,6 +149,14 @@ export default async function SuperAdminDashboardPage() {
           contingencyPolicies={contingencyPolicies}
           pendingApprovals={pendingApprovals}
           changeHistory={changeHistory}
+          boqTemplates={boqTemplates}
+          milestoneTemplates={milestoneTemplates}
+          checklistTemplates={checklistTemplates}
+          platformUsers={platformUsers}
+          allBookings={allBookings}
+          allWorkers={allWorkers}
+          allBOQs={allBOQs}
+          allZones={allZones}
         />
       </main>
     </div>

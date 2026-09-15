@@ -156,3 +156,154 @@ export async function rejectPremiumRequestAsSuperAdmin(
     return { success: false, error: (e as Error).message }
   }
 }
+
+// ── TEMPLATE MANAGEMENT ──────────────────────────────
+// NOTE: boq_sku_catalogue has no item_type/job_card_type/rate_* /is_risk_flag/
+// is_mandatory columns in the live schema. Real columns used below: category
+// ('labour'|'material'), unit, sequence_order, wastage_multiplier.
+
+export async function updateBOQTemplate(
+  skuCode: string,
+  fields: { sku_name?: string; unit?: string; category?: string; sequence_order?: number; wastage_multiplier?: number },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('boq_sku_catalogue')
+      .update({ ...fields })
+      .eq('sku_code', skuCode)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function toggleBOQTemplate(skuCode: string, isActive: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('boq_sku_catalogue')
+      .update({ is_active: isActive })
+      .eq('sku_code', skuCode)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function updateMilestoneTemplate(
+  milestoneCode: string,
+  fields: { milestone_name?: string; payment_percent?: number; planned_day?: number },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('milestone_stage_templates')
+      .update({ ...fields })
+      .eq('milestone_code', milestoneCode)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function toggleMilestoneTemplate(milestoneCode: string, isActive: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('milestone_stage_templates')
+      .update({ is_active: isActive })
+      .eq('milestone_code', milestoneCode)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function updateChecklistTemplate(
+  id: string,
+  fields: { item_text?: string; sequence_order?: number },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('substage_checklist_templates')
+      .update({ ...fields })
+      .eq('id', id)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function toggleChecklistTemplate(id: string, isActive: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('substage_checklist_templates')
+      .update({ is_active: isActive })
+      .eq('id', id)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+// ── ROLE MANAGEMENT ──────────────────────────────────
+
+export async function changeUserRole(userId: string, newRole: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('users')
+      .update({ platform_role: newRole })
+      .eq('id', userId)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function suspendUser(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('users')
+      .update({ is_active: false })
+      .eq('id', userId)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
+
+export async function reactivateUser(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase } = await requireSuperAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('users')
+      .update({ is_active: true })
+      .eq('id', userId)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+}
