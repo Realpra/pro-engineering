@@ -720,7 +720,7 @@ export default function WorkerCard({
             {notEmpty(worker.employment_classification) && (
               <p className="text-blue-200 text-xs mt-0.5">{asText(worker.employment_classification)}</p>
             )}
-            {worker.employment_classification === 'turnkey_team' && (notEmpty(worker.team_name) || notEmpty(worker.team_number)) && (
+            {(worker.team_name || worker.team_number) && (
               <p className="text-blue-200 text-xs mt-0.5">
                 {asText(worker.team_name)}
                 {notEmpty(worker.team_number) ? ` · #${String(worker.team_number)}` : ''}
