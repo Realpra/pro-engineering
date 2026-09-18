@@ -211,16 +211,28 @@ Update this file at the end of every session with what was built.
 - CLAUDE.md updated with platform reference
 - SESSIONS.md created
 
+## SESSION 54 — September 18, 2026 (today)
+- Git credentials fixed on Mac and Windows
+- Sub-coordinator all 7 pages fully wired with server actions:
+  - dashboard/page.tsx — Send Instruction wired
+  - approvals/page.tsx — Send Back and Approve wired
+  - instructions/page.tsx — Send Instruction wired
+  - ltf/page.tsx — Add to Route, Reject, Chase Site Head, Notify Coordinator wired
+  - route/page.tsx — Add Slot Manually wired
+  - workers/page.tsx — Assign Worker wired
+- actions.ts created with 9 server actions all hitting Supabase live
+- TSC clean exit code 0
+- Pushed to GitHub — Vercel deploying
+
 ---
 
 ## NEXT SESSION — START HERE
 
-Last thing done: CLAUDE.md and SESSIONS.md created and pushed to GitHub.
+Last thing done: Sub-coordinator all 7 pages write actions wired and pushed.
 
 Highest priority pending:
-1. Auth fix — Supabase SU-472225 (superadmin + client logins broken)
+1. Auth fix — Supabase SU-472225
 2. Worker phone duplicate check on Vercel
-3. Real rate card data — Noida Sector 62/63/64 in /admin/zones
-4. End-to-end test — register real worker at pro-engineering.vercel.app/onboarding/mason
-5. Sub-coordinator complete build
-6. Rate Intelligence form — /admin/rates/update
+3. End-to-end test — subcoordinator@proengineering.in login and test all 7 pages
+4. Real rate card data — Noida Sector 62/63/64
+5. Rate Intelligence form — /admin/rates/update
