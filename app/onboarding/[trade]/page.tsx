@@ -747,6 +747,145 @@ export default function TradeOnboardingPage() {
                 Login credentials will be sent to <strong>{form.email}</strong> after your account is approved by our coordinator.
               </div>
             )}
+            <div className="bg-gray-50 rounded-xl p-4 space-y-1 mt-4">
+              <h3 className="font-semibold text-gray-700 mb-3">Registration Summary</h3>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Name</span>
+                <span className="text-sm font-medium">{form.fullName}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Phone</span>
+                <span className="text-sm font-medium">+91 {form.phone}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Email</span>
+                <span className="text-sm font-medium">{form.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Aadhaar Last 4</span>
+                <span className="text-sm font-medium">XXXX-XXXX-{form.aadhaarLast4}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">PAN</span>
+                <span className="text-sm font-medium">{form.pan || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">State</span>
+                <span className="text-sm font-medium">{form.state}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">District</span>
+                <span className="text-sm font-medium">{form.district}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Address</span>
+                <span className="text-sm font-medium">{form.address}, {form.city}, {form.pincode}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Trade</span>
+                <span className="text-sm font-medium">{tradeName(trade)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Skill Level</span>
+                <span className="text-sm font-medium">{form.skillLevel}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Sector</span>
+                <span className="text-sm font-medium">{form.sector}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Labour Type</span>
+                <span className="text-sm font-medium">{form.labourType}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Employment Type</span>
+                <span className="text-sm font-medium">{form.employmentType}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Secondary Trades</span>
+                <span className="text-sm font-medium">{Array.isArray(form.secondaryTrades) && form.secondaryTrades.length > 0 ? form.secondaryTrades.join(', ') : 'None'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Years Experience</span>
+                <span className="text-sm font-medium">{form.yearsExperience}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Jobs Completed</span>
+                <span className="text-sm font-medium">{form.jobsCompleted}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Zones</span>
+                <span className="text-sm font-medium">{Array.isArray(form.zones) && form.zones.length > 0 ? form.zones.join(', ') : 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Available</span>
+                <span className="text-sm font-medium">{form.isAvailable ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Daily Wage</span>
+                <span className="text-sm font-medium">₹{form.dailyWage}/day</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Hourly Rate</span>
+                <span className="text-sm font-medium">₹{form.hourlyRate}/hr</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">BOCW Registered</span>
+                <span className="text-sm font-medium">{form.bocwRegistered ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">BOCW Number</span>
+                <span className="text-sm font-medium">{form.bocwNumber || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">PF UAN</span>
+                <span className="text-sm font-medium">{form.pfUan || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">ESIC IP</span>
+                <span className="text-sm font-medium">{form.esicIp || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Bank Account</span>
+                <span className="text-sm font-medium">{form.bankAccount}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">IFSC Code</span>
+                <span className="text-sm font-medium">{form.ifscCode}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Emergency Contact</span>
+                <span className="text-sm font-medium">{form.emergencyName}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Emergency Phone</span>
+                <span className="text-sm font-medium">{form.emergencyPhone}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Height Restriction</span>
+                <span className="text-sm font-medium">{form.heightRestriction ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Dust Restriction</span>
+                <span className="text-sm font-medium">{form.dustRestriction ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Deployment Restriction</span>
+                <span className="text-sm font-medium">{form.deploymentRestriction || 'None'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Team Name</span>
+                <span className="text-sm font-medium">{form.teamName || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Team Number</span>
+                <span className="text-sm font-medium">{form.teamNumber || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-500 text-sm">Worker Code</span>
+                <span className="text-sm font-medium">{workerCode}</span>
+              </div>
+            </div>
             <div className="space-y-3">
               <button className={btn} onClick={()=>router.push('/onboarding')}>
                 Register Another Worker
