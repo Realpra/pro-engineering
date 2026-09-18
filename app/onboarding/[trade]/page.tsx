@@ -629,6 +629,74 @@ export default function TradeOnboardingPage() {
                     <span className="text-gray-800 font-medium capitalize text-xs">{v}</span>
                   </div>
                 ))}
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Address</span>
+                  <span className="text-sm font-medium text-right">{form.address}, {form.city}, {form.pincode}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Labour Type</span>
+                  <span className="text-sm font-medium">{form.labourType}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Secondary Trades</span>
+                  <span className="text-sm font-medium">{form.secondaryTrades || 'None'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Years Experience</span>
+                  <span className="text-sm font-medium">{form.yearsExperience}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Jobs Completed</span>
+                  <span className="text-sm font-medium">{form.jobsCompleted}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Hourly Rate</span>
+                  <span className="text-sm font-medium">₹{form.hourlyRate}/hr</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">BOCW Number</span>
+                  <span className="text-sm font-medium">{form.bocwNumber || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">PF UAN</span>
+                  <span className="text-sm font-medium">{form.pfUan || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">ESIC IP</span>
+                  <span className="text-sm font-medium">{form.esicIp || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Bank Account</span>
+                  <span className="text-sm font-medium">{form.bankAccount}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">IFSC Code</span>
+                  <span className="text-sm font-medium">{form.ifscCode}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Emergency Phone</span>
+                  <span className="text-sm font-medium">{form.emergencyPhone}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Height Restriction</span>
+                  <span className="text-sm font-medium">{form.heightRestriction ? 'Yes' : 'No'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Dust Restriction</span>
+                  <span className="text-sm font-medium">{form.dustRestriction ? 'Yes' : 'No'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Deployment Restriction</span>
+                  <span className="text-sm font-medium">{form.deploymentRestriction || 'None'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Team Name</span>
+                  <span className="text-sm font-medium">{form.teamName || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500 text-sm">Team Number</span>
+                  <span className="text-sm font-medium">{form.teamNumber || 'N/A'}</span>
+                </div>
               </div>
             </div>
 
