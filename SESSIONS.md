@@ -223,6 +223,12 @@ Update this file at the end of every session with what was built.
 - actions.ts created with 9 server actions all hitting Supabase live
 - TSC clean exit code 0
 - Pushed to GitHub — Vercel deploying
+- Deleted legacy app/onboarding/mason/page.tsx and actions.ts — all trades now route to dynamic [trade]/page.tsx
+- Fixed employment_classification check constraint — options corrected to self/associate/sub_contractor
+- Added missing columns to workers table in Supabase via SQL: address, city, pincode, state, team_name, team_number, email, worker_code, years_experience
+- Fixed RLS error — service role key confirmed working via createAdminClient
+- Full Registration Summary added to success screen showing all 34 fields plus Worker ID
+- Live end-to-end test passed — worker registered with Worker ID WRK-MAS-2026-8978, all 34 fields displayed correctly on success screen
 
 ---
 
