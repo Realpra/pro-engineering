@@ -31,7 +31,7 @@ export async function submitWorkerRegistration(trade: string, data: {
       ? createAdminClient('https://xhlpdbcrncpznrqpcrht.supabase.co', serviceKey, {
           auth: { autoRefreshToken: false, persistSession: false }
         })
-      : await createClient()
+      : createAdminClient('https://xhlpdbcrncpznrqpcrht.supabase.co', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
     const code = tradeCode(trade)
     const year = new Date().getFullYear()
     const rand = Math.floor(1000 + Math.random() * 9000)
