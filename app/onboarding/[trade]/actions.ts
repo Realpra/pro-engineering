@@ -40,6 +40,7 @@ export async function submitWorkerRegistration(trade: string, data: {
     const { data: row, error } = await supabase.from('workers').insert({
       full_name: data.fullName,
       phone: data.phone,
+      email: data.email ?? null,
       aadhaar_last4: data.aadhaarLast4 ?? null,
       pan: data.pan ?? null,
       trade: tradeName(trade),
