@@ -46,6 +46,14 @@ export type Worker = {
   reassessment_reason: string | null
   reassessment_competency: string | null
   jobs_completed_in_trade: number | null
+  years_experience: string | null
+  address: string | null
+  city: string | null
+  pincode: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
+  bank_account_number: string | null
+  ifsc_code: string | null
   approved_by: string | null
   approved_at: string | null
   rejection_reason: string | null
@@ -766,6 +774,14 @@ export default function WorkerCard({
           <Cell label="Last Job Date" value={fmtDate(worker.last_job_date)} />
           <Cell label="Last Job Zone" value={notEmpty(worker.last_job_zone) ? asText(worker.last_job_zone) : '—'} />
           <Cell label="Last Job Trade" value={notEmpty(worker.last_job_trade) ? asText(worker.last_job_trade) : '—'} />
+          <Cell label="Years Experience" value={notEmpty(worker.years_experience) ? asText(worker.years_experience) : '—'} />
+          <Cell label="Address" value={notEmpty(worker.address) ? asText(worker.address) : '—'} />
+          <Cell label="City" value={notEmpty(worker.city) ? asText(worker.city) : '—'} />
+          <Cell label="Pincode" value={notEmpty(worker.pincode) ? asText(worker.pincode) : '—'} />
+          <Cell label="Emergency Contact" value={notEmpty(worker.emergency_contact_name) ? asText(worker.emergency_contact_name) : '—'} />
+          <Cell label="Emergency Phone" value={notEmpty(worker.emergency_contact_phone) ? asText(worker.emergency_contact_phone) : '—'} />
+          <Cell label="Bank Account" value={notEmpty(worker.bank_account_number) ? asText(worker.bank_account_number) : '—'} />
+          <Cell label="IFSC Code" value={notEmpty(worker.ifsc_code) ? asText(worker.ifsc_code) : '—'} />
         </div>
 
         {(notEmpty(worker.proposed_zone) || notEmpty(worker.worker_willingness_zone)) && (
