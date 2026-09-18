@@ -165,7 +165,11 @@ export default function TradeOnboardingPage() {
       if ('error' in result) return setError(result.error)
       setWorkerCode(result.workerCode)
       if (form.email && result.workerId) {
-        await createWorkerAuthAccount(form.email, form.phone, form.fullName, result.workerId)
+        try {
+          await createWorkerAuthAccount(form.email, form.phone, form.fullName, result.workerId)
+        } catch (_) {
+          // auth account creation failed silently — worker record already saved
+        }
       }
       setScreen(7)
     } finally {
