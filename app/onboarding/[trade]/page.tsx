@@ -639,7 +639,7 @@ export default function TradeOnboardingPage() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Secondary Trades</span>
-                  <span className="text-sm font-medium">{form.secondaryTrades || 'None'}</span>
+                  <span className="text-sm font-medium">{Array.isArray(form.secondaryTrades) && form.secondaryTrades.length > 0 ? form.secondaryTrades.join(', ') : 'None'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Years Experience</span>
