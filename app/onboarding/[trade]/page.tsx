@@ -162,7 +162,12 @@ export default function TradeOnboardingPage() {
         emergencyName: form.emergencyName || undefined,
         emergencyPhone: form.emergencyPhone || undefined,
       })
-      if ('error' in result) return setError(result.error)
+      if ('error' in result) {
+        console.error('Registration error:', result.error)
+        setError(result.error + ' (debug: error in result)')
+        return
+      }
+      console.log('Registration success:', result)
       setWorkerCode(result.workerCode)
       if (form.email && result.workerId) {
         try {
