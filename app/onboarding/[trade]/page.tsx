@@ -396,9 +396,8 @@ export default function TradeOnboardingPage() {
               <label className={lbl}>Employment Classification {req}</label>
               <select className={sel} value={form.employmentType} onChange={e=>set('employmentType',e.target.value)}>
                 <option value="self">Self Employed</option>
-                <option value="turnkey_team">Part of a Turnkey Team</option>
-                <option value="sub_contractor">Sub-Contractor</option>
-                <option value="platform_staff">Platform Staff</option>
+                <option value="associate">Associate</option>
+                <option value="sub_contractor">Sub Contractor</option>
               </select>
             </div>
 
