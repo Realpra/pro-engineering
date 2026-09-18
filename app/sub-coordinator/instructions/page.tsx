@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { sendInstruction } from '../actions'
 
 export default async function InstructionsPage() {
   const supabase = await createClient()
@@ -61,6 +62,11 @@ export default async function InstructionsPage() {
     return 'Alert — Attention Required'
   }
 
+  async function sendInstructionAction(formData: FormData) {
+    'use server'
+    await sendInstruction(formData)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
 
@@ -109,11 +115,13 @@ export default async function InstructionsPage() {
               <p className="text-white font-bold text-sm">Dynamic Instruction</p>
               <p className="text-blue-300 text-xs mt-0.5">To Supervisor / Site Incharge / Site Head</p>
             </div>
-            <div className="px-5 py-4 space-y-4">
+            <form action={sendInstructionAction} className="px-5 py-4 space-y-4">
+
+              <input type="hidden" name="substage_code" value="" />
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Site / Booking</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="booking_ref" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select site...</option>
                   {(activeJobs ?? []).map(job => (
                     <option key={job.booking_ref} value={job.booking_ref}>
@@ -125,7 +133,7 @@ export default async function InstructionsPage() {
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Issue To</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="issued_to" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select recipient...</option>
                   <option value="all_supervisors">All Supervisors</option>
                   {(supervisors ?? []).map(s => (
@@ -138,35 +146,40 @@ export default async function InstructionsPage() {
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">Instruction Type</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { type: 'hold', icon: '🔴', label: 'Hold' },
-                    { type: 'expedite', icon: '🟠', label: 'Expedite' },
-                    { type: 'revised', icon: '🟡', label: 'Revise' },
-                    { type: 'resource', icon: '🟢', label: 'Resource' },
-                    { type: 'alert', icon: '⚠️', label: 'Alert' },
-                  ].map(t => (
-                    <button key={t.type} className="border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 flex items-center gap-1.5 active:bg-gray-50">
-                      <span>{t.icon}</span>{t.label}
-                    </button>
-                  ))}
-                </div>
+                <select name="instruction_type" required defaultValue="hold" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                  <option value="hold">🔴 Hold</option>
+                  <option value="expedite">🟠 Expedite</option>
+                  <option value="revised">🟡 Revise</option>
+                  <option value="resource">🟢 Resource</option>
+                  <option value="alert">⚠️ Alert</option>
+                </select>
               </div>
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">Priority</p>
-                <div className="flex gap-2">
-                  {['Low', 'Medium', 'High', 'Critical'].map(p => (
-                    <button key={p} className={`flex-1 border rounded-xl py-2 text-xs font-semibold ${p === 'Critical' ? 'border-red-300 text-red-600' : 'border-gray-200 text-gray-600'}`}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
+                <select name="priority" required defaultValue="medium" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-1.5">Subject</p>
+                <input
+                  name="subject"
+                  type="text"
+                  placeholder="Short subject line..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
+                />
               </div>
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Message</p>
                 <textarea
+                  name="instruction_text"
+                  required
                   rows={3}
                   placeholder="Type instruction clearly — will be sent to supervisor and site team..."
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
@@ -207,11 +220,11 @@ export default async function InstructionsPage() {
                 </div>
               </div>
 
-              <button className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
+              <button type="submit" className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
                 Send Instruction
               </button>
 
-            </div>
+            </form>
           </div>
         </section>
 

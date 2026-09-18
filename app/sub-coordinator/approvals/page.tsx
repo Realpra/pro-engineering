@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { sendBackSubstage, approveSubstageToCoordinator } from '../actions'
 
 function slaCountdown(submittedAt: string | null): string {
   if (!submittedAt) return '—'
@@ -196,6 +197,14 @@ export default async function SubCoordinatorApprovalsPage() {
                 const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
+                async function sendBackAction(formData: FormData) {
+                  'use server'
+                  await sendBackSubstage(s.id, (formData.get('remarks') as string) || '')
+                }
+                async function approveAction() {
+                  'use server'
+                  await approveSubstageToCoordinator(s.id)
+                }
                 return (
                   <div key={s.id} className="bg-white rounded-2xl border border-red-300 shadow-sm overflow-hidden">
                     <div className="bg-red-600 px-5 py-3">
@@ -219,12 +228,19 @@ export default async function SubCoordinatorApprovalsPage() {
                         <div><p className="text-gray-400">SLA Rule</p><p className="font-semibold text-xs">{slaBlock(s.supervisor_submitted_at).split('→')[0].trim()}</p></div>
                       </div>
                       <div className="flex gap-2">
-                        <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                          Send Back to Supervisor
-                        </button>
-                        <button className="flex-1 bg-red-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                          Approve → Finance
-                        </button>
+                        <form action={sendBackAction} className="flex-1 flex flex-col gap-2">
+                          <input type="hidden" name="substage_id" value={s.id} />
+                          <textarea name="remarks" rows={2} placeholder="Remarks (optional)" className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-gray-50 resize-none" />
+                          <button type="submit" className="w-full border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
+                            Send Back to Supervisor
+                          </button>
+                        </form>
+                        <form action={approveAction} className="flex-1">
+                          <input type="hidden" name="substage_id" value={s.id} />
+                          <button type="submit" className="w-full bg-red-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                            Approve → Finance
+                          </button>
+                        </form>
                       </div>
                     </div>
                   </div>
@@ -248,6 +264,14 @@ export default async function SubCoordinatorApprovalsPage() {
                 const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
+                async function sendBackAction(formData: FormData) {
+                  'use server'
+                  await sendBackSubstage(s.id, (formData.get('remarks') as string) || '')
+                }
+                async function approveAction() {
+                  'use server'
+                  await approveSubstageToCoordinator(s.id)
+                }
                 return (
                   <div key={s.id} className="bg-white rounded-2xl border border-orange-300 shadow-sm overflow-hidden">
                     <div className="bg-orange-50 px-5 py-3 border-b border-orange-100">
@@ -275,12 +299,19 @@ export default async function SubCoordinatorApprovalsPage() {
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                          Send Back
-                        </button>
-                        <button className="flex-1 bg-orange-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                          Approve → Finance
-                        </button>
+                        <form action={sendBackAction} className="flex-1 flex flex-col gap-2">
+                          <input type="hidden" name="substage_id" value={s.id} />
+                          <textarea name="remarks" rows={2} placeholder="Remarks (optional)" className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-gray-50 resize-none" />
+                          <button type="submit" className="w-full border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
+                            Send Back
+                          </button>
+                        </form>
+                        <form action={approveAction} className="flex-1">
+                          <input type="hidden" name="substage_id" value={s.id} />
+                          <button type="submit" className="w-full bg-orange-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                            Approve → Finance
+                          </button>
+                        </form>
                       </div>
                     </div>
                   </div>
@@ -304,6 +335,14 @@ export default async function SubCoordinatorApprovalsPage() {
                 const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
+                async function sendBackAction(formData: FormData) {
+                  'use server'
+                  await sendBackSubstage(s.id, (formData.get('remarks') as string) || '')
+                }
+                async function approveAction() {
+                  'use server'
+                  await approveSubstageToCoordinator(s.id)
+                }
                 return (
                   <div key={s.id} className="px-5 py-4">
                     <div className="flex items-start justify-between gap-3 mb-3">
@@ -330,12 +369,19 @@ export default async function SubCoordinatorApprovalsPage() {
                       {slaBlock(s.supervisor_submitted_at)}
                     </div>
                     <div className="flex gap-2">
-                      <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                        Send Back
-                      </button>
-                      <button className="flex-1 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                        Approve → Finance
-                      </button>
+                      <form action={sendBackAction} className="flex-1 flex flex-col gap-2">
+                        <input type="hidden" name="substage_id" value={s.id} />
+                        <textarea name="remarks" rows={2} placeholder="Remarks (optional)" className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-gray-50 resize-none" />
+                        <button type="submit" className="w-full border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
+                          Send Back
+                        </button>
+                      </form>
+                      <form action={approveAction} className="flex-1">
+                        <input type="hidden" name="substage_id" value={s.id} />
+                        <button type="submit" className="w-full bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                          Approve → Finance
+                        </button>
+                      </form>
                     </div>
                   </div>
                 )

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { addLtfToRoute, rejectLtfFromRoute, chaseSiteHead, notifyCoordinator } from '../actions'
 
 function formatDateTime(d: string | null) {
   if (!d) return '—'
@@ -28,6 +29,7 @@ export default async function LTFFeedsPage() {
 
   const today = new Date().toISOString().split('T')[0]
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
 
   const { data: todayFeeds } = await supabase
     .from('ltf_feeds')
@@ -44,7 +46,7 @@ export default async function LTFFeedsPage() {
 
   const { data: activeJobs } = await supabase
     .from('guest_enquiries')
-    .select('booking_ref, job_title, zone, district')
+    .select('booking_ref, job_title, zone, district, supervisor_id')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
@@ -62,6 +64,19 @@ export default async function LTFFeedsPage() {
   // Jobs that have NOT submitted LTF today
   const submittedBookingRefs = new Set((todayFeeds ?? []).map(f => f.booking_ref))
   const missingFeeds = (activeJobs ?? []).filter(j => !submittedBookingRefs.has(j.booking_ref))
+
+  async function addToRouteAction(formData: FormData) {
+    'use server'
+    await addLtfToRoute(formData)
+  }
+  async function chaseSiteHeadAction(formData: FormData) {
+    'use server'
+    await chaseSiteHead(formData)
+  }
+  async function notifyCoordinatorAction(formData: FormData) {
+    'use server'
+    await notifyCoordinator(formData)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -132,6 +147,10 @@ export default async function LTFFeedsPage() {
             <div className="space-y-3">
               {readyFeeds.map(feed => {
                 const job = jobMap[feed.booking_ref]
+                async function rejectAction() {
+                  'use server'
+                  await rejectLtfFromRoute(feed.id)
+                }
                 return (
                   <div key={feed.id} className="bg-white rounded-2xl border border-green-200 shadow-sm overflow-hidden">
                     <div className="bg-green-50 px-5 py-3 border-b border-green-100">
@@ -164,12 +183,22 @@ export default async function LTFFeedsPage() {
                         )}
                       </div>
                       <div className="flex gap-2 mt-2">
-                        <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2 rounded-xl">
-                          Reject from Route
-                        </button>
-                        <button className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-xl">
-                          Add to Route ✓
-                        </button>
+                        <form action={rejectAction} className="flex-1">
+                          <button type="submit" className="w-full border border-gray-300 text-gray-600 text-xs font-semibold py-2 rounded-xl">
+                            Reject from Route
+                          </button>
+                        </form>
+                        <form action={addToRouteAction} className="flex-1">
+                          <input type="hidden" name="ltf_feed_id" value={feed.id} />
+                          <input type="hidden" name="site_id" value={feed.site_id ?? ''} />
+                          <input type="hidden" name="supervisor_id" value={feed.submitted_by ?? ''} />
+                          <input type="hidden" name="scheduled_date" value={tomorrow} />
+                          <input type="hidden" name="slot_start" value="09:00" />
+                          <input type="hidden" name="slot_end" value="11:00" />
+                          <button type="submit" className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded-xl">
+                            Add to Route ✓
+                          </button>
+                        </form>
                       </div>
                     </div>
                   </div>
@@ -226,9 +255,13 @@ export default async function LTFFeedsPage() {
                       {[job.zone, job.district].filter(Boolean).join(', ')}
                     </p>
                   </div>
-                  <button className="shrink-0 bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
-                    Chase Site Head
-                  </button>
+                  <form action={chaseSiteHeadAction}>
+                    <input type="hidden" name="booking_ref" value={job.booking_ref} />
+                    <input type="hidden" name="issued_to" value={job.supervisor_id ?? ''} />
+                    <button type="submit" className="shrink-0 bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                      Chase Site Head
+                    </button>
+                  </form>
                 </div>
               ))}
             </div>
@@ -256,14 +289,38 @@ export default async function LTFFeedsPage() {
                 <p>3. Supervisor can accept or decline to add to day plan</p>
                 <p>4. Coordinator can manually insert into tomorrow's route</p>
               </div>
-              <div className="flex gap-2">
-                <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                  Insert to Tomorrow's Route
-                </button>
-                <button className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl">
+              <button type="button" className="w-full border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
+                Insert to Tomorrow's Route
+              </button>
+
+              <form action={notifyCoordinatorAction} className="space-y-2 border-t border-gray-100 pt-3">
+                <p className="text-xs font-bold text-gray-500">Notify Coordinator</p>
+                <select name="booking_ref" required className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700 bg-gray-50">
+                  <option value="">Select site...</option>
+                  {(activeJobs ?? []).map(job => (
+                    <option key={job.booking_ref} value={job.booking_ref}>
+                      {job.booking_ref} — {job.job_title}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  name="coordinator_id"
+                  type="text"
+                  placeholder="Coordinator user ID"
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700 bg-gray-50"
+                />
+                <textarea
+                  name="message"
+                  rows={2}
+                  required
+                  defaultValue="Late LTF feed received. Contact Coordinator if re-routing is needed."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700 bg-gray-50 resize-none"
+                />
+                <button type="submit" className="w-full bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl">
                   Notify Coordinator
                 </button>
-              </div>
+              </form>
             </div>
           </div>
         </section>

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { addRouteSlotManually } from '../actions'
 
 function formatTime(t: string | null | undefined) {
   if (!t) return '—'
@@ -58,7 +59,7 @@ export default async function SubCoordinatorRoutePage() {
   // Active jobs for site selection
   const { data: activeJobs } = await supabase
     .from('guest_enquiries')
-    .select('booking_ref, job_title, job_type, zone, district')
+    .select('id, booking_ref, job_title, job_type, zone, district')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
@@ -102,6 +103,11 @@ export default async function SubCoordinatorRoutePage() {
     if (status === 'submitted') return 'bg-green-100 text-green-700 border-green-300'
     if (status === 'pending') return 'bg-orange-100 text-orange-700 border-orange-300'
     return 'bg-gray-100 text-gray-500 border-gray-300'
+  }
+
+  async function addRouteSlotManuallyAction(formData: FormData) {
+    'use server'
+    await addRouteSlotManually(formData)
   }
 
   return (
@@ -286,11 +292,11 @@ export default async function SubCoordinatorRoutePage() {
               <p className="text-white font-bold text-sm">New Route Slot</p>
               <p className="text-blue-300 text-xs mt-0.5">Planned by Sub-Coordinator · Can be overridden by Coordinator</p>
             </div>
-            <div className="px-5 py-4 space-y-4">
+            <form action={addRouteSlotManuallyAction} className="px-5 py-4 space-y-4">
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Supervisor</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="supervisor_id" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select supervisor...</option>
                   {(supervisors ?? []).map(s => (
                     <option key={s.id} value={s.id}>{s.full_name}</option>
@@ -300,7 +306,7 @@ export default async function SubCoordinatorRoutePage() {
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Scheduled Date</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="scheduled_date" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value={today}>Today — {today}</option>
                   <option value={tomorrow}>Tomorrow — {tomorrow}</option>
                 </select>
@@ -308,7 +314,7 @@ export default async function SubCoordinatorRoutePage() {
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Slot Type</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="slot_type" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   {slotTypes.map(t => (
                     <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
@@ -317,10 +323,10 @@ export default async function SubCoordinatorRoutePage() {
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Site / Booking</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="site_id" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select site...</option>
                   {(activeJobs ?? []).map(job => (
-                    <option key={job.booking_ref} value={job.booking_ref}>
+                    <option key={job.booking_ref} value={job.id}>
                       {job.booking_ref} — {job.job_title ?? job.job_type}
                     </option>
                   ))}
@@ -340,11 +346,22 @@ export default async function SubCoordinatorRoutePage() {
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Standard Slot</p>
                 <div className="grid grid-cols-2 gap-2">
                   {defaultSlots.map(slot => (
-                    <button key={slot.time} className="border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 text-left active:bg-gray-50">
+                    <button key={slot.time} type="button" className="border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 text-left active:bg-gray-50">
                       <p>{slot.time} — {slot.end}</p>
                       <p className="text-gray-400 font-normal">{slot.label}</p>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Slot Start</p>
+                  <input name="slot_start" type="time" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Slot End</p>
+                  <input name="slot_end" type="time" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50" />
                 </div>
               </div>
 
@@ -375,17 +392,18 @@ export default async function SubCoordinatorRoutePage() {
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">LTF Note</p>
                 <textarea
+                  name="ltf_note"
                   rows={2}
                   placeholder="e.g. Ready by 11:00 AM — waterproofing coat 2 complete"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
                 />
               </div>
 
-              <button className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
+              <button type="submit" className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
                 + Add Slot to Route
               </button>
 
-            </div>
+            </form>
           </div>
         </section>
 

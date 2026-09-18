@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { assignWorkerToJob } from '../actions'
 
 export default async function WorkersPage() {
   const supabase = await createClient()
@@ -45,6 +46,11 @@ export default async function WorkersPage() {
     if (level === 'senior') return 'bg-blue-100 text-blue-700 border-blue-300'
     if (level === 'skilled') return 'bg-green-100 text-green-700 border-green-300'
     return 'bg-gray-100 text-gray-500 border-gray-300'
+  }
+
+  async function assignWorkerToJobAction(formData: FormData) {
+    'use server'
+    await assignWorkerToJob(formData)
   }
 
   return (
@@ -100,10 +106,10 @@ export default async function WorkersPage() {
               <p className="text-white font-bold text-sm">Worker Assignment</p>
               <p className="text-blue-300 text-xs mt-0.5">Zone-based · Gap window detection · Multi-skill substitution</p>
             </div>
-            <div className="px-5 py-4 space-y-4">
+            <form action={assignWorkerToJobAction} className="px-5 py-4 space-y-4">
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Select Worker</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="worker_id" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select worker...</option>
                   {availableWorkers.map(w => (
                     <option key={w.id} value={w.id}>
@@ -114,7 +120,7 @@ export default async function WorkersPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Assign to Site</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="booking_ref" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select site...</option>
                   {(activeJobs ?? []).map(job => (
                     <option key={job.booking_ref} value={job.booking_ref}>
@@ -126,7 +132,7 @@ export default async function WorkersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs font-semibold text-gray-500 mb-1.5">Start Date</p>
-                  <input type="date" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50" />
+                  <input name="shift_date" type="date" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 mb-1.5">Start Time</p>
@@ -140,7 +146,7 @@ export default async function WorkersPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Role on Site</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="role" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option>Primary Trade Worker</option>
                   <option>Helper / Assistant</option>
                   <option>Site Head Designate</option>
@@ -155,10 +161,10 @@ export default async function WorkersPage() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
                 />
               </div>
-              <button className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
+              <button type="submit" className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
                 Assign Worker
               </button>
-            </div>
+            </form>
           </div>
         </section>
 

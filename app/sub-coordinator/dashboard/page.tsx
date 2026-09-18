@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from './SignOutButton'
+import { sendInstruction } from '../actions'
 
 function greeting(hour: number) {
   if (hour < 12) return 'Good morning'
@@ -158,6 +159,11 @@ export default async function SubCoordinatorDashboardPage() {
     if (type === 'revised') return '🟡'
     if (type === 'resource') return '🟢'
     return '⚠️'
+  }
+
+  async function sendInstructionAction(formData: FormData) {
+    'use server'
+    await sendInstruction(formData)
   }
 
   return (
@@ -541,10 +547,10 @@ export default async function SubCoordinatorDashboardPage() {
             <div className="bg-[#1F3864] px-5 py-3">
               <p className="text-white font-bold text-sm">New Instruction to Supervisor / Site</p>
             </div>
-            <div className="px-5 py-4 space-y-4">
+            <form action={sendInstructionAction} className="px-5 py-4 space-y-4">
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Site / Booking</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                <select name="booking_ref" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
                   <option value="">Select site...</option>
                   {(activeJobs ?? []).map(job => (
                     <option key={job.booking_ref} value={job.booking_ref}>
@@ -555,42 +561,46 @@ export default async function SubCoordinatorDashboardPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">Instruction Type</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { type: 'hold', icon: '🔴', label: 'Hold' },
-                    { type: 'expedite', icon: '🟠', label: 'Expedite' },
-                    { type: 'revised', icon: '🟡', label: 'Revise' },
-                    { type: 'resource', icon: '🟢', label: 'Resource' },
-                    { type: 'alert', icon: '⚠️', label: 'Alert' },
-                  ].map(t => (
-                    <button key={t.type} className="border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 flex items-center gap-1.5 active:bg-gray-50">
-                      <span>{t.icon}</span>{t.label}
-                    </button>
-                  ))}
-                </div>
+                <select name="instruction_type" required defaultValue="hold" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                  <option value="hold">🔴 Hold</option>
+                  <option value="expedite">🟠 Expedite</option>
+                  <option value="revised">🟡 Revise</option>
+                  <option value="resource">🟢 Resource</option>
+                  <option value="alert">⚠️ Alert</option>
+                </select>
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Priority</p>
-                <div className="flex gap-2">
-                  {['Low', 'Medium', 'High', 'Critical'].map(p => (
-                    <button key={p} className={`flex-1 border rounded-xl py-2 text-xs font-semibold ${p === 'Critical' ? 'border-red-300 text-red-600' : 'border-gray-200 text-gray-600'}`}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
+                <select name="priority" required defaultValue="medium" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-1.5">Issue To (optional)</p>
+                <input
+                  name="issued_to"
+                  type="text"
+                  placeholder="Supervisor user ID (optional)"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
+                />
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Message</p>
                 <textarea
+                  name="instruction_text"
+                  required
                   rows={3}
                   placeholder="Type instruction to supervisor / site incharge..."
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
                 />
               </div>
-              <button className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
+              <button type="submit" className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
                 Send Instruction
               </button>
-            </div>
+            </form>
           </div>
         </section>
 
