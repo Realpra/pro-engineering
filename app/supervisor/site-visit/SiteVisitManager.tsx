@@ -218,7 +218,7 @@ export default function SiteVisitManager({
   const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
 
   useEffect(() => {
-    if (!workerId || !bookingRef) return
+    if (!workerId || workerId === '' || !bookingRef || bookingRef === '' || bookingRef === 'unknown-site') return
     initReport(workerId, bookingRef, jobTitle).then(({ reportId, error }) => {
       if (reportId) setReportId(reportId)
     })
