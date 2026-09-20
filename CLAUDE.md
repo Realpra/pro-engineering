@@ -62,3 +62,11 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 ## START OF SESSION
 First command in Claude Code every session:
 Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
+
+## UPDATED SESSION 54 — 20 Sep 2026
+- Supervisor dropdown FK bug fixed — sources workers.id not users.id (commit 6031fbd)
+- NODE 2 DONE — coordinator assigns supervisor via dashboard and jobs pages
+- NODE 3 NEXT — assign supervisor62 to PE-2026-0002 then test supervisor dashboard
+- guest_enquiries.supervisor_id FK → workers.id CONFIRMED
+- Supervisor filter: workers.trade='Supervisor' AND is_active=true
+- workers.approval_status DOES exist (confirmed live: real values are coordinator_approved, admin_approved) — 'approved' is not a valid value, that's why it's excluded from the filter

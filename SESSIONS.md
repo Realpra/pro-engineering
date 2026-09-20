@@ -242,3 +242,14 @@ Highest priority pending:
 3. End-to-end test — subcoordinator@proengineering.in login and test all 7 pages
 4. Real rate card data — Noida Sector 62/63/64
 5. Rate Intelligence form — /admin/rates/update
+
+---
+
+## SESSION 54 UPDATE — 20 Sep 2026 (continued)
+- FK bug found and fixed: supervisor dropdown was sourcing users.id but guest_enquiries.supervisor_id is FK to workers.id
+- Fixed in both coordinator/dashboard/page.tsx and coordinator/jobs/page.tsx
+- Filter used: trade='Supervisor' and is_active=true (approval_status column DOES exist on workers — real values are coordinator_approved/admin_approved, but 'approved' is not a valid value, so it was left out of the filter)
+- NODE 2 NOW WORKING: commit 6031fbd — coordinator can assign supervisor to job
+- NODE 3 NEXT: assign supervisor62 to PE-2026-0002, verify supervisor dashboard shows it
+- SCHEMA CONFIRMED: guest_enquiries.supervisor_id → workers.id (NOT users.id)
+- SCHEMA CONFIRMED: users.role = subcoordinator (no underscore) in DB but code uses sub_coordinator on platform_role — login routing uses platform_role, not role, so this is a naming difference between two separate columns, not a bug
