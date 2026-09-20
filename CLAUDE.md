@@ -70,3 +70,12 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - guest_enquiries.supervisor_id FK → workers.id CONFIRMED
 - Supervisor filter: workers.trade='Supervisor' AND is_active=true
 - workers.approval_status DOES exist (confirmed live: real values are coordinator_approved, admin_approved) — 'approved' is not a valid value, that's why it's excluded from the filter
+
+## SESSION 54 FINAL — 20 Sep 2026
+- NODE 2 DONE: coordinator assigns supervisor via dashboard (commit 6031fbd)
+- NODE 3 DONE: supervisor62 sees PE-2026-0002 in dashboard (verified live)
+- NODE 4 IN PROGRESS: site visit backend wiring done (commits bf2311e 0dc968f 14d4e69) — empty workerId guard fixed — TEST NEEDED: go to supervisor site visit for PE-2026-0002 fill screens click AUTHORIZE AND APPROVE then check site_visit_reports table
+- NEXT: SELECT id booking_ref status submitted_at FROM site_visit_reports WHERE booking_ref = PE-2026-0002
+- THEN: coordinator generates BOQ for PE-2026-0002 at /admin/estimate/PE-2026-0002
+- PENDING: worker phone duplicate check in app/onboarding/[trade]/actions.ts
+- PENDING: remove debug console.log from app/onboarding/[trade]/page.tsx
