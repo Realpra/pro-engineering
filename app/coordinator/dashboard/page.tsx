@@ -25,9 +25,10 @@ export default async function CoordinatorDashboardPage() {
     .order('created_at', { ascending: false })
 
   const { data: supervisors } = await supabase
-    .from('users')
+    .from('workers')
     .select('id, full_name')
-    .eq('platform_role', 'supervisor')
+    .eq('trade', 'Supervisor')
+    .eq('is_active', true)
     .order('full_name')
 
   const { data: allJobs } = await supabase
