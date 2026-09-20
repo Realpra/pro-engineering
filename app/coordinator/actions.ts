@@ -14,4 +14,5 @@ export async function assignStaff(formData: FormData): Promise<void> {
     })
     .eq('booking_ref', booking_ref)
   revalidatePath('/coordinator/jobs')
+  revalidatePath('/coordinator/dashboard')
 }

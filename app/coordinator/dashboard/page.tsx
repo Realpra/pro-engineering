@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { assignStaff } from '../actions'
 
 export default async function CoordinatorDashboardPage() {
   const supabase = await createClient()
@@ -22,6 +23,12 @@ export default async function CoordinatorDashboardPage() {
     .select('booking_ref, job_title, job_type, zone, district, status, is_active, estimate_total, supervisor_id, contact_name')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
+
+  const { data: supervisors } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .eq('platform_role', 'supervisor')
+    .order('full_name')
 
   const { data: allJobs } = await supabase
     .from('guest_enquiries')
@@ -176,22 +183,41 @@ export default async function CoordinatorDashboardPage() {
               {(activeJobs ?? []).map(job => {
                 const jobPayments = (pendingPayments ?? []).filter(p => p.booking_ref === job.booking_ref)
                 return (
-                  <div key={job.booking_ref} className="px-5 py-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-gray-400">{job.booking_ref}</p>
-                      <p className="text-sm font-bold text-gray-800 leading-snug">{job.job_title ?? job.job_type}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{[job.zone, job.district].filter(Boolean).join(', ')}</p>
+                  <div key={job.booking_ref} className="px-5 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-400">{job.booking_ref}</p>
+                        <p className="text-sm font-bold text-gray-800 leading-snug">{job.job_title ?? job.job_type}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{[job.zone, job.district].filter(Boolean).join(', ')}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
+                          job.status === 'milestone_review' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                          job.status === 'confirmed' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                          'bg-gray-100 text-gray-500 border-gray-200'
+                        }`}>{job.status?.replace(/_/g, ' ')}</span>
+                        {jobPayments.length > 0 && (
+                          <p className="text-xs text-orange-500 font-semibold mt-1">{jobPayments.length} pending</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border capitalize ${
-                        job.status === 'milestone_review' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                        job.status === 'confirmed' ? 'bg-purple-100 text-purple-700 border-purple-300' :
-                        'bg-gray-100 text-gray-500 border-gray-200'
-                      }`}>{job.status?.replace(/_/g, ' ')}</span>
-                      {jobPayments.length > 0 && (
-                        <p className="text-xs text-orange-500 font-semibold mt-1">{jobPayments.length} pending</p>
-                      )}
-                    </div>
+
+                    <form action={assignStaff} className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                      <p className="text-xs font-bold text-blue-700 mb-2 uppercase tracking-wide">Assign Staff</p>
+                      <input type="hidden" name="booking_ref" value={job.booking_ref} />
+                      <div className="mb-2">
+                        <label className="text-xs text-gray-500 mb-1 block">Supervisor</label>
+                        <select name="supervisor_id" defaultValue={job.supervisor_id ?? ''} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+                          <option value="">— Select —</option>
+                          {(supervisors ?? []).map(s => (
+                            <option key={s.id} value={s.id}>{s.full_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button type="submit" className="w-full text-xs bg-blue-700 text-white rounded-lg py-1.5 font-semibold">
+                        Assign →
+                      </button>
+                    </form>
                   </div>
                 )
               })}
