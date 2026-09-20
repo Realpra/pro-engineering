@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { uploadSiteVisitPhoto } from './actions'
+import { initReport, saveScreen, submitReport, uploadSiteVisitPhoto } from './actions'
 
 interface SlotData {
   id: string
@@ -57,6 +57,30 @@ interface Props {
 
 const TOTAL_SCREENS = 21
 
+// site_visit_reports column per screen (1-indexed screen number -> array index)
+const SCREEN_COLUMNS = [
+  'screen01_job_details',
+  'screen02_scope_intent',
+  'screen03_plumbing',
+  'screen04_electrical',
+  'screen05_waterproofing',
+  'screen06_walls',
+  'screen07_floors',
+  'screen08_tiles',
+  'screen09_fixtures',
+  'screen10_ceiling',
+  'screen11_logistics',
+  'screen12_compliance',
+  'screen13_measurements',
+  'screen14_labour',
+  'screen15_materials',
+  'screen16_risk_flags',
+  'screen17_risk_decisions',
+  'screen18_milestones',
+  'screen19_materials',
+  'screen20_submit',
+]
+
 const screenTitles = [
   'Check In',
   'Ground Feed',
@@ -90,6 +114,7 @@ export default function SiteVisitManager({
   activeJobs,
 }: Props) {
   const [screen, setScreen] = useState(1)
+  const [reportId, setReportId] = useState<string | null>(null)
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
   const [uploadErrors, setUploadErrors] = useState<Record<number, string>>({})
   const [form, setForm] = useState({
@@ -183,9 +208,6 @@ export default function SiteVisitManager({
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
-  const next = () => setScreen(s => Math.min(s + 1, TOTAL_SCREENS))
-  const back = () => setScreen(s => Math.max(s - 1, 1))
-
   const progressPct = Math.round((screen / TOTAL_SCREENS) * 100)
 
   const site = slotData?.site_id ?? substageData?.booking_ref ?? 'Site TBC'
@@ -193,6 +215,25 @@ export default function SiteVisitManager({
   const templateId = slotData?.qip_template_id ?? substageData?.substage_code ?? '—'
   const ltfNote = slotData?.ltf_note ?? ''
   const bookingRef = substageData?.booking_ref ?? slotData?.site_id ?? 'unknown-site'
+
+  useEffect(() => {
+    if (!workerId || bookingRef === 'unknown-site') return
+    let cancelled = false
+    const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
+    initReport(workerId, bookingRef, jobTitle).then(result => {
+      if (!cancelled && result.reportId) setReportId(result.reportId)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const next = async () => {
+    if (reportId && screen <= SCREEN_COLUMNS.length) {
+      await saveScreen(reportId, screen, SCREEN_COLUMNS[screen - 1], form)
+    }
+    setScreen(s => Math.min(s + 1, TOTAL_SCREENS))
+  }
+  const back = () => setScreen(s => Math.max(s - 1, 1))
 
   async function handlePhotoUpload(idx: number, itemLabel: string, file: File) {
     setUploadingIdx(idx)
@@ -851,7 +892,10 @@ export default function SiteVisitManager({
                   <p>✓ Client facilitation request</p>
                 </div>
                 <button
-                  onClick={() => update('submitted', true)}
+                  onClick={async () => {
+                    if (reportId) await submitReport(reportId)
+                    update('submitted', true)
+                  }}
                   className="w-full bg-white text-[#1F3864] font-bold py-4 rounded-2xl text-sm"
                 >
                   AUTHORIZE & APPROVE →
