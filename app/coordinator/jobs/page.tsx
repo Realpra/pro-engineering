@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { assignStaff } from '../actions'
 
 export default async function CoordinatorJobsPage() {
   const supabase = await createClient()
@@ -29,6 +30,7 @@ export default async function CoordinatorJobsPage() {
     .from('users')
     .select('id, full_name')
     .eq('platform_role', 'supervisor')
+    .order('full_name')
 
   const supervisorMap = Object.fromEntries(
     (supervisors ?? []).map(s => [s.id, s.full_name])
@@ -211,6 +213,23 @@ export default async function CoordinatorJobsPage() {
                             </div>
                           )}
                         </div>
+
+                        <form action={assignStaff} className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                          <p className="text-xs font-bold text-blue-700 mb-2 uppercase tracking-wide">Assign Staff</p>
+                          <input type="hidden" name="booking_ref" value={job.booking_ref} />
+                          <div className="mb-2">
+                            <label className="text-xs text-gray-500 mb-1 block">Supervisor</label>
+                            <select name="supervisor_id" defaultValue={job.supervisor_id ?? ''} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+                              <option value="">— Select —</option>
+                              {(supervisors ?? []).map(s => (
+                                <option key={s.id} value={s.id}>{s.full_name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <button type="submit" className="w-full text-xs bg-blue-700 text-white rounded-lg py-1.5 font-semibold">
+                            Assign →
+                          </button>
+                        </form>
                       </div>
                     </div>
                   )
