@@ -234,22 +234,18 @@ Update this file at the end of every session with what was built.
 
 ## NEXT SESSION — START HERE
 
-Last thing done: Sub-coordinator all 7 pages write actions wired and pushed.
+Last done: FK fix — supervisor dropdown sources workers.id not users.id (commit 6031fbd). CLAUDE.md and SESSIONS.md updated (commit b7babfd).
 
-Highest priority pending:
-1. Auth fix — Supabase SU-472225
-2. Worker phone duplicate check on Vercel
-3. End-to-end test — subcoordinator@proengineering.in login and test all 7 pages
-4. Real rate card data — Noida Sector 62/63/64
-5. Rate Intelligence form — /admin/rates/update
+Priorities:
+1. Assign Supervisor_62 to PE-2026-0002 via coordinator dashboard — test it works
+2. Login supervisor62@proengineering.in — verify PE-2026-0002 shows in supervisor dashboard
+3. Supervisor does site visit for PE-2026-0002
+4. Coordinator generates BOQ — admin approves — client1 accepts
+5. Worker phone duplicate check in app/onboarding/[trade]/actions.ts
+6. Remove debug console.log from app/onboarding/[trade]/page.tsx
 
----
-
-## SESSION 54 UPDATE — 20 Sep 2026 (continued)
-- FK bug found and fixed: supervisor dropdown was sourcing users.id but guest_enquiries.supervisor_id is FK to workers.id
-- Fixed in both coordinator/dashboard/page.tsx and coordinator/jobs/page.tsx
-- Filter used: trade='Supervisor' and is_active=true (approval_status column DOES exist on workers — real values are coordinator_approved/admin_approved, but 'approved' is not a valid value, so it was left out of the filter)
-- NODE 2 NOW WORKING: commit 6031fbd — coordinator can assign supervisor to job
-- NODE 3 NEXT: assign supervisor62 to PE-2026-0002, verify supervisor dashboard shows it
-- SCHEMA CONFIRMED: guest_enquiries.supervisor_id → workers.id (NOT users.id)
-- SCHEMA CONFIRMED: users.role = subcoordinator (no underscore) in DB but code uses sub_coordinator on platform_role — login routing uses platform_role, not role, so this is a naming difference between two separate columns, not a bug
+Schema confirmed:
+- guest_enquiries.supervisor_id FK to workers.id
+- Supervisor filter: workers.is_active=true AND trade=Supervisor
+- guest_enquiries.site_incharge_id DOES NOT EXIST
+- users.role value is subcoordinator not sub_coordinator
