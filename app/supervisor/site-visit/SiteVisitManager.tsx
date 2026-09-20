@@ -215,17 +215,14 @@ export default function SiteVisitManager({
   const templateId = slotData?.qip_template_id ?? substageData?.substage_code ?? '—'
   const ltfNote = slotData?.ltf_note ?? ''
   const bookingRef = substageData?.booking_ref ?? slotData?.site_id ?? 'unknown-site'
+  const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
 
   useEffect(() => {
-    if (!workerId || bookingRef === 'unknown-site') return
-    let cancelled = false
-    const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
-    initReport(workerId, bookingRef, jobTitle).then(result => {
-      if (!cancelled && result.reportId) setReportId(result.reportId)
+    if (!workerId || !bookingRef) return
+    initReport(workerId, bookingRef, jobTitle).then(({ reportId, error }) => {
+      if (reportId) setReportId(reportId)
     })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [workerId, bookingRef, jobTitle])
 
   const next = async () => {
     if (reportId && screen <= SCREEN_COLUMNS.length) {
