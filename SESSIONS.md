@@ -266,3 +266,14 @@ Schema confirmed:
 - users.role value is subcoordinator not sub_coordinator
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - Supabase project: xhlpdbcrncpznrqpcrht
+
+## NEXT SESSION — START HERE (Updated 21 Sep 2026 evening)
+- On Windows: export SUPER_ADMIN_FIELD_FIXES_WITH_SQL.numbers to CSV
+- Save as SUPER_ADMIN_FIELD_FIXES_WITH_SQL.csv in pro-engineering folder
+- Tell Claude Code: git pull && awk -F',' 'NR==1{for(i=1;i<=NF;i++) if($i=="MISMATCH_ROLES") col=i} NR>1 && $col!="" {print $1","$2","$3","$col}' SUPER_ADMIN_FIELD_FIXES_WITH_SQL.csv
+- This shows all mismatches and SQL fixes needed
+- Then apply all SQL fixes in Supabase
+- Then apply code replacements in all role files
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
+- Supabase: xhlpdbcrncpznrqpcrht

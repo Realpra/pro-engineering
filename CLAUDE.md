@@ -107,3 +107,17 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - Node 4 DONE: site_visit_reports row confirmed for PE-2026-0002, status=submitted
 - Node 5 PARTIAL: BOQ row generated for PE-2026-0002 but quantities are wrong (data model gap above)
 - Next: design + implement the site-visit data model fix end to end, then re-test full flow
+
+## SESSION 56 — 21 Sep 2026 — FIELD AUDIT PROGRESS
+- SUPER_ADMIN_FIELD_AUDIT.csv created and uploaded to GitHub
+- master_field_registry view created in Supabase
+- SUPER_ADMIN_FIELD_FIXES_WITH_SQL.numbers created — needs CSV export on Windows
+- Strategy: SUPER_ADMIN fields are master — all lower roles must match
+- Hierarchy: SUPER_ADMIN > ADMIN > COORDINATOR > SUB_COORDINATOR > SUPERVISOR > SITE_INCHARGE > FINANCE > CLIENT > WORKER
+- PENDING: Export SUPER_ADMIN_FIELD_FIXES_WITH_SQL.numbers to CSV on Windows
+- PENDING: Run awk command to extract mismatches and SQL fixes
+- PENDING: Apply SQL fixes in Supabase for all type mismatches
+- PENDING: Apply code replacements in all role files
+- PENDING: Rewrite SiteVisitManager.tsx with structured fields
+- PENDING: Fix SCREEN_COLUMNS to correct DB columns
+- PENDING: Fix generateBOQ to read correct fields
