@@ -121,3 +121,14 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - PENDING: Rewrite SiteVisitManager.tsx with structured fields
 - PENDING: Fix SCREEN_COLUMNS to correct DB columns
 - PENDING: Fix generateBOQ to read correct fields
+
+## SESSION 56 CONTINUED — 21 Sep 2026 evening
+- CamelCase to snake_case renamed in Supabase DB via DO block
+- Same renamed in all code files (commit 96b9b33) — 5 files changed
+- Files changed: app/onboarding/[trade]/actions.ts, app/onboarding/[trade]/page.tsx, app/admin/dashboard/page.tsx, app/admin/payments/PaymentTabs.tsx, app/admin/reports/ReportTabs.tsx
+- TYPE 2 mismatches pending SQL fix in Supabase: years_experience, zones, certifications, amount, allocated_hours, created_at, updated_at
+- NEXT: Run TYPE 2 SQL fixes in Supabase then update SESSIONS.md
+- PENDING: Rewrite SiteVisitManager.tsx screens with structured fields
+- PENDING: Fix SCREEN_COLUMNS to correct DB columns
+- PENDING: Fix generateBOQ to read correct screen columns
+- PENDING: Test full flow PE-2026-0002 end to end

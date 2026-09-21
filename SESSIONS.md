@@ -277,3 +277,19 @@ Schema confirmed:
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
 - Supabase: xhlpdbcrncpznrqpcrht
+
+## NEXT SESSION — START HERE (Updated 21 Sep 2026 evening)
+- Run these SQL fixes in Supabase first:
+  ALTER TABLE workers ALTER COLUMN years_experience TYPE numeric USING years_experience::numeric;
+  ALTER TABLE workers ALTER COLUMN zones TYPE text[] USING ARRAY[zones];
+  ALTER TABLE workers ALTER COLUMN certifications TYPE text[] USING ARRAY[certifications];
+  ALTER TABLE admin_dashboard_stats ALTER COLUMN active_workers TYPE integer USING active_workers::integer;
+  ALTER TABLE job_milestone_substages ALTER COLUMN allocated_hours TYPE numeric USING allocated_hours::numeric;
+  ALTER TABLE guest_enquiries ALTER COLUMN amount TYPE numeric USING amount::numeric;
+- Then rewrite SiteVisitManager.tsx with structured fields per screen
+- Then fix SCREEN_COLUMNS to match real DB columns
+- Then fix generateBOQ to read correct fields from correct screens
+- Then test full flow: supervisor fills site visit -> BOQ populates -> coordinator reviews -> admin approves -> client accepts
+- Supabase: xhlpdbcrncpznrqpcrht
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
