@@ -230,22 +230,39 @@ Update this file at the end of every session with what was built.
 - Full Registration Summary added to success screen showing all 34 fields plus Worker ID
 - Live end-to-end test passed — worker registered with Worker ID WRK-MAS-2026-8978, all 34 fields displayed correctly on success screen
 
+## SESSION 55 — September 21, 2026
+- Added ref search param to app/supervisor/site-visit/page.tsx, passed through as bookingRef to SiteVisitManager (commit 07b5544)
+- Supabase_SCHEMA_AUDIT.CSV added to repo — 1151-row cross-table field-name/type-mismatch audit
+- Traced BOQ measurement bug for PE-2026-0002 to root cause: SiteVisitManager.tsx's SCREEN_COLUMNS
+  array saves each screen's data to a column that doesn't match what that screen collects, AND
+  generateBOQ/EstimateConsole.tsx/ScopeReportView.tsx all expect structured fields (floorArea,
+  tilesScope, electrical point counts, etc.) that the current 21-screen form never collects at all
+  — see CLAUDE.md SESSION 55 for full detail
+- Confirmed live: site_visit_reports row exists for PE-2026-0002 (status=submitted), boq_generated
+  row exists (status=admin_review, created 2026-09-21T02:31:05) but with wrong/incomplete quantities
+
 ---
 
-## NEXT SESSION — START HERE
+## NEXT SESSION — START HERE (Updated 21 Sep 2026)
 
-Last done: FK fix — supervisor dropdown sources workers.id not users.id (commit 6031fbd). CLAUDE.md and SESSIONS.md updated (commit b7babfd).
+Last done: bookingRef param wiring (commit 07b5544). Site visit data model gap diagnosed — see
+CLAUDE.md SESSION 55 for the full root-cause writeup before starting any fix here.
 
 Priorities:
-1. Assign Supervisor_62 to PE-2026-0002 via coordinator dashboard — test it works
-2. Login supervisor62@proengineering.in — verify PE-2026-0002 shows in supervisor dashboard
-3. Supervisor does site visit for PE-2026-0002
-4. Coordinator generates BOQ — admin approves — client1 accepts
-5. Worker phone duplicate check in app/onboarding/[trade]/actions.ts
-6. Remove debug console.log from app/onboarding/[trade]/page.tsx
+1. Read Supabase_SCHEMA_AUDIT.CSV for TYPE MISMATCH rows — write one SQL script to fix
+2. Rewrite SiteVisitManager.tsx screens (esp. Screen 2 "Ground Feed", Screen 12 "Measurements")
+   with structured fields matching what generateBOQ/EstimateConsole/ScopeReportView actually need
+3. Fix SCREEN_COLUMNS to point each of the 21 screens at a real, semantically-correct column
+4. Fix generateBOQ (admin/estimate/[bookingRef]/actions.ts) to read from the corrected columns
+5. Re-test full flow for PE-2026-0002: supervisor site visit → BOQ auto-populates correctly →
+   coordinator reviews → admin approves → client1 accepts
+6. Worker phone duplicate check in app/onboarding/[trade]/actions.ts
+7. Remove debug console.log from app/onboarding/[trade]/page.tsx
 
 Schema confirmed:
 - guest_enquiries.supervisor_id FK to workers.id
 - Supervisor filter: workers.is_active=true AND trade=Supervisor
 - guest_enquiries.site_incharge_id DOES NOT EXIST
 - users.role value is subcoordinator not sub_coordinator
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- Supabase project: xhlpdbcrncpznrqpcrht

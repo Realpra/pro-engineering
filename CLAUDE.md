@@ -79,3 +79,31 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - THEN: coordinator generates BOQ for PE-2026-0002 at /admin/estimate/PE-2026-0002
 - PENDING: worker phone duplicate check in app/onboarding/[trade]/actions.ts
 - PENDING: remove debug console.log from app/onboarding/[trade]/page.tsx
+
+## SESSION 55 — 21 Sep 2026 — SCHEMA AUDIT & SITE VISIT DATA MODEL GAP
+- Supabase_SCHEMA_AUDIT.CSV added to repo — 1151 field rows, cross-table field-name/type-mismatch audit
+- ROOT CAUSE FOUND (verified against live DB via Supabase OpenAPI schema, not just migration files):
+  - site_visit_reports has 40 screenNN_* columns — the union of at least 2 abandoned site-visit
+    implementations (standalone Screen02_ScopeIntent.tsx etc. files, unused) plus the current
+    SiteVisitManager.tsx (21-screen single-file version, currently live)
+  - SiteVisitManager.tsx's SCREEN_COLUMNS array maps each of its 21 screens to a real column, but
+    the column names don't semantically match what that screen actually collects (e.g. Screen 12
+    "Measurements" saves to screen12_compliance; Screen 13 "Quality Check" saves to the
+    confusingly-named screen13_measurements)
+  - BIGGER ISSUE: generateBOQ (admin/estimate/[bookingRef]/actions.ts), EstimateConsole.tsx, and
+    ScopeReportView.tsx (admin/scope-report/[id]/) all expect a rich structured data model
+    (floorArea, totalWallArea, tilesScope/plumbingScope/electricalScope dropdowns, per-trade
+    labour-days, electrical new-point counts, etc.) that the current 21-screen SiteVisitManager
+    form never collects — it only has free-text fields (e.g. actualDimensions as a raw string)
+  - This means PE-2026-0002's BOQ (boq_generated row exists, status admin_review, created
+    2026-09-21T02:31:05) has wrong/incomplete quantities — not a quick column-mapping fix
+- DECISION: Option 3 selected — rewrite SiteVisitManager to collect structured fields, not just
+  reroute existing free-text fields
+- PENDING: Read SCHEMA_AUDIT CSV for TYPE MISMATCH rows, write one SQL script to fix
+- PENDING: Rewrite SiteVisitManager screens (esp. 2, 12) with structured inputs matching what
+  generateBOQ/EstimateConsole/ScopeReportView actually need
+- PENDING: Fix SCREEN_COLUMNS to point each screen at a real, semantically-correct column
+- PENDING: Fix generateBOQ to read from the corrected columns/field names
+- Node 4 DONE: site_visit_reports row confirmed for PE-2026-0002, status=submitted
+- Node 5 PARTIAL: BOQ row generated for PE-2026-0002 but quantities are wrong (data model gap above)
+- Next: design + implement the site-visit data model fix end to end, then re-test full flow
