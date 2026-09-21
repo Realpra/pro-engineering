@@ -1,0 +1,13 @@
+field_name,master_type,master_role,master_table,affected_role,affected_table,current_type,action_and_sql
+applies_to,text,ADMIN,business_rules_config,OTHER,rate_surcharge,ARRAY,FIX TYPE: ALTER TABLE rate_surcharge ALTER COLUMN applies_to TYPE text USING applies_to::text;
+job_id,uuid,ADMIN,compliance_records,COORDINATOR,boq_generated,text,FIX TYPE: ALTER TABLE boq_generated ALTER COLUMN job_id TYPE uuid USING job_id::uuid;
+new_value,jsonb,ADMIN,policy_change_log,OTHER,report_reviews,text,FIX TYPE: ALTER TABLE report_reviews ALTER COLUMN new_value TYPE jsonb USING new_value::jsonb;
+version,integer,COORDINATOR,boq_generated,OTHER,qip_templates,text,FIX TYPE: ALTER TABLE qip_templates ALTER COLUMN version TYPE integer USING version::integer;
+decision_type,text,FINANCE,milestone_payment_decisions,FINANCE,stage_payment_decisions,integer,FIX TYPE: ALTER TABLE stage_payment_decisions ALTER COLUMN decision_type TYPE text USING decision_type::text;
+scheduled_date,date,SUPERVISOR,supervisor_daily_routes,CLIENT,guest_enquiries,text,FIX TYPE: ALTER TABLE guest_enquiries ALTER COLUMN scheduled_date TYPE date USING scheduled_date::date;
+site_address,text,SUPERVISOR,supervisor_daily_routes,OTHER,jobs,jsonb,FIX TYPE: ALTER TABLE jobs ALTER COLUMN site_address TYPE text USING site_address::text;
+address,text,WORKER,workers,OTHER,users,jsonb,FIX TYPE: ALTER TABLE users ALTER COLUMN address TYPE text USING address::text;
+behaviour_rating,numeric,WORKER,worker_job_history,OTHER,deployment_ratings,smallint,FIX TYPE: ALTER TABLE deployment_ratings ALTER COLUMN behaviour_rating TYPE numeric USING behaviour_rating::numeric;
+punctuality_rating,numeric,WORKER,worker_job_history,OTHER,deployment_ratings,smallint,FIX TYPE: ALTER TABLE deployment_ratings ALTER COLUMN punctuality_rating TYPE numeric USING punctuality_rating::numeric;
+quality_rating,numeric,WORKER,worker_job_history,OTHER,deployment_ratings,smallint,FIX TYPE: ALTER TABLE deployment_ratings ALTER COLUMN quality_rating TYPE numeric USING quality_rating::numeric;
+skill_rating,numeric,WORKER,worker_job_history,OTHER,deployment_ratings,smallint,FIX TYPE: ALTER TABLE deployment_ratings ALTER COLUMN skill_rating TYPE numeric USING skill_rating::numeric;
