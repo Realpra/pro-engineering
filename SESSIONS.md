@@ -293,3 +293,29 @@ Schema confirmed:
 - Supabase: xhlpdbcrncpznrqpcrht
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
+
+## FIELD MISMATCH CORRECTION STEPS FOR ALL REMAINING ROLES
+
+For each role run same Supabase query changing source tables:
+
+ADMIN source tables: platform_instructions,compliance_records,bocw_cess_records,policy_change_log,platform_premium_policy,business_rules_config,compliance_config,contingency_policy
+COORDINATOR source tables: boq_generated,boq_sku_catalogue,calculation_rules_engine,rate_card,labour_rate_config
+SUB_COORDINATOR source tables: site_instructions,instruction_acknowledgements,ltf_feeds
+SUPERVISOR source tables: site_visit_reports,supervisor_daily_routes,supervisor_schedule
+SITE_INCHARGE source tables: job_milestone_substages,milestones,daily_site_logs,substage_proposals,punch_list_items
+FINANCE source tables: milestone_payment_schedule,milestone_payment_decisions,payment_confirmations,retention_pool,stage_payment_decisions
+CLIENT source tables: guest_enquiries,scope_reports,scope_change_requests,estimate_client_responses,estimates
+WORKER source tables: workers,worker_competency,worker_day_tracker,worker_job_history,worker_zone_assignments,worker_day_slots,worker_concerns,worker_shift_schedule,assessment_bookings,assessment_slots
+
+For each role:
+1. Run Supabase audit query with that role source tables
+2. Download CSV named [ROLE]_FIELD_AUDIT.csv
+3. Upload to GitHub
+4. Tell Claude Code: cat [ROLE]_FIELD_AUDIT.csv | grep "TYPE MISMATCH"
+5. Run DO block in Supabase to fix type mismatches
+6. Run sed in Claude Code to fix field names in code
+7. Run npx tsc --noEmit
+8. Commit and push
+9. Repeat for next role
+
+Final check: SELECT * FROM master_field_registry WHERE ACTION = 'FIX TYPE' — must return zero rows
