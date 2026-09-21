@@ -50,6 +50,7 @@ interface Props {
   supervisorName: string
   supervisorId: string
   workerId: string
+  bookingRef?: string
   slotData: SlotData | null
   substageData: SubstageData | null
   activeJobs: ActiveJob[]
@@ -109,6 +110,7 @@ export default function SiteVisitManager({
   supervisorName,
   supervisorId,
   workerId,
+  bookingRef: bookingRefProp,
   slotData,
   substageData,
   activeJobs,
@@ -214,7 +216,7 @@ export default function SiteVisitManager({
   const address = slotData?.site_address ?? ''
   const templateId = slotData?.qip_template_id ?? substageData?.substage_code ?? '—'
   const ltfNote = slotData?.ltf_note ?? ''
-  const bookingRef = substageData?.booking_ref ?? slotData?.site_id ?? 'unknown-site'
+  const bookingRef = bookingRefProp || substageData?.booking_ref || slotData?.site_id || 'unknown-site'
   const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
 
   useEffect(() => {

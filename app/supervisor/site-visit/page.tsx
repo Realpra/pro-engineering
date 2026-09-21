@@ -5,9 +5,9 @@ import SiteVisitManager from './SiteVisitManager'
 export default async function SiteVisitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ slot?: string; substage?: string }>
+  searchParams: Promise<{ slot?: string; substage?: string; ref?: string }>
 }) {
-  const { slot, substage } = await searchParams
+  const { slot, substage, ref: bookingRef } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -67,6 +67,7 @@ export default async function SiteVisitPage({
       supervisorName={displayName}
       supervisorId={user.id}
       workerId={workerRecord?.id ?? ''}
+      bookingRef={bookingRef ?? ''}
       slotData={slotData}
       substageData={substageData}
       activeJobs={activeJobs ?? []}
