@@ -16,14 +16,14 @@ function tradeCode(trade: string): string {
 export async function submitWorkerRegistration(trade: string, data: {
   fullName: string; phone: string; email?: string; aadhaarLast4?: string; pan?: string
   state: string; district?: string; city?: string; pincode?: string; address?: string
-  skillLevel: string; sector: string; labourType: string; employmentType: string
-  secondaryTrades: string[]; yearsExperience?: string; jobsCompleted?: number
-  zones: string[]; dailyWage?: number; hourlyRate?: number; isAvailable: boolean
-  heightRestriction: boolean; dustRestriction: boolean; deploymentRestriction?: string
-  teamName?: string; teamNumber?: string
-  bocwRegistered: boolean; bocwNumber?: string; pfUan?: string; esicIp?: string
-  bankAccount?: string; ifscCode?: string
-  emergencyName?: string; emergencyPhone?: string
+  skill_level: string; sector: string; labour_type: string; employment_type: string
+  secondaryTrades: string[]; years_experience?: string; jobs_completed?: number
+  zones: string[]; daily_wage?: number; hourly_rate?: number; is_available: boolean
+  height_restriction: boolean; dustRestriction: boolean; deploymentRestriction?: string
+  team_name?: string; teamNumber?: string
+  bocwRegistered: boolean; bocw_number?: string; pf_uan?: string; esic_ip?: string
+  bank_account?: string; ifsc_code?: string
+  emergency_name?: string; emergency_phone?: string
 }) {
   try {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -44,37 +44,37 @@ export async function submitWorkerRegistration(trade: string, data: {
       aadhaar_last4: data.aadhaarLast4 ?? null,
       pan: data.pan ?? null,
       trade: tradeName(trade),
-      skill_level: data.skillLevel,
-      daily_wage_inr: data.dailyWage ?? null,
-      hourly_rate: data.hourlyRate ?? null,
+      skill_level: data.skill_level,
+      daily_wage_inr: data.daily_wage ?? null,
+      hourly_rate: data.hourly_rate ?? null,
       state: data.state,
       district: data.district ?? null,
       city: data.city ?? null,
       pincode: data.pincode ?? null,
       address: data.address ?? null,
-      years_experience: data.yearsExperience ?? null,
+      years_experience: data.years_experience ?? null,
       is_bocw_registered: data.bocwRegistered,
-      bocw_registration_number: data.bocwNumber ?? null,
-      pf_uan: data.pfUan ?? null,
-      esic_ip_number: data.esicIp ?? null,
-      emergency_contact_name: data.emergencyName ?? null,
-      emergency_contact_phone: data.emergencyPhone ?? null,
-      bank_account_number: data.bankAccount ?? null,
-      ifsc_code: data.ifscCode ?? null,
+      bocw_registration_number: data.bocw_number ?? null,
+      pf_uan: data.pf_uan ?? null,
+      esic_ip_number: data.esic_ip ?? null,
+      emergency_contact_name: data.emergency_name ?? null,
+      emergency_contact_phone: data.emergency_phone ?? null,
+      bank_account_number: data.bank_account ?? null,
+      ifsc_code: data.ifsc_code ?? null,
       approval_status: 'pending',
       is_active: true,
-      is_available: data.isAvailable,
+      is_available: data.is_available,
       sector: data.sector,
-      labour_type: data.labourType,
-      employment_classification: data.employmentType,
+      labour_type: data.labour_type,
+      employment_classification: data.employment_type,
       secondary_trades: data.secondaryTrades,
       zones: data.zones,
-      height_restriction: data.heightRestriction,
+      height_restriction: data.height_restriction,
       dust_restriction: data.dustRestriction,
       deployment_restriction: data.deploymentRestriction ?? null,
-      team_name: data.teamName ?? null,
+      team_name: data.team_name ?? null,
       team_number: data.teamNumber ?? null,
-      jobs_completed_in_trade: data.jobsCompleted ?? 0,
+      jobs_completed_in_trade: data.jobs_completed ?? 0,
       worker_code: workerCode,
       profile_complete: false,
     }).select('id, worker_code').single()

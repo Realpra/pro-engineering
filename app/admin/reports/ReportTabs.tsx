@@ -604,7 +604,7 @@ function IssueDirectiveForm({ adminUserId, onDone }: { adminUserId: string; onDo
   const [directivePriority, setDirectivePriority] = useState('within_week')
   const [directiveType, setDirectiveType] = useState('')
   const [trade, setTrade] = useState('')
-  const [skillLevel, setSkillLevel] = useState('skilled')
+  const [skill_level, setSkillLevel] = useState('skilled')
   const [jobType, setJobType] = useState('')
   const [zone, setZone] = useState('')
   const [sector, setSector] = useState('civil')
@@ -639,7 +639,7 @@ function IssueDirectiveForm({ adminUserId, onDone }: { adminUserId: string; onDo
       directive_priority: directivePriority,
       directive_type: directiveType,
       trade,
-      skill_level: skillLevel,
+      skill_level: skill_level,
       job_type: jobType,
       zone,
       sector,
@@ -737,7 +737,7 @@ function IssueDirectiveForm({ adminUserId, onDone }: { adminUserId: string; onDo
                 type="button"
                 onClick={() => setSkillLevel(sl)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                  skillLevel === sl ? 'bg-[#1F3864] text-white' : 'bg-white text-[#1F3864] border border-[#1F3864]'
+                  skill_level === sl ? 'bg-[#1F3864] text-white' : 'bg-white text-[#1F3864] border border-[#1F3864]'
                 }`}
               >
                 {sl}

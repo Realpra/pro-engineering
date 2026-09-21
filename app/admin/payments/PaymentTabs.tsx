@@ -198,7 +198,7 @@ function PaymentHistory({
   const [zoneFilter, setZoneFilter] = useState('')
   const [milestone, setMilestone] = useState('')
   const [trade, setTrade] = useState('')
-  const [skillLevel, setSkillLevel] = useState('')
+  const [skill_level, setSkillLevel] = useState('')
   const [amountFrom, setAmountFrom] = useState('')
   const [amountTo, setAmountTo] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -227,7 +227,7 @@ function PaymentHistory({
       if (zoneFilter && (p.zone ?? '') !== zoneFilter) return false
       if (milestone && (p.milestone_code ?? '') !== milestone) return false
       if (trade && (p.trade ?? '') !== trade) return false
-      if (skillLevel && (p.skill_level ?? '') !== skillLevel) return false
+      if (skill_level && (p.skill_level ?? '') !== skill_level) return false
       const amt = num(p.payment_amount)
       if (af != null && amt < af) return false
       if (at != null && amt > at) return false
@@ -241,7 +241,7 @@ function PaymentHistory({
       if (status && (p.status ?? '') !== status) return false
       return true
     })
-  }, [payments, clientMap, bookingRef, client, zoneFilter, milestone, trade, skillLevel, amountFrom, amountTo, dateFrom, dateTo, decType, status])
+  }, [payments, clientMap, bookingRef, client, zoneFilter, milestone, trade, skill_level, amountFrom, amountTo, dateFrom, dateTo, decType, status])
 
   const inp = 'border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#1F3864]'
 
@@ -268,7 +268,7 @@ function PaymentHistory({
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        <select className={inp} value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)}>
+        <select className={inp} value={skill_level} onChange={(e) => setSkillLevel(e.target.value)}>
           <option value="">All skill levels</option>
           {SKILL_LEVEL_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>

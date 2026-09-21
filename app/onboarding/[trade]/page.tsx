@@ -55,13 +55,13 @@ type Form = {
   fullName: string; phone: string; whatsappSame: boolean; whatsappPhone: string
   email: string; aadhaarLast4: string; pan: string; gender: string; dob: string
   state: string; district: string; city: string; pincode: string; address: string
-  skillLevel: string; sector: string; labourType: string; employmentType: string
-  secondaryTrades: string[]; yearsExperience: string; jobsCompleted: string
-  zones: string[]; dailyWage: string; hourlyRate: string; isAvailable: boolean
-  heightRestriction: boolean; dustRestriction: boolean; deploymentRestriction: string
-  teamName: string; teamNumber: string
-  bocwRegistered: boolean; bocwNumber: string; pfUan: string; esicIp: string
-  bankAccount: string; ifscCode: string; emergencyName: string; emergencyPhone: string
+  skill_level: string; sector: string; labour_type: string; employment_type: string
+  secondaryTrades: string[]; years_experience: string; jobs_completed: string
+  zones: string[]; daily_wage: string; hourly_rate: string; is_available: boolean
+  height_restriction: boolean; dustRestriction: boolean; deploymentRestriction: string
+  team_name: string; teamNumber: string
+  bocwRegistered: boolean; bocw_number: string; pf_uan: string; esic_ip: string
+  bank_account: string; ifsc_code: string; emergency_name: string; emergency_phone: string
   declared: boolean; agreed: boolean
 }
 
@@ -69,13 +69,13 @@ const INIT: Form = {
   fullName:'', phone:'', whatsappSame:true, whatsappPhone:'',
   email:'', aadhaarLast4:'', pan:'', gender:'male', dob:'',
   state:'Uttar Pradesh', district:'', city:'', pincode:'', address:'',
-  skillLevel:'skilled', sector:'civil', labourType:'skilled_trade', employmentType:'self',
-  secondaryTrades:[], yearsExperience:'3_5', jobsCompleted:'',
-  zones:[], dailyWage:'', hourlyRate:'', isAvailable:true,
-  heightRestriction:false, dustRestriction:false, deploymentRestriction:'',
-  teamName:'', teamNumber:'',
-  bocwRegistered:false, bocwNumber:'', pfUan:'', esicIp:'',
-  bankAccount:'', ifscCode:'', emergencyName:'', emergencyPhone:'',
+  skill_level:'skilled', sector:'civil', labour_type:'skilled_trade', employment_type:'self',
+  secondaryTrades:[], years_experience:'3_5', jobs_completed:'',
+  zones:[], daily_wage:'', hourly_rate:'', is_available:true,
+  height_restriction:false, dustRestriction:false, deploymentRestriction:'',
+  team_name:'', teamNumber:'',
+  bocwRegistered:false, bocw_number:'', pf_uan:'', esic_ip:'',
+  bank_account:'', ifsc_code:'', emergency_name:'', emergency_phone:'',
   declared:false, agreed:false,
 }
 
@@ -137,30 +137,30 @@ export default function TradeOnboardingPage() {
         city: form.city || undefined,
         pincode: form.pincode || undefined,
         address: form.address || undefined,
-        skillLevel: form.skillLevel,
+        skill_level: form.skill_level,
         sector: form.sector,
-        labourType: form.labourType,
-        employmentType: form.employmentType,
+        labour_type: form.labour_type,
+        employment_type: form.employment_type,
         secondaryTrades: form.secondaryTrades,
-        yearsExperience: form.yearsExperience || undefined,
-        jobsCompleted: form.jobsCompleted ? Number(form.jobsCompleted) : undefined,
+        years_experience: form.years_experience || undefined,
+        jobs_completed: form.jobs_completed ? Number(form.jobs_completed) : undefined,
         zones: form.zones,
-        dailyWage: form.dailyWage ? Number(form.dailyWage) : undefined,
-        hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : undefined,
-        isAvailable: form.isAvailable,
-        heightRestriction: form.heightRestriction,
+        daily_wage: form.daily_wage ? Number(form.daily_wage) : undefined,
+        hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
+        is_available: form.is_available,
+        height_restriction: form.height_restriction,
         dustRestriction: form.dustRestriction,
         deploymentRestriction: form.deploymentRestriction || undefined,
-        teamName: form.teamName || undefined,
+        team_name: form.team_name || undefined,
         teamNumber: form.teamNumber || undefined,
         bocwRegistered: form.bocwRegistered,
-        bocwNumber: form.bocwNumber || undefined,
-        pfUan: form.pfUan || undefined,
-        esicIp: form.esicIp || undefined,
-        bankAccount: form.bankAccount || undefined,
-        ifscCode: form.ifscCode || undefined,
-        emergencyName: form.emergencyName || undefined,
-        emergencyPhone: form.emergencyPhone || undefined,
+        bocw_number: form.bocw_number || undefined,
+        pf_uan: form.pf_uan || undefined,
+        esic_ip: form.esic_ip || undefined,
+        bank_account: form.bank_account || undefined,
+        ifsc_code: form.ifsc_code || undefined,
+        emergency_name: form.emergency_name || undefined,
+        emergency_phone: form.emergency_phone || undefined,
       })
       if ('error' in result) {
         console.error('Registration error:', result.error)
@@ -370,7 +370,7 @@ export default function TradeOnboardingPage() {
 
             <div>
               <label className={lbl}>Skill Level {req}</label>
-              <select className={sel} value={form.skillLevel} onChange={e=>set('skillLevel',e.target.value)}>
+              <select className={sel} value={form.skill_level} onChange={e=>set('skill_level',e.target.value)}>
                 <option value="unskilled">Unskilled</option>
                 <option value="semi_skilled">Semi-Skilled</option>
                 <option value="skilled">Skilled</option>
@@ -387,14 +387,14 @@ export default function TradeOnboardingPage() {
 
             <div>
               <label className={lbl}>Labour Type {req}</label>
-              <select className={sel} value={form.labourType} onChange={e=>set('labourType',e.target.value)}>
+              <select className={sel} value={form.labour_type} onChange={e=>set('labour_type',e.target.value)}>
                 {LABOUR_TYPES.map(l => <option key={l.v} value={l.v}>{l.l}</option>)}
               </select>
             </div>
 
             <div>
               <label className={lbl}>Employment Classification {req}</label>
-              <select className={sel} value={form.employmentType} onChange={e=>set('employmentType',e.target.value)}>
+              <select className={sel} value={form.employment_type} onChange={e=>set('employment_type',e.target.value)}>
                 <option value="self">Self Employed</option>
                 <option value="associate">Associate</option>
                 <option value="sub_contractor">Sub Contractor</option>
@@ -418,22 +418,22 @@ export default function TradeOnboardingPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lbl}>Years of Experience</label>
-                <select className={sel} value={form.yearsExperience} onChange={e=>set('yearsExperience',e.target.value)}>
+                <select className={sel} value={form.years_experience} onChange={e=>set('years_experience',e.target.value)}>
                   {YEARS_EXP.map(y => <option key={y.v} value={y.v}>{y.l}</option>)}
                 </select>
               </div>
               <div>
                 <label className={lbl}>Jobs Completed in Trade</label>
-                <input className={inp} type="number" value={form.jobsCompleted}
-                  onChange={e=>set('jobsCompleted',e.target.value)}
+                <input className={inp} type="number" value={form.jobs_completed}
+                  onChange={e=>set('jobs_completed',e.target.value)}
                   placeholder="Approx count" min={0} />
               </div>
             </div>
 
             <div>
               <label className={lbl}>Team Name (if part of a team)</label>
-              <input className={inp} value={form.teamName}
-                onChange={e=>set('teamName',e.target.value)} placeholder="Team or contractor name" />
+              <input className={inp} value={form.team_name}
+                onChange={e=>set('team_name',e.target.value)} placeholder="Team or contractor name" />
             </div>
 
             <div className="flex gap-3">
@@ -466,14 +466,14 @@ export default function TradeOnboardingPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lbl}>Expected Daily Wage ₹</label>
-                <input className={inp} type="number" value={form.dailyWage}
-                  onChange={e=>set('dailyWage',e.target.value)}
+                <input className={inp} type="number" value={form.daily_wage}
+                  onChange={e=>set('daily_wage',e.target.value)}
                   placeholder="Per day in ₹" />
               </div>
               <div>
                 <label className={lbl}>Hourly Rate ₹</label>
-                <input className={inp} type="number" value={form.hourlyRate}
-                  onChange={e=>set('hourlyRate',e.target.value)}
+                <input className={inp} type="number" value={form.hourly_rate}
+                  onChange={e=>set('hourly_rate',e.target.value)}
                   placeholder="Per hour in ₹" />
               </div>
             </div>
@@ -482,13 +482,13 @@ export default function TradeOnboardingPage() {
               <label className={lbl}>Available for Work Right Now?</label>
               <div className="flex gap-4 mt-1">
                 <label className={radioRow}>
-                  <input type="radio" name="avail" checked={form.isAvailable}
-                    onChange={()=>set('isAvailable',true)} />
+                  <input type="radio" name="avail" checked={form.is_available}
+                    onChange={()=>set('is_available',true)} />
                   <span className="text-sm">Yes — Available immediately</span>
                 </label>
                 <label className={radioRow}>
-                  <input type="radio" name="avail" checked={!form.isAvailable}
-                    onChange={()=>set('isAvailable',false)} />
+                  <input type="radio" name="avail" checked={!form.is_available}
+                    onChange={()=>set('is_available',false)} />
                   <span className="text-sm">No — Not available now</span>
                 </label>
               </div>
@@ -497,8 +497,8 @@ export default function TradeOnboardingPage() {
             <div className="bg-amber-50 rounded-xl p-4 space-y-3">
               <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">Physical Restrictions</div>
               <label className={checkRow}>
-                <input type="checkbox" checked={form.heightRestriction}
-                  onChange={e=>set('heightRestriction',e.target.checked)} />
+                <input type="checkbox" checked={form.height_restriction}
+                  onChange={e=>set('height_restriction',e.target.checked)} />
                 <span className="text-sm">I cannot work at heights (above 10 feet)</span>
               </label>
               <label className={checkRow}>
@@ -506,7 +506,7 @@ export default function TradeOnboardingPage() {
                   onChange={e=>set('dustRestriction',e.target.checked)} />
                 <span className="text-sm">I have a dust / respiratory restriction</span>
               </label>
-              {(form.heightRestriction || form.dustRestriction) && (
+              {(form.height_restriction || form.dustRestriction) && (
                 <div>
                   <label className={lbl}>Restriction Details</label>
                   <textarea className={inp} rows={2} value={form.deploymentRestriction}
@@ -546,8 +546,8 @@ export default function TradeOnboardingPage() {
               {form.bocwRegistered && (
                 <div className="mt-3">
                   <label className={lbl}>BOCW Registration Number</label>
-                  <input className={inp} value={form.bocwNumber}
-                    onChange={e=>set('bocwNumber',e.target.value)} placeholder="BW/UP/..." />
+                  <input className={inp} value={form.bocw_number}
+                    onChange={e=>set('bocw_number',e.target.value)} placeholder="BW/UP/..." />
                 </div>
               )}
             </div>
@@ -555,13 +555,13 @@ export default function TradeOnboardingPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lbl}>PF UAN Number</label>
-                <input className={inp} value={form.pfUan}
-                  onChange={e=>set('pfUan',e.target.value)} placeholder="12-digit UAN" />
+                <input className={inp} value={form.pf_uan}
+                  onChange={e=>set('pf_uan',e.target.value)} placeholder="12-digit UAN" />
               </div>
               <div>
                 <label className={lbl}>ESIC IP Number</label>
-                <input className={inp} value={form.esicIp}
-                  onChange={e=>set('esicIp',e.target.value)} placeholder="ESIC number" />
+                <input className={inp} value={form.esic_ip}
+                  onChange={e=>set('esic_ip',e.target.value)} placeholder="ESIC number" />
               </div>
             </div>
 
@@ -570,13 +570,13 @@ export default function TradeOnboardingPage() {
               <div className="space-y-3">
                 <div>
                   <label className={lbl}>Account Number</label>
-                  <input className={inp} value={form.bankAccount}
-                    onChange={e=>set('bankAccount',e.target.value)} placeholder="Bank account number" />
+                  <input className={inp} value={form.bank_account}
+                    onChange={e=>set('bank_account',e.target.value)} placeholder="Bank account number" />
                 </div>
                 <div>
                   <label className={lbl}>IFSC Code</label>
-                  <input className={inp} value={form.ifscCode}
-                    onChange={e=>set('ifscCode',e.target.value.toUpperCase())}
+                  <input className={inp} value={form.ifsc_code}
+                    onChange={e=>set('ifsc_code',e.target.value.toUpperCase())}
                     placeholder="e.g. SBIN0001234" maxLength={11} />
                 </div>
               </div>
@@ -587,13 +587,13 @@ export default function TradeOnboardingPage() {
               <div className="space-y-3">
                 <div>
                   <label className={lbl}>Contact Name</label>
-                  <input className={inp} value={form.emergencyName}
-                    onChange={e=>set('emergencyName',e.target.value)} placeholder="Name of contact person" />
+                  <input className={inp} value={form.emergency_name}
+                    onChange={e=>set('emergency_name',e.target.value)} placeholder="Name of contact person" />
                 </div>
                 <div>
                   <label className={lbl}>Contact Phone</label>
-                  <input className={inp} value={form.emergencyPhone}
-                    onChange={e=>set('emergencyPhone',e.target.value)}
+                  <input className={inp} value={form.emergency_phone}
+                    onChange={e=>set('emergency_phone',e.target.value)}
                     placeholder="10-digit number" maxLength={10} />
                 </div>
               </div>
@@ -623,14 +623,14 @@ export default function TradeOnboardingPage() {
                   ['District', form.district || '—'],
                   ['City', form.city || '—'],
                   ['Trade', tName],
-                  ['Skill Level', form.skillLevel.replace('_',' ')],
+                  ['Skill Level', form.skill_level.replace('_',' ')],
                   ['Sector', form.sector],
-                  ['Employment', form.employmentType.replace('_',' ')],
+                  ['Employment', form.employment_type.replace('_',' ')],
                   ['Zones', form.zones.join(', ') || '—'],
-                  ['Daily Wage', form.dailyWage ? '₹'+form.dailyWage : '—'],
-                  ['Available', form.isAvailable ? 'Yes' : 'No'],
+                  ['Daily Wage', form.daily_wage ? '₹'+form.daily_wage : '—'],
+                  ['Available', form.is_available ? 'Yes' : 'No'],
                   ['BOCW', form.bocwRegistered ? 'Registered' : 'Not Registered'],
-                  ['Emergency Contact', form.emergencyName || '—'],
+                  ['Emergency Contact', form.emergency_name || '—'],
                 ].map(([k,v]) => (
                   <div key={k} className="flex items-start gap-2 py-1 border-b border-gray-50">
                     <span className="text-gray-400 w-36 flex-shrink-0 text-xs font-medium">{k}</span>
@@ -643,7 +643,7 @@ export default function TradeOnboardingPage() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Labour Type</span>
-                  <span className="text-sm font-medium">{form.labourType}</span>
+                  <span className="text-sm font-medium">{form.labour_type}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Secondary Trades</span>
@@ -651,43 +651,43 @@ export default function TradeOnboardingPage() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Years Experience</span>
-                  <span className="text-sm font-medium">{form.yearsExperience}</span>
+                  <span className="text-sm font-medium">{form.years_experience}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Jobs Completed</span>
-                  <span className="text-sm font-medium">{form.jobsCompleted}</span>
+                  <span className="text-sm font-medium">{form.jobs_completed}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Hourly Rate</span>
-                  <span className="text-sm font-medium">₹{form.hourlyRate}/hr</span>
+                  <span className="text-sm font-medium">₹{form.hourly_rate}/hr</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">BOCW Number</span>
-                  <span className="text-sm font-medium">{form.bocwNumber || 'N/A'}</span>
+                  <span className="text-sm font-medium">{form.bocw_number || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">PF UAN</span>
-                  <span className="text-sm font-medium">{form.pfUan || 'N/A'}</span>
+                  <span className="text-sm font-medium">{form.pf_uan || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">ESIC IP</span>
-                  <span className="text-sm font-medium">{form.esicIp || 'N/A'}</span>
+                  <span className="text-sm font-medium">{form.esic_ip || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Bank Account</span>
-                  <span className="text-sm font-medium">{form.bankAccount}</span>
+                  <span className="text-sm font-medium">{form.bank_account}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">IFSC Code</span>
-                  <span className="text-sm font-medium">{form.ifscCode}</span>
+                  <span className="text-sm font-medium">{form.ifsc_code}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Emergency Phone</span>
-                  <span className="text-sm font-medium">{form.emergencyPhone}</span>
+                  <span className="text-sm font-medium">{form.emergency_phone}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Height Restriction</span>
-                  <span className="text-sm font-medium">{form.heightRestriction ? 'Yes' : 'No'}</span>
+                  <span className="text-sm font-medium">{form.height_restriction ? 'Yes' : 'No'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Dust Restriction</span>
@@ -699,7 +699,7 @@ export default function TradeOnboardingPage() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Team Name</span>
-                  <span className="text-sm font-medium">{form.teamName || 'N/A'}</span>
+                  <span className="text-sm font-medium">{form.team_name || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Team Number</span>
@@ -795,7 +795,7 @@ export default function TradeOnboardingPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Skill Level</span>
-                <span className="text-sm font-medium">{form.skillLevel}</span>
+                <span className="text-sm font-medium">{form.skill_level}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Sector</span>
@@ -803,11 +803,11 @@ export default function TradeOnboardingPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Labour Type</span>
-                <span className="text-sm font-medium">{form.labourType}</span>
+                <span className="text-sm font-medium">{form.labour_type}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Employment Type</span>
-                <span className="text-sm font-medium">{form.employmentType}</span>
+                <span className="text-sm font-medium">{form.employment_type}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Secondary Trades</span>
@@ -815,11 +815,11 @@ export default function TradeOnboardingPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Years Experience</span>
-                <span className="text-sm font-medium">{form.yearsExperience}</span>
+                <span className="text-sm font-medium">{form.years_experience}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Jobs Completed</span>
-                <span className="text-sm font-medium">{form.jobsCompleted}</span>
+                <span className="text-sm font-medium">{form.jobs_completed}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Zones</span>
@@ -827,15 +827,15 @@ export default function TradeOnboardingPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Available</span>
-                <span className="text-sm font-medium">{form.isAvailable ? 'Yes' : 'No'}</span>
+                <span className="text-sm font-medium">{form.is_available ? 'Yes' : 'No'}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Daily Wage</span>
-                <span className="text-sm font-medium">₹{form.dailyWage}/day</span>
+                <span className="text-sm font-medium">₹{form.daily_wage}/day</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Hourly Rate</span>
-                <span className="text-sm font-medium">₹{form.hourlyRate}/hr</span>
+                <span className="text-sm font-medium">₹{form.hourly_rate}/hr</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">BOCW Registered</span>
@@ -843,35 +843,35 @@ export default function TradeOnboardingPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">BOCW Number</span>
-                <span className="text-sm font-medium">{form.bocwNumber || 'N/A'}</span>
+                <span className="text-sm font-medium">{form.bocw_number || 'N/A'}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">PF UAN</span>
-                <span className="text-sm font-medium">{form.pfUan || 'N/A'}</span>
+                <span className="text-sm font-medium">{form.pf_uan || 'N/A'}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">ESIC IP</span>
-                <span className="text-sm font-medium">{form.esicIp || 'N/A'}</span>
+                <span className="text-sm font-medium">{form.esic_ip || 'N/A'}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Bank Account</span>
-                <span className="text-sm font-medium">{form.bankAccount}</span>
+                <span className="text-sm font-medium">{form.bank_account}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">IFSC Code</span>
-                <span className="text-sm font-medium">{form.ifscCode}</span>
+                <span className="text-sm font-medium">{form.ifsc_code}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Emergency Contact</span>
-                <span className="text-sm font-medium">{form.emergencyName}</span>
+                <span className="text-sm font-medium">{form.emergency_name}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Emergency Phone</span>
-                <span className="text-sm font-medium">{form.emergencyPhone}</span>
+                <span className="text-sm font-medium">{form.emergency_phone}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Height Restriction</span>
-                <span className="text-sm font-medium">{form.heightRestriction ? 'Yes' : 'No'}</span>
+                <span className="text-sm font-medium">{form.height_restriction ? 'Yes' : 'No'}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Dust Restriction</span>
@@ -883,7 +883,7 @@ export default function TradeOnboardingPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Team Name</span>
-                <span className="text-sm font-medium">{form.teamName || 'N/A'}</span>
+                <span className="text-sm font-medium">{form.team_name || 'N/A'}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500 text-sm">Team Number</span>

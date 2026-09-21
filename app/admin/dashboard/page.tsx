@@ -242,7 +242,7 @@ export default async function AdminDashboardPage() {
   const boqThisMonth = boqRaw.filter((b) => b.created_at && new Date(b.created_at) >= monthStart)
   const platformPremiumThisMonth = boqThisMonth.reduce((s, b) => s + (Number(b.platform_premium_amount) || 0), 0)
   const contractValueThisMonth = boqThisMonth.reduce((s, b) => s + (Number(b.total_amount) || 0), 0)
-  const jobsCompletedValueThisMonth = boqThisMonth
+  const jobs_completedValueThisMonth = boqThisMonth
     .filter((b) => String(b.status ?? '').includes('accepted'))
     .reduce((s, b) => s + (Number(b.total_amount) || 0), 0)
   const estimatesSent = boqRaw.filter((b) => b.status === 'sent_to_client' || b.sent_to_client_at).length
@@ -386,7 +386,7 @@ export default async function AdminDashboardPage() {
       cards: [
         { label: 'Platform Premium This Month', value: money(platformPremiumThisMonth) },
         { label: 'Total Contract Value This Month', value: money(contractValueThisMonth) },
-        { label: 'Jobs Completed Value This Month', value: money(jobsCompletedValueThisMonth) },
+        { label: 'Jobs Completed Value This Month', value: money(jobs_completedValueThisMonth) },
         { label: 'Avg Job Rating', value: avgJobRating != null ? avgJobRating.toFixed(1) : '—' },
       ],
     },
