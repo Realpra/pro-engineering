@@ -34,7 +34,7 @@ export default async function AdminScopePage() {
     supabase.from('pi_tracker').select('*').order('pi_score', { ascending: false }),
     supabase
       .from('guest_enquiries')
-      .select('id, booking_ref, contact_name, full_name, job_title, zone, status'),
+      .select('id, booking_ref, contact_name, job_title, zone, status'),
   ])
 
   const assessments = (assessmentsData ?? []) as Assessment[]
@@ -44,7 +44,7 @@ export default async function AdminScopePage() {
   const clientMap: Record<string, string> = {}
   for (const e of enquiries ?? []) {
     if (e?.booking_ref) {
-      clientMap[e.booking_ref] = e.contact_name ?? e.full_name ?? '—'
+      clientMap[e.booking_ref] = e.contact_name ?? '—'
     }
   }
 

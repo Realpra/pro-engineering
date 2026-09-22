@@ -9,7 +9,7 @@ export default async function ClientDashboardPage() {
 
   const { data: bookings } = await supabase
     .from('guest_enquiries')
-    .select('booking_ref, job_title, zone, status, created_at, contact_name, full_name')
+    .select('booking_ref, job_title, zone, status, created_at, contact_name')
     .eq('client_user_id', user.id)
     .order('created_at', { ascending: false })
 

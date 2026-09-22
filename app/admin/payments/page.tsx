@@ -30,7 +30,7 @@ export default async function AdminPaymentsPage() {
 
   const [{ data: paymentsData }, { data: enquiries }, { data: policy }, { data: trades }] = await Promise.all([
     supabase.from('milestone_payment_schedule').select('*').order('created_at', { ascending: false }),
-    supabase.from('guest_enquiries').select('booking_ref, full_name, zone'),
+    supabase.from('guest_enquiries').select('booking_ref, contact_name, zone'),
     supabase.from('payment_policy').select('coordinator_limit, admin_limit').eq('is_active', true).limit(1),
     supabase.from('trade_config').select('trade_name').order('trade_name'),
   ])
@@ -44,7 +44,7 @@ export default async function AdminPaymentsPage() {
   const zoneMap: Record<string, string> = {}
   for (const e of enquiries ?? []) {
     if (e?.booking_ref) {
-      clientMap[e.booking_ref] = e.full_name ?? '—'
+      clientMap[e.booking_ref] = e.contact_name ?? '—'
       zoneMap[e.booking_ref] = e.zone ?? '—'
     }
   }

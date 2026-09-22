@@ -52,7 +52,7 @@ export default async function AdminMilestonesPage() {
       .order('created_at', { ascending: false }),
     sb
       .from('guest_enquiries')
-      .select('id, booking_ref, contact_name, full_name, job_title, zone'),
+      .select('id, booking_ref, contact_name, job_title, zone'),
   ])
 
   const templates = (templatesData ?? []) as MilestoneTemplate[]
@@ -63,7 +63,7 @@ export default async function AdminMilestonesPage() {
   const clientMap: Record<string, string> = {}
   for (const e of (enquiries ?? []) as any[]) {
     if (e?.booking_ref) {
-      clientMap[e.booking_ref] = e.contact_name ?? e.full_name ?? '—'
+      clientMap[e.booking_ref] = e.contact_name ?? '—'
     }
   }
 

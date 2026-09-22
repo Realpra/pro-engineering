@@ -22,6 +22,7 @@ export default function PaymentPage() {
   const [jobTitle, setJobTitle]     = useState('')
   const [district, setDistrict]     = useState('')
   const [startDate, setStartDate]   = useState('')
+  const [contactName, setContactName] = useState('')
   const [payMethod, setPayMethod]   = useState<PayMethod>('upi')
   const [upiId, setUpiId]           = useState('')
   const [stage, setStage]           = useState<Stage>('select')
@@ -36,6 +37,7 @@ export default function PaymentPage() {
     setJobTitle(b.jobTitle || '')
     setDistrict(b.district || '')
     setStartDate(b.startDate || '')
+    setContactName(b.contactName || '')
   }, [router])
 
   async function handlePay() {
@@ -50,6 +52,7 @@ export default function PaymentPage() {
     const { data: sessionData } = await supabase.auth.getSession()
     const insertPayload = {
       booking_ref: ref,
+      contact_name: contactName.trim(),
       job_title: b.jobTitle || 'Construction Project',
       job_type: JOB_TYPE_DB_MAP[b.jobType || ''] || 'other',
       zone: ZONE_DB_MAP[b.zone || ''] || 'west',
@@ -191,7 +194,7 @@ export default function PaymentPage() {
     { id: 'netbanking' as PayMethod, label: 'Net Banking',  icon: Building2,   desc: 'All major Indian banks'      },
   ]
 
-  const isValid = payMethod === 'upi' ? upiId.includes('@') : true
+  const isValid = contactName.trim().length > 0 && (payMethod === 'upi' ? upiId.includes('@') : true)
 
   return (
     <div className="max-w-2xl mx-auto w-full px-4 py-6 flex flex-col flex-1">
@@ -206,6 +209,28 @@ export default function PaymentPage() {
         <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Token Amount</p>
         <p className="text-4xl font-black text-white">{formatINR(tokenAmount)}</p>
         <p className="text-xs text-slate-500 mt-1">Adjustable against Milestone 1 · Refundable within 7 days</p>
+      </div>
+
+      {/* Contact details */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="text-sm font-bold text-slate-900">Contact Details</h2>
+        </div>
+        <div className="px-5 py-4">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">
+            Your Name
+          </label>
+          <input
+            type="text"
+            value={contactName}
+            onChange={e => {
+              setContactName(e.target.value)
+              saveBooking({ contactName: e.target.value })
+            }}
+            placeholder="Full name"
+            className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
       {/* Payment method */}

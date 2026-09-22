@@ -40,7 +40,7 @@ export default async function AdminReportsPage() {
     supabase.from('daily_site_logs').select('*').order('log_date', { ascending: false }).limit(50),
     supabase.from('client_wastage_log').select('*').order('wastage_date', { ascending: false }),
     supabase.from('pi_tracker').select('*').order('pi_score', { ascending: false }),
-    supabase.from('guest_enquiries').select('booking_ref, full_name'),
+    supabase.from('guest_enquiries').select('booking_ref, contact_name'),
   ])
 
   const instructions = (instructionsData ?? []) as Instruction[]
@@ -57,7 +57,7 @@ export default async function AdminReportsPage() {
 
   const clientMap: Record<string, string> = {}
   for (const e of enquiriesData ?? []) {
-    if (e?.booking_ref) clientMap[e.booking_ref] = e.full_name ?? '—'
+    if (e?.booking_ref) clientMap[e.booking_ref] = e.contact_name ?? '—'
   }
 
   const adminName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Admin'
