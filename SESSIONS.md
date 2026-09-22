@@ -385,16 +385,55 @@ DISCOVERED, NOT YET FIXED (flagged, needs a product decision, not a naming fix):
 TABLES FULLY WALKED THIS SESSION: guest_enquiries, job_milestone_substages,
 boq_generated, milestone_payment_schedule (all clean now except the Decision 5 gap above).
 
+SITE_VISIT_REPORTS — SCOPED, NOT FIXED (confirms + sharpens the Session 55 finding
+with hard evidence; this is the same pending SiteVisitManager rewrite, not a new item):
+- SiteVisitManager.tsx's screenTitles (what the supervisor sees: Check In, Ground
+  Feed, Workers Present, Safety Conditions, PPE Compliance, Hazard Check, QIP
+  Template, Evidence Checklist, Photo Upload, Physical Completion, Test Results,
+  Measurements, Quality Check, Risk Flags, Client Decisions, Field Notes, Scope
+  Change, Payment Proposal, SLA Confirmation, Certificate, Submit & Authorize)
+  bears almost no relation to SCREEN_COLUMNS (where each screen actually saves:
+  screen01_job_details, screen02_scope_intent, screen03_plumbing,
+  screen04_electrical, screen05_waterproofing, screen06_walls, screen07_floors,
+  screen08_tiles, screen09_fixtures, screen10_ceiling, screen11_logistics,
+  screen12_compliance, screen13_measurements, screen14_labour, screen15_materials,
+  screen16_risk_flags, screen17_risk_decisions, screen18_milestones,
+  screen19_materials, screen20_submit). Confirmed for ALL 21 screens, not just the
+  2 Session 55 called out (e.g. Screen 3 "Workers Present" -> screen03_plumbing;
+  Screen 4 "Safety Conditions" -> screen04_electrical). SCREEN_COLUMNS also only
+  has 20 entries for TOTAL_SCREENS = 21 -- screen 21 ("Submit & Authorize") has no
+  column mapped at all.
+- Three DIFFERENT, overlapping column sets exist across the repo's own migrations:
+  20260627_site_visit_reports.sql (screen01_job_details, screen02_demolition,
+  screen03_plumbing, screen04_electrical, screen05_data..screen19_data),
+  20260628_estimate_console.sql patches in a second set on top
+  (screen02_scope_intent, screen07_electrical, screen14_measurements, etc.
+  without removing the originals), and the LIVE CODE uses a third set
+  (screen05_waterproofing, screen06_walls, screen07_floors, screen08_tiles...)
+  that matches NEITHER migration -- these columns must have been added directly
+  in Supabase outside migration history (same drift pattern as everything else
+  this session), same as job_id/full_name/etc. were.
+- NOT YET CONFIRMED: whether generateBOQ/EstimateConsole.tsx/ScopeReportView.tsx
+  read these screen columns BY NAME expecting specific content (e.g. expecting
+  screen12_compliance to hold compliance data, which it doesn't -- it holds
+  Measurements screen data). If so, BOQ generation is silently computing from
+  wrong data, not just confusingly-named columns. This needs checking before any
+  fix, and the fix itself is the full structured-field rewrite already scoped in
+  Session 55, not a rename.
+
 ## NEXT SESSION — START HERE (Updated 22 Sep 2026, Session 58)
-- Continue the manual table walk on site_visit_reports next — per Session 55
-  notes it has 40 screen columns from >=2 abandoned implementations plus the
-  live 21-screen SiteVisitManager.tsx, so it's the most likely source of
-  further real mismatches/dead columns
-- After that: SiteVisitManager.tsx structural rewrite is still pending (SCREEN_COLUMNS
+- site_visit_reports is now SCOPED (see full mapping above), not yet fixed. Next
+  concrete step: read generateBOQ (app/admin/estimate/[bookingRef]/actions.ts),
+  EstimateConsole.tsx, and ScopeReportView.tsx to confirm whether they read the
+  screenNN_* columns by name expecting specific content — that determines whether
+  this is "just" confusingly-named columns or BOQs are silently computed from the
+  wrong screen's data
+- Then: the actual fix is the SiteVisitManager.tsx structural rewrite (SCREEN_COLUMNS
   mapping to semantically-wrong columns, generateBOQ reading free-text fields
   instead of the structured data EstimateConsole/ScopeReportView expect) — this
-  was the original Session 55 finding and is still unresolved, now clearer in
-  scope after this session's table-by-table work
+  was the original Session 55 finding, now fully scoped, still unresolved
+- Smaller tables not yet walked: daily_site_logs, scope_change_requests,
+  worker_shift_schedule, pre_delivery_assessment
 - Decide whether to build the "Decision 5 raise" flow (see above) and wire
   boq_sku_catalogue.client_description into the client estimate view — both
   are optional, separate from the naming/mismatch work

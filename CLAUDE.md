@@ -174,7 +174,15 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
   raises a case, only admin's resolution side was ever built
 - Tables fully walked and clean: guest_enquiries, job_milestone_substages,
   boq_generated, milestone_payment_schedule
-- NEXT: site_visit_reports (per Session 55, most likely richest remaining source
-  of findings — 40 screen columns from abandoned implementations)
+- site_visit_reports SCOPED with hard evidence (not fixed): all 21 screen titles
+  in SiteVisitManager.tsx mismatch their SCREEN_COLUMNS storage column, 3
+  different overlapping column sets exist across 2 migrations + live-only
+  columns, SCREEN_COLUMNS is even 1 short (20 entries for 21 screens). Still
+  unconfirmed whether generateBOQ reads these columns by name expecting specific
+  content (would make it a live data-correctness bug, not just confusing names)
+  — check that first next session. See SESSIONS.md Session 58 for full mapping.
+- NEXT: confirm generateBOQ/EstimateConsole/ScopeReportView reading against
+  site_visit_reports, then decide on the SiteVisitManager rewrite; smaller tables
+  still unwalked: daily_site_logs, scope_change_requests, worker_shift_schedule
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
