@@ -330,3 +330,77 @@ Final check: SELECT * FROM master_field_registry WHERE ACTION = 'FIX TYPE' — m
 - Supabase: xhlpdbcrncpznrqpcrht
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
+
+## SESSION 58 — 22 Sep 2026 — FIELD-NAMING AUDIT REBUILT + FIRST REAL CROSS-ROLE BUG FOUND
+
+METHODOLOGY CHANGE — the CSV/LIKE-join/sed workflow above (SESSION 56-57) is
+superseded. It's what produced the join-explosion CSVs (one real pairing
+duplicated into 95 rows). Replaced with `supabase/audits/field_naming_audit_v2.sql`:
+- Table-to-role map is CODE-DERIVED (grepped every `.from('table')` call under
+  each app/<role>/ directory), not fuzzy name/type matching
+- One single-statement query, two sections: TYPE_MISMATCH (exact column name,
+  different type — confirmed, safe to act on) and CANDIDATE_ROOT_MATCH (shared
+  normalized root — leads only, most turn out to be legitimate per-stakeholder
+  fields, e.g. admin_decision + client_decision on the same row are two
+  different people's decisions, not a rename candidate)
+- KNOWN BLIND SPOT: root-matching only catches names sharing a substring after
+  stripping known prefixes. It CANNOT catch two totally different words for the
+  same concept (contact_name vs full_name shares no root) — those are only
+  found by manually walking a table's .select()/.update()/.insert() calls
+  across every role file. Do this manually for any table before assuming it's
+  clean.
+
+FIXED THIS SESSION (all committed to PR #1, claude/gracious-knuth-vxwkc3):
+- guest_enquiries.scheduled_date: TEXT -> DATE (matches supervisor_daily_routes)
+- Dropped dead columns (zero code refs, confirmed empty live): boq_generated.job_id,
+  boq_generated.approved_at, boq_generated.client_notes, site_instructions.acknowledged_at,
+  premium_approval_requests.actioned_at, job_milestone_substages.admin_approved_at
+- guest_enquiries.contact_name vs full_name: booking flow NEVER captured a client
+  name at all (no form field existed). Added a "Your Name" input to
+  app/book/payment/page.tsx writing to contact_name; backfilled historical
+  full_name values into contact_name (they matched exactly, no conflicts) via
+  migration then dropped full_name. Unified 5 role files to read contact_name.
+
+REAL BUG FOUND AND FIXED (the important one): job_milestone_substages had TWO
+DISCONNECTED approval-tracking systems. 10+ pages across coordinator, supervisor,
+sub-coordinator, site-incharge all read `coordinator_approved_at` as the substage's
+final-approval gate — but nothing ever wrote it. The actual approve/reject action
+(adminApproveSubstage/adminRejectSubstage in app/admin/milestones/actions.ts) wrote
+to a separate substage_approved_at/substage_approval_status/substage_approved_by
+field set that only that same page read. Admin approving a substage was invisible
+to every other role. Fixed: that action now also sets coordinator_approved_at on
+approve, status: 'sent_back' on reject.
+
+DISCOVERED, NOT YET FIXED (flagged, needs a product decision, not a naming fix):
+- boq_sku_catalogue.client_description holds real per-SKU customer-friendly text
+  (Tile grout, Wall tile installation, etc.) that no client-facing page reads —
+  they only show the internal `description`. Feature gap, not touched.
+- admin/payments "Decision 5 Queue" can never show anything: it filters on
+  decision_5_raised_at != null, and admin's resolution side is fully wired, but
+  NOTHING anywhere raises a Decision 5 case (decision_5_raised_at/_by/_reason are
+  only ever set to null in TS defaults, never written for real). Missing
+  functionality, not a mismatch — needs a decision on which role/condition
+  should raise it before building.
+
+TABLES FULLY WALKED THIS SESSION: guest_enquiries, job_milestone_substages,
+boq_generated, milestone_payment_schedule (all clean now except the Decision 5 gap above).
+
+## NEXT SESSION — START HERE (Updated 22 Sep 2026, Session 58)
+- Continue the manual table walk on site_visit_reports next — per Session 55
+  notes it has 40 screen columns from >=2 abandoned implementations plus the
+  live 21-screen SiteVisitManager.tsx, so it's the most likely source of
+  further real mismatches/dead columns
+- After that: SiteVisitManager.tsx structural rewrite is still pending (SCREEN_COLUMNS
+  mapping to semantically-wrong columns, generateBOQ reading free-text fields
+  instead of the structured data EstimateConsole/ScopeReportView expect) — this
+  was the original Session 55 finding and is still unresolved, now clearer in
+  scope after this session's table-by-table work
+- Decide whether to build the "Decision 5 raise" flow (see above) and wire
+  boq_sku_catalogue.client_description into the client estimate view — both
+  are optional, separate from the naming/mismatch work
+- Run `supabase/audits/field_naming_audit_v2.sql` again periodically as a
+  regression check (paste the whole file into a fresh Supabase SQL editor tab,
+  not a partial selection — it's one statement so partial runs error out)
+- Supabase: xhlpdbcrncpznrqpcrht
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- PE-2026-0002 site_visit_reports submitted — BOQ in admin_review

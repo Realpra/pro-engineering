@@ -52,6 +52,10 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 4. Sub-coordinator complete build
 5. Rate Intelligence form — /admin/rates/update
 6. End-to-end test — real worker registration
+7. Manual field-mismatch walk on site_visit_reports (next table, see SESSION 58)
+8. SiteVisitManager.tsx structural rewrite — SCREEN_COLUMNS/generateBOQ still read wrong/free-text fields (Session 55 finding, still open)
+9. Decide + build who raises a "Decision 5" payment case — admin/payments queue can never populate (Session 58 finding)
+10. Wire boq_sku_catalogue.client_description into client-facing estimate view (real data, currently unused — Session 58 finding)
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -145,3 +149,32 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - PENDING: Rewrite SiteVisitManager.tsx with structured fields
 - PENDING: Fix SCREEN_COLUMNS and generateBOQ
 - PENDING: Test full flow PE-2026-0002
+
+## SESSION 58 — 22 Sep 2026 — FIELD-NAMING AUDIT REBUILT, FIRST REAL CROSS-ROLE BUG FOUND
+- Old CSV/LIKE-join/sed workflow (Session 56-57) superseded — it's what caused the
+  join explosion. Replaced with supabase/audits/field_naming_audit_v2.sql: one
+  single-statement query, table-to-role map is code-derived (grepped every
+  `.from('table')` under each app/<role>/ dir), no fuzzy joins
+- Audit's root-matching has a known blind spot: can't catch two totally different
+  words for the same concept (e.g. contact_name vs full_name). Those need a manual
+  walk of every .select/.update/.insert against a table across all role files
+- Fixed via audit: guest_enquiries.scheduled_date TEXT->DATE; dropped dead columns
+  boq_generated.job_id/approved_at/client_notes, site_instructions.acknowledged_at,
+  premium_approval_requests.actioned_at, job_milestone_substages.admin_approved_at
+- Fixed via manual walk: guest_enquiries never captured a client name at all (no
+  form field existed) — added one to app/book/payment/page.tsx, unified 5 files
+  on contact_name, dropped full_name after backfill confirmed no conflicts
+- REAL BUG (the important find): job_milestone_substages had two disconnected
+  approval systems. 10+ pages across 4 roles read coordinator_approved_at as the
+  final-approval gate; nothing ever wrote it. admin's actual approve/reject action
+  wrote to separate substage_* fields only its own page read. Fixed: that action
+  now also sets coordinator_approved_at (approve) / status: 'sent_back' (reject)
+- Flagged, not fixed: boq_sku_catalogue.client_description has real unused data
+  (feature gap); admin/payments "Decision 5 Queue" can never populate — nothing
+  raises a case, only admin's resolution side was ever built
+- Tables fully walked and clean: guest_enquiries, job_milestone_substages,
+  boq_generated, milestone_payment_schedule
+- NEXT: site_visit_reports (per Session 55, most likely richest remaining source
+  of findings — 40 screen columns from abandoned implementations)
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3
