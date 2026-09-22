@@ -214,6 +214,11 @@ export async function adminApproveSubstage(
       substage_approval_status: 'approved',
       substage_approved_by: adminUserId,
       substage_approved_at: now,
+      // coordinator_approved_at is the field every other role's page (coordinator,
+      // supervisor, sub-coordinator, site-incharge) actually reads to know a
+      // substage cleared final approval -- nothing else in the app ever set it,
+      // so admin's approval was invisible everywhere outside this page.
+      coordinator_approved_at: now,
       updated_at: now,
     })
     .eq('id', substageId)
@@ -237,6 +242,11 @@ export async function adminRejectSubstage(
       substage_rejection_reason: rejectionReason,
       substage_approved_by: adminUserId,
       substage_approved_at: now,
+      // Same rejection marker app/sub-coordinator/actions.ts already uses on this
+      // table, so other roles' pages see this substage as sent back rather than
+      // silently stuck (coordinator_approved_at intentionally left null: rejected
+      // means not approved).
+      status: 'sent_back',
       updated_at: now,
     })
     .eq('id', substageId)
