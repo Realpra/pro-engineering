@@ -132,3 +132,16 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - PENDING: Fix SCREEN_COLUMNS to correct DB columns
 - PENDING: Fix generateBOQ to read correct screen columns
 - PENDING: Test full flow PE-2026-0002 end to end
+
+## SESSION 57 — 22 Sep 2026
+- ADMIN field audit running — Supabase query with DISTINCT ON to fix join explosion
+- Only 2 real mismatches found in ADMIN: admin_acknowledged_at and amount
+- ADMIN_FIELD_AUDIT_CLEAN.csv to be uploaded to GitHub after Supabase query runs
+- Previous join explosion issue fixed by removing LIKE joins — using exact column_name match only
+- SUPER_ADMIN done — camelCase fixed in DB and code — commit 96b9b33
+- TYPE 2 fixes done in Supabase — years_experience, zones, active_workers, allocated_hours, amount
+- PENDING: ADMIN clean audit — fix 2 mismatches in Supabase and code
+- PENDING: Run same for COORDINATOR, SUB_COORDINATOR, SUPERVISOR, SITE_INCHARGE, FINANCE, CLIENT, WORKER
+- PENDING: Rewrite SiteVisitManager.tsx with structured fields
+- PENDING: Fix SCREEN_COLUMNS and generateBOQ
+- PENDING: Test full flow PE-2026-0002

@@ -319,3 +319,14 @@ For each role:
 9. Repeat for next role
 
 Final check: SELECT * FROM master_field_registry WHERE ACTION = 'FIX TYPE' — must return zero rows
+
+## NEXT SESSION — START HERE (Updated 22 Sep 2026)
+- Upload ADMIN_FIELD_AUDIT_CLEAN.csv to GitHub after downloading from Supabase
+- Tell Claude Code: git pull && awk -F',' mismatches from ADMIN_FIELD_AUDIT_CLEAN.csv
+- Fix 2 ADMIN mismatches: admin_acknowledged_at and amount — run DO block in Supabase
+- Then run sed replacement in code files
+- Then repeat for COORDINATOR, SUB_COORDINATOR, SUPERVISOR, SITE_INCHARGE, FINANCE, CLIENT, WORKER
+- Use DISTINCT ON query — not LIKE joins — to avoid join explosion
+- Supabase: xhlpdbcrncpznrqpcrht
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
