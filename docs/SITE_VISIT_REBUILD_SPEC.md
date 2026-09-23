@@ -14,10 +14,61 @@ Do not treat this as a from-scratch feature list — several items below already
 have a working implementation elsewhere in the codebase that just needs wiring
 into the site-visit flow (noted per screen). Check before building new.
 
-## Who fills this form
+## TWO-FLOW ARCHITECTURE (confirmed with project owner, 23 Sep 2026)
+`site_visit_reports` was carrying two unrelated real-world activities under one
+21-screen form, one report row, and one confused column set. Confirmed these
+are genuinely two separate flows, not one form needing a rename:
+
+**Flow (i) — Site Survey (one-time, pre-estimate).** Job created ->
+coordinator/admin assigns a supervisor (`guest_enquiries.status` becomes
+`confirmed`) -> supervisor/site-manager conducts a trade-by-trade survey ->
+data feeds estimate creation -> client to-and-fro -> approval. No dedicated
+route exists for this yet, but the correct data-collecting implementation
+already exists and is fully orphaned: the 17 standalone screen files in
+`app/supervisor/site-visit/` (`Screen02_ScopeIntent.tsx`, `Screen03_Ceiling.tsx`
+... `Screen20_Submit.tsx` — verified zero imports anywhere in the app, but they
+already call the same `saveScreen()` from `./actions.ts` and write to exactly
+the columns `generateBOQ`/`EstimateConsole.tsx`/`ScopeReportView.tsx` read:
+`screen02_scope_intent`, `screen07_electrical` (with a `newPoints` object
+matching `EstimateConsole.tsx`'s read exactly), `screen14_measurements`
+(`floorArea`, `totalWallArea`, `wallAreaNorth/South/East/West`,
+`bathroomLength/Width/Height` — precisely what Session 55 said was missing),
+`screen15_labour`, `screen16_timeline`, `screen17_risk_decisions`,
+`screen18_client_scope`, `screen19_materials`. `submitReport()` already
+correctly sets `guest_enquiries.status = 'scope_report_submitted'`, the
+pre-estimate status. **This flow is mostly a wiring/revival job, not a build
+from scratch** — give it its own route (e.g. `/supervisor/site-survey`),
+triggered from the supervisor's list of `confirmed`-status jobs with no
+survey yet, distinct from the daily route slots below.
+
+**Flow (ii) — Daily Execution Visit (repeatable, post-agreement).** After the
+job is approved and workers deployed, supervisor picks a day's work from
+`supervisor_daily_routes` (already created by sub-coordinator, visible to
+coordinator/supervisor) for inspection/checks/milestone review. This trigger
+**already exists in the UI** — clicking a route slot already opens
+`/supervisor/site-visit?slot=<id>`. `SiteVisitManager.tsx`'s actual content
+(Check In, Worker Attendance, Safety, PPE, Quality Check, Risk Flags, Client
+Decisions, Payment Proposal, Certificate) is legitimately Flow (ii) content —
+it's an inspection/monitoring checklist, not a survey. **Confirmed bug:**
+`initReport()` in `app/supervisor/site-visit/actions.ts` looks up an existing
+report by `supervisor_id + booking_ref` only — it ignores the `slot` param
+the UI already passes. Multiple daily visits to the same booking silently
+collapse into one row, overwriting each other. Must be fixed to scope by
+slot/substage (one report row per visit, not per booking) before any of the
+per-screen fixes below matter. Screen 12 "Measurements" in this flow is NOT
+the same thing as Flow (i)'s survey measurements — it's an as-built-vs-planned
+variance check during execution (the current free-text form already has a
+`varianceFromPlan` field), feeding milestone/payment comparison, not BOQ
+creation.
+
+Everything in the per-screen breakdown below refers to Flow (ii) — that's the
+form the project owner walked through live. Flow (i)'s screens need their own
+review once revived, using the same cross-cutting requirements.
+
+## Who fills Flow (ii)
 Any of superadmin/admin/coordinator/sub-coordinator/supervisor/site-incharge,
-whoever is deputed for the site survey visit by coordinator/admin/superadmin.
-The form and its data must be identical regardless of which role fills it, and
+whoever is deputed for the visit by coordinator/admin/superadmin. The form and
+its data must be identical regardless of which role fills it, and
 visible with the same field names/types to every role downstream.
 
 ## Per-screen requirements

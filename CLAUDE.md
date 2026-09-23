@@ -17,7 +17,8 @@ Real-life end-to-end flow this platform models, in order:
 1. Client posts a job, OR any role sources one via local outreach -> a job record is created
 2. Estimator/sub-coordinator drafts an estimate from the job description alone, OR
    (if a site survey is needed first) superadmin/admin/coordinator/sub-coordinator/
-   supervisor/site-incharge is deputed to survey the site and fills the site visit form
+   supervisor/site-incharge is deputed to survey the site and fills the SITE SURVEY
+   form (Flow i below)
 3. Estimate is built from survey data + resources by whoever can estimate (estimator/
    coordinator/sub-coordinator)
 4. Estimate flows up to admin/superadmin for approval per role hierarchy
@@ -26,8 +27,22 @@ Real-life end-to-end flow this platform models, in order:
    until agreed
 7. Admin/coordinator allocates workers day-wise/hour-wise, by type/skill/zone, from
    the onboarded worker pool
-8. Execution: supervisor inspects sub-stages, feeds the site-visit form, monitors
-   milestones and payments through to completion
+8. Execution: supervisor selects daily work (a supervisor_daily_routes slot) for
+   inspection/checks/milestones, feeds the DAILY EXECUTION VISIT form (Flow ii
+   below), monitors milestones and payments through to completion
+
+TWO DISTINCT VISIT FLOWS (confirmed 23 Sep 2026, do not merge back into one form):
+- Flow (i) SITE SURVEY — one-time, pre-estimate, step 2 above. Correct
+  implementation already exists but is orphaned (17 standalone Screen0X_*.tsx
+  files in app/supervisor/site-visit/, zero imports anywhere — verified). Needs
+  its own route, triggered off `confirmed`-status jobs with no survey yet.
+- Flow (ii) DAILY EXECUTION VISIT — repeatable, post-agreement, step 8 above.
+  This is what SiteVisitManager.tsx (the only thing wired to
+  /supervisor/site-visit) actually is. Its trigger already exists
+  (supervisor_daily_routes slot -> ?slot=<id>) but initReport() ignores the
+  slot param, so multiple daily visits to the same booking collapse into one
+  row. Supervisor can do both flows on the same job at different times.
+See docs/SITE_VISIT_REBUILD_SPEC.md for full detail on both.
 
 STANDING PRINCIPLE: every field is one conceptual thing with one real data type,
 named the same way everywhere it appears, and must feed forward into every place
