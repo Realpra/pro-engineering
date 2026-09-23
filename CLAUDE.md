@@ -12,6 +12,32 @@ Read this at the start of every session.
 - GitHub: https://github.com/Realpra/pro-engineering
 - Supabase project: xhlpdbcrncpznrqpcrht
 
+## PROCESS FLOW — READ BEFORE ANY FIELD/SCHEMA DECISION (set 23 Sep 2026)
+Real-life end-to-end flow this platform models, in order:
+1. Client posts a job, OR any role sources one via local outreach -> a job record is created
+2. Estimator/sub-coordinator drafts an estimate from the job description alone, OR
+   (if a site survey is needed first) superadmin/admin/coordinator/sub-coordinator/
+   supervisor/site-incharge is deputed to survey the site and fills the site visit form
+3. Estimate is built from survey data + resources by whoever can estimate (estimator/
+   coordinator/sub-coordinator)
+4. Estimate flows up to admin/superadmin for approval per role hierarchy
+5. Approved estimate is shared with the client (client-safe field subset only)
+6. Client negotiates/corrects/responds -> flows back to admin/superadmin -> repeats
+   until agreed
+7. Admin/coordinator allocates workers day-wise/hour-wise, by type/skill/zone, from
+   the onboarded worker pool
+8. Execution: supervisor inspects sub-stages, feeds the site-visit form, monitors
+   milestones and payments through to completion
+
+STANDING PRINCIPLE: every field is one conceptual thing with one real data type,
+named the same way everywhere it appears, and must feed forward into every place
+that logically needs it (estimation, payment decisions, milestone comparison, BOQ,
+client-facing views) without being re-entered or silently dropped. Before adding,
+renaming, or wiring any field: check what step of this flow it belongs to, who
+enters it, and everywhere downstream that should consume it. This is the lens for
+every decision in supabase/audits/field_naming_audit_v2.sql findings and the
+SiteVisitManager rebuild (see docs/SITE_VISIT_REBUILD_SPEC.md).
+
 ## WORKING LOGINS
 See .env.local for credentials
 - admin@proengineering.in
