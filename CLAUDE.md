@@ -71,7 +71,9 @@ See .env.local for credentials
 ## ROLES BUILT
 - Worker: /onboarding/[trade] — 6 screens, 9 trades, 34 fields
 - Site Incharge: /site-incharge/dashboard + /substage/[id]
-- Supervisor: 12 pages including 21-screen site visit
+- Supervisor: 12 pages including 21-screen daily execution visit
+  (/supervisor/site-visit, Flow ii) + 20-screen site survey
+  (/site-survey/[bookingRef], Flow i, revived Session 58 continued)
 - Sub-Coordinator: 7 pages
 - Coordinator: 13 pages
 - Admin: 7 pages (workers/policy/payments/zones/reports/scope/milestones)
@@ -93,10 +95,11 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 4. Sub-coordinator complete build
 5. Rate Intelligence form — /admin/rates/update
 6. End-to-end test — real worker registration
-7. Manual field-mismatch walk on site_visit_reports (next table, see SESSION 58)
-8. SiteVisitManager.tsx structural rewrite — SCREEN_COLUMNS/generateBOQ still read wrong/free-text fields (Session 55 finding, still open)
-9. Decide + build who raises a "Decision 5" payment case — admin/payments queue can never populate (Session 58 finding)
+7. Test Flow (i) Site Survey end to end on a real confirmed-status booking, verify generateBOQ output actually changes
+8. Flow (ii) SiteVisitManager.tsx (/supervisor/site-visit) still needs: initReport() scoped by slot/substage instead of booking_ref (repeated daily visits currently overwrite each other), plus the per-screen fixes in docs/SITE_VISIT_REBUILD_SPEC.md (remarks-on-No, LTF per-substage loop, deployment auto-populate, test/measurement banks, Screen 15->extra-works wiring, Screen 18->decision_5 wiring, Screen 14 duplicate-of-Screen-6 consolidation)
+9. Decide + build who raises a "Decision 5" payment case — likely Screen 18 of Flow (ii) once fixed (Session 58 finding, spec'd in docs/SITE_VISIT_REBUILD_SPEC.md)
 10. Wire boq_sku_catalogue.client_description into client-facing estimate view (real data, currently unused — Session 58 finding)
+11. Extend Flow (i) Site Survey to admin/coordinator/sub_coordinator/superadmin — needs a decision on identifying "who filled this" for roles with no workers row (give them one, or move actions off workers.id onto users.id)
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -227,3 +230,40 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
   still unwalked: daily_site_logs, scope_change_requests, worker_shift_schedule
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
+
+## SESSION 58 CONTINUED — 23-24 Sep 2026 — TWO-FLOW ARCHITECTURE CONFIRMED, FLOW (I) SITE SURVEY BUILT
+- Project owner walked supervisor62 through /supervisor/site-visit live and confirmed the
+  real-world model: site visits are actually TWO separate activities that got conflated into
+  one 21-screen form. See CLAUDE.md's PROCESS FLOW section (top of file) and
+  docs/SITE_VISIT_REBUILD_SPEC.md for full detail. Do not merge these back into one form.
+- Investigated the 23 "abandoned" standalone screen files in app/supervisor/site-visit/
+  (Screen01.tsx..Screen20_Submit.tsx) — confirmed zero imports anywhere in the app (Next.js
+  doesn't auto-wire component files, only SiteVisitManager.tsx's own imports mattered, and it
+  imports none of them). But they already save to exactly the columns generateBOQ/
+  EstimateConsole.tsx/ScopeReportView.tsx read, with properly typed structured fields
+  (floorArea, wallAreaNorth/South/East/West, newExhaustPoints/newSocketPoints bundled into a
+  newPoints object) — this is the correct Flow (i) implementation, just never wired up.
+- Resolved 4 screen-number collisions by comparing field content: kept Screen16_Timeline (not
+  Screen16_Materials, an early draft of Screen19_Materials), Screen17_RiskDecisions (not
+  Screen17_RiskFlags, an earlier draft), Screen18_ClientScope (not Screen18_Timeline, an early
+  draft of Screen16_Timeline), Screen20_Submit (not Screen19_Submit, stale before Materials
+  moved to slot 19) — 20 screens total, not 21.
+- Found + fixed 3 more internal bugs while wiring: Screen04_Walls, Screen10_Tiles, and
+  Screen11_Fixtures each called saveScreen() with a column name matching neither their own
+  screen number nor ScopeReportView.tsx's SCOPE_SCREENS array (screen06_walls, screen08_tiles,
+  screen09_fixtures) — corrected to screen04_walls/screen10_tiles/screen11_fixtures.
+- BUILT: /site-survey/[bookingRef] — new route + SiteSurveyManager.tsx orchestrating the 20
+  screens in sequence, threading scopeIntent/measurements/labourData between screens exactly as
+  each screen's own Props interface already expected. Entry point added to supervisor
+  dashboard for confirmed-status jobs ("Start Site Survey" button).
+- LIMITATION (not guessed around, needs a decision): only supervisor + site_incharge can access
+  it today, since both have a workers row the actions key off of ("who filled this"). admin/
+  coordinator/sub_coordinator/superadmin were named as eligible by the project owner but have no
+  workers row in this codebase — extending needs a decision on how to identify them (give them a
+  workers row, or move the actions off workers.id onto users.id).
+- NOT YET TESTED end to end against a real booking (needs a live confirmed-status job — try
+  reassigning PE-2026-0002 or a fresh booking to 'confirmed' status, or wait for a real one).
+- NEXT: end-to-end test Flow (i), then verify generateBOQ output actually changes with real
+  survey data behind it. Flow (ii)'s initReport() slot-scoping bug and the per-screen fixes in
+  docs/SITE_VISIT_REBUILD_SPEC.md are still open (PENDING #8).
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

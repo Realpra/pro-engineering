@@ -443,3 +443,45 @@ with hard evidence; this is the same pending SiteVisitManager rewrite, not a new
 - Supabase: xhlpdbcrncpznrqpcrht
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - PE-2026-0002 site_visit_reports submitted — BOQ in admin_review
+
+## SESSION 58 CONTINUED — 23-24 Sep 2026 — TWO-FLOW ARCHITECTURE + FLOW (I) SITE SURVEY BUILT
+Full detail in CLAUDE.md's SESSION 58 CONTINUED entry and docs/SITE_VISIT_REBUILD_SPEC.md.
+Summary: confirmed with the project owner (via live walkthrough of supervisor62's
+/supervisor/site-visit) that "site visit" is really two separate real-world activities —
+a one-time pre-estimate survey and a repeatable post-agreement execution visit — conflated
+into one 21-screen form. The 23 standalone Screen0X_*.tsx files in
+app/supervisor/site-visit/, previously assumed dead clutter, turned out to be the CORRECT
+survey implementation (already saving to the exact columns generateBOQ/EstimateConsole/
+ScopeReportView read) that simply never got wired to a route. Built /site-survey/[bookingRef]
++ SiteSurveyManager.tsx to orchestrate the 20 of them that are actually correct (4 were
+duplicate-numbered drafts, discarded), fixed 3 more internal column-name bugs found while
+wiring (Screen04_Walls, Screen10_Tiles, Screen11_Fixtures), and added a dashboard entry point
+for confirmed-status jobs. Limited to supervisor/site_incharge logins for now — extending to
+admin/coordinator/sub_coordinator/superadmin needs a "who filled this" schema decision, not
+guessed.
+
+## NEXT SESSION — START HERE (Updated 24 Sep 2026)
+- Flow (i) Site Survey is built but NOT YET TESTED end to end. Need a real (or
+  test) booking at guest_enquiries.status = 'confirmed' with no site_visit_reports
+  row yet. Log in as supervisor62, go to /supervisor/dashboard, find that job in
+  "Scope Surveys / Client Visits", click "Start Site Survey", go through all 20
+  screens, submit, then check that generateBOQ (/admin/estimate/[bookingRef])
+  produces real quantities instead of the empty-object defaults from before.
+- Flow (ii) /supervisor/site-visit still has its initReport() bug (scoped by
+  supervisor_id+booking_ref, ignores the slot param, so repeated daily visits to
+  the same booking overwrite each other) — fix before touching any of its
+  per-screen content.
+- Full per-screen fix list for Flow (ii) is in docs/SITE_VISIT_REBUILD_SPEC.md:
+  remarks-on-No pattern (screens 4/5/10/13), LTF per-substage loop (screen 2),
+  deployment auto-populate (screen 3, data already exists on
+  job_milestone_substages.skilled_workers_per_day/unskilled_workers_per_day),
+  test/measurement bank design (screens 11/12, needs a schema decision — see
+  spec's "Not yet designed" section), Screen 14 duplicate-of-Screen-6
+  consolidation, Screen 15 -> wire to existing app/supervisor/extra-works
+  submitExtraWork()/scope_change_requests (already works, just not connected),
+  Screen 18 -> raise decision_5_raised_at/by/reason on milestone_payment_schedule
+  (the missing half of the already-built admin resolution flow).
+- Supabase: xhlpdbcrncpznrqpcrht
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3
