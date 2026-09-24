@@ -586,3 +586,45 @@ sign-off, not a drip-fix. No code changed this session.
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
+
+## SESSION 60 — 24 Sep 2026 — ENTITY-RELATIONSHIP FREEZE LIST
+Built docs/ENTITY_RELATIONSHIP_FREEZE.md at the project owner's request to finalise the
+schema/relationship map before further code work: 29 relationship items (R1-R29), each with
+current state, proposed fix, and a blank decision box. No code changed.
+
+## SESSION 61 — 24 Sep 2026 — MINED THE ORIGINAL DESIGN LOGS, 48-ENTITY SPEC-VS-LIVE AUDIT
+Full detail in CLAUDE.md's matching entry and docs/ORIGINAL_SPEC_AUDIT.md. Project owner
+uploaded the actual original design conversation (three .docx chat logs, June/July/August
+2026) after correctly rejecting this session's earlier code-only relationship analysis as not
+grounded in what the project actually specified. Extracted all 48 originally-specified
+entities (complete field lists) from the June log by parsing every CREATE TABLE statement,
+then cross-checked every one against the live repo: 23 BUILT, 10 LIVE-ONLY (undocumented
+drift), 17 NOT BUILT AT ALL (confirmed by grep, not assumed), plus 1 built-under-a-different-
+name (estimates -> live client_estimates) that duplicates boq_generated's job -- same pattern
+as the worker-routing duplication from Session 59. Found 3 genuine cases of curtailment across
+the design conversation (assessment_slots, assessment_bookings -- which lost result-capture
+entirely, and policy_change_log -- two competing designs, not simple shrinkage), correctly
+excluding 2 false positives that turned out to be docx-export artifacts rather than real
+content. Delivered three Excel workbooks directly to the project owner (Entity-Relationship
+Model, Canonical Field List with 685 field rows, Live Schema Mapping), then rebuilt all three
+after feedback to add "What Is Actually Coded/Built," a computed "Difference: Spec vs Coded,"
+and a refined recommendation column, keeping the Decision column blank and last throughout.
+No app code changed -- pure audit and deliverable-building.
+
+## NEXT SESSION — START HERE (Updated 24 Sep 2026, Session 61)
+- The project owner is reviewing three delivered Excel workbooks (Entity-Relationship Model,
+  Canonical Field List, Live Schema Mapping) and docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) --
+  no schema migration work starts until decisions come back marked on these.
+- When decisions come back: start with the smallest, highest-value, no-redesign-risk items
+  first (Site Incharge FK, premium-approval re-link, PENDING #15-17), leave the worker-routing
+  redesign (PENDING #20, R24-29) and the 17 not-built-entity decisions (PENDING #21) for once
+  the owner has had time to mark those up individually.
+- Two migrations are still waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
+  and 20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
+- Provision the mktg_agent login in Supabase (PENDING #12).
+- Test the corrected /book flow and Flow (i) Site Survey end to end once testing resumes
+  (deferred to Windows PC per earlier instruction).
+- Supabase: xhlpdbcrncpznrqpcrht
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3

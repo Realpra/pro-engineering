@@ -155,6 +155,10 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 18. [Session 59 finding] Open generateBOQ (app/admin/estimate/[bookingRef]/actions.ts) to Sub-Coordinator and Supervisor as valid draft-estimate sources — today it's callable only from admin's own page, contradicting the confirmed business rule that Estimator/Sub-Coordinator(if labour source)/Supervisor(on first visit) can all draft an estimate.
 19. Build the Rate Intelligence form (/admin/rates/update, PENDING #5) — still doesn't exist as a route. Without it, rate_card/calculation_rules_engine are frozen at their original migration seed, never refreshed from CPWD/market-intelligence sources as the business design (and an earlier session's rate-sourcing work) intended.
 20. [Session 59, broader finding — not yet actioned, needs a decision before any schema migration work] Nearly every cross-entity link in the live schema is a TEXT match (booking_ref, milestone_code) rather than a real foreign key — confirmed via repo-wide grep of every CREATE TABLE/REFERENCES in supabase/migrations/. Tables workers, users, job_milestone_substages, supervisor_daily_routes, scope_change_requests, trade_config, payment_policy have NO migration file at all (live-only, undocumented). A parallel, cleaner entity design once existed in supabase/schema.sql (jobs, job_modules, scope_reports, estimates, milestones etc.) but was abandoned in favor of the current ad hoc live schema built session-by-session — that file is now stale/misleading and should not be used as a reference. "One job, many skilled workers, partial-day/multi-leg routing" is itself modeled THREE separate, uncoordinated ways: worker_day_slots (supervisor-written, TEXT-keyed), worker_shift_schedule (sub-coordinator-written, has a `legs` JSONB column matching the travel-then-work-then-travel route concept exactly, but confirmed NEVER WRITTEN anywhere — read-only decoration on site-incharge's dashboard), and supervisor_daily_routes (coordinator-written, best-normalized of the three, real FK on the worker side, but supervisor-only). Full detail in SESSIONS.md Session 59. A proper fix (one worker_route_legs entity, real FKs throughout) is a deliberate schema-redesign project, not a drip-fix — needs the project owner's go-ahead on scope before starting.
+21. [Session 61 finding] Decide, table by table, on the 17 originally-specified entities confirmed NOT BUILT AT ALL (zero migration, zero live code reference — repo-wide grep, not a guess): job_status_labels, assessment_gate_config, milestone_templates, compliance_field_config, empanelled_firms, labour_contractors, contractor_compliance_log, compliance_records, professional_indemnity, worker_concerns, qip_templates, qip_template_checks, field_validation_reports, qip_check_results, rate_surcharge, daily_labour_utilisation, material_catalogue. Each needs a deliberate build-it-or-retire-it call, not silent neglect. Full detail in docs/ORIGINAL_SPEC_AUDIT.md.
+22. [Session 61 finding] Resolve the client_estimates/boq_generated duplication — the original spec's "estimates" table was built live under the name client_estimates (migration 20260628_estimate_console.sql, near field-for-field match to spec), but boq_generated also exists doing an overlapping job. Same "specified once, built twice under different names" pattern as the worker-routing duplication (PENDING #20) — needs the same fix discipline: decide which is canonical, or merge them.
+23. [Session 61 finding] assessment_bookings' live schema (migration 20260622_assessment_slots.sql) does not capture the assessment result at all (no result/result_notes/photo columns) — a worker can be booked into an assessment slot but nothing live records whether they passed. An earlier, richer version of this table (found in the original design conversation) did capture this. Decide whether to restore result-capture fields.
+24. [Session 61 finding] site_visit_reports' ORIGINAL spec (18 clean, single-purpose screen columns) is now available as a clean reference baseline for the Flow (i)/(ii) split already agreed on (PENDING #8) — see docs/ORIGINAL_SPEC_AUDIT.md for the exact original field shape to rebuild from, instead of designing the split from scratch.
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -495,4 +499,57 @@ whole schema, evidence-first (grep/read against live migrations and code, not as
   go-ahead on scope.
 - NO CODE CHANGED this session -- purely investigation and documentation, per explicit
   instruction to fully establish the record before further work.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 60 — 24 Sep 2026 — ENTITY-RELATIONSHIP FREEZE LIST CREATED
+- Project owner asked to finalise the schema/relationship map before any more code work --
+  built docs/ENTITY_RELATIONSHIP_FREEZE.md: 29 individual relationship items (R1-R29) across
+  4 sections (Role<->Job, core process entities, already-correct clusters, worker
+  deployment/routing), each with current state, a proposed fix, and a blank decision box.
+  No schema migration work starts on any R-item until the owner marks it.
+- Pushed for review; no code changed.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 61 — 24 Sep 2026 — ORIGINAL DESIGN LOGS MINED, 48-ENTITY SPEC VS LIVE AUDIT, 3 EXCEL DELIVERABLES
+- Project owner uploaded the actual original design conversation as three .docx chat logs
+  (June/July/August 2026) and asked for the real role descriptions/entity relationships to be
+  built FROM THOSE, not from this session's own code-inference (which had been correctly
+  called out as "casual" / not grounded in what the project actually specified).
+- Converted all three logs to text (pandoc), extracted every `CREATE TABLE` statement out of
+  the June log programmatically (paren-matching parser, cleaned of pandoc markup) -- found
+  48 distinct originally-specified entities with complete field lists, taking each table's
+  LAST/most-refined version where it was revised multiple times across the conversation.
+- Cross-checked all 48 against the LIVE repo (supabase/migrations/*.sql + repo-wide grep of
+  every `.from('table')` call in app/ and lib/) -- not assumed. Result: 23 BUILT (real
+  migration file), 10 LIVE-ONLY (used in code, no migration -- undocumented drift), 17 NOT
+  BUILT AT ALL (zero migration, zero code reference, confirmed by grep), 1 built-under-a-
+  different-name-and-duplicated (see below). Full list in docs/ORIGINAL_SPEC_AUDIT.md and
+  PENDING #21.
+- REAL FINDING: the spec's `estimates` table WAS built -- live as `client_estimates`
+  (migration 20260628_estimate_console.sql), a near field-for-field match to the original
+  design -- but `boq_generated` also exists doing an overlapping job. Same
+  "specified-once-built-twice" pattern as the worker-routing duplication found Session 59.
+  See PENDING #22.
+- Per explicit instruction not to silently take only the latest version when scope was
+  curtailed across revisions: re-checked every multi-version entity for field-count drops.
+  Of 7 candidates an automated diff flagged, 2 were docx-export artifacts (a truncated paste,
+  a collapsed "N lines hidden" code block) and excluded as such rather than reported as false
+  findings. 3 were genuine: assessment_slots (10 fields -> 5, lost capacity tracking),
+  assessment_bookings (9 fields -> 5, the earlier version captured the actual assessment
+  RESULT -- the live table does not record outcomes at all, PENDING #23), and
+  policy_change_log (not simple shrinkage -- two competing designs for the same audit-log
+  concept, neither matching what's live). These are recorded as separate rows in the
+  deliverables, not merged away.
+- Built and delivered THREE Excel workbooks directly to the project owner (not committed to
+  the repo -- they are working review files with a blank yellow Decision column):
+  1_Entity_Relationship_Model.xlsx, 2_Canonical_Field_List.xlsx (685 field-level rows),
+  3_Live_Schema_Mapping.xlsx. After feedback that the first pass didn't check what's actually
+  coded, rebuilt all three with added columns: "What Is Actually Coded/Built" (real migration/
+  code evidence per entity), "Difference: Spec vs Coded" (computed field-set diff, not
+  asserted), and a refined "Claude Recommendation" -- Decision column stays last, blank.
+- Wrote docs/ORIGINAL_SPEC_AUDIT.md as the permanent, git-tracked summary of this audit (the
+  Excel files themselves live only in the delivery/scratchpad and will not survive session
+  end -- this doc is what persists).
+- No app code changed this session -- pure archaeology/audit + deliverable-building, per the
+  project owner's explicit direction.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
