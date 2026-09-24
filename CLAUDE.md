@@ -159,6 +159,12 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 22. [Session 61 finding] Resolve the client_estimates/boq_generated duplication — the original spec's "estimates" table was built live under the name client_estimates (migration 20260628_estimate_console.sql, near field-for-field match to spec), but boq_generated also exists doing an overlapping job. Same "specified once, built twice under different names" pattern as the worker-routing duplication (PENDING #20) — needs the same fix discipline: decide which is canonical, or merge them.
 23. [Session 61 finding] assessment_bookings' live schema (migration 20260622_assessment_slots.sql) does not capture the assessment result at all (no result/result_notes/photo columns) — a worker can be booked into an assessment slot but nothing live records whether they passed. An earlier, richer version of this table (found in the original design conversation) did capture this. Decide whether to restore result-capture fields.
 24. [Session 61 finding] site_visit_reports' ORIGINAL spec (18 clean, single-purpose screen columns) is now available as a clean reference baseline for the Flow (i)/(ii) split already agreed on (PENDING #8) — see docs/ORIGINAL_SPEC_AUDIT.md for the exact original field shape to rebuild from, instead of designing the split from scratch.
+25. [Session 62 finding, HIGH PRIORITY] /supervisor/approval/[id] does not exist as a route at all — confirmed via repo-wide file search. Every "Review & Approve" and "Send Back" action across app/supervisor/dashboard, app/supervisor/approvals, and app/supervisor/inspections links to this URL. The entire Supervisor approval gate in the Site Head → Supervisor → Sub-Coordinator → Finance payment chain is a fully-styled read-only view with no working approve/reject action anywhere.
+26. [Session 62 finding] Four more Supervisor routes are dead links, confirmed by file search: /supervisor/reports/new (all 6 report types, including Safety Critical, unreachable — Supervisor has no working incident/safety-escalation path at all once combined with #28 below), /supervisor/instruction (linked from critical-path alerts), /supervisor/milestone-tracker/propose (the only write action offered on the Milestone Tracker screen beyond viewing). Also confirmed fully dead with real data displayed but no backend: app/supervisor/estimate (no actions.ts, no onClick on any input/button) and app/supervisor/scope-verification (same — already flagged Session 58, reconfirmed). app/supervisor/route/plan's manual "Add Slot to Route" button and app/supervisor/directives' "Acknowledge Directive" button are also inert (no onClick, no actions.ts).
+27. [Session 62 finding] job_milestone_substages (substage-level, written by app/supervisor/milestone-tracker) and milestone_payment_schedule (milestone-level, written independently by app/supervisor/milestone/[bookingRef]) are two separately-writable "milestone submitted" records for the same booking/milestone, linked only one-way (substage-complete syncs forward into payment-schedule; the [bookingRef] route can set payment-schedule status without ever touching the substage table). The two can disagree. Needs the same "which is canonical" decision as PENDING #22.
+28. [Session 62 finding] SA-11 Crew Management's core rule ("Supervisor cannot add workers independently — must request via coordinator") is inverted in live code: SubstageCard.tsx's assignWorkerToSubstage()/removeWorkerFromSubstage() let Supervisor unilaterally add/remove crew with no coordinator-approval step, and no BOCW/safety-induction/deployment-clearance compliance status is ever shown when picking a worker. Also confirmed not built at all: SA-13 Client Handover Sign-Off (digital signature, 12-point checklist), SA-14 Earnings and Payments (no self-service pay view for Supervisor anywhere), and the always-on SOS button (spec: "cannot be disabled by anyone" during work hours) — none exist in app/supervisor/ at all.
+29. [Session 62 finding] SA-7 Ponding Test Log (24-hr hold, timestamped start/end photos, hard block on tiling) and SA-8 Plumbing Pressure Test (3-hr hold, gauge photos, hard block on wall-chase closure) both collapse into one generic Flow (ii) Screen 11 ("Test Results") with plain numeric fields (pressureTestValue, holdTimeMinutes, slopeMeasurement) and no start/end-tap workflow or blocking logic — quality-critical trade sequencing is not enforced in code at all.
+30. [Session 62 finding] Root cause of an earlier session's Supervisor "Job Offer Accept/Decline" write-up (now corrected): the June log's WA-2 (Worker App) screen — Accept/Decline with a 30-minute countdown, 60-minute auto-reassignment — was mistakenly attributed to Supervisor. Supervisor's own early-spec SA-2 (line 10465-10468) does independently describe a similar accept/decline gate, but this was superseded by the later SA-ROUTE mechanism (predictive daily route, Confirm Day Plan lock) and was never built for Supervisor in live code — confirmed no accept/decline UI exists anywhere in app/supervisor/. The real, live, and project-owner-confirmed Act 1 is: Supervisor visits site per the slot fixed by Admin/Coordinator in supervisor_daily_routes. See docs/SUPERVISOR_INFEED_ACT_OUTPUT.md.
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -552,4 +558,52 @@ whole schema, evidence-first (grep/read against live migrations and code, not as
   end -- this doc is what persists).
 - No app code changed this session -- pure archaeology/audit + deliverable-building, per the
   project owner's explicit direction.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 62 — 24 Sep 2026 — SUPERVISOR IN-FEED/ACT/OUTPUT REBUILT AFTER CORRECTION, FULL CODE RE-READ
+- Project owner rejected a prior-session Supervisor in-feed/act/output deliverable as
+  "rubbish and deceitful," correctly identifying that Process 1 ("Job Offer Accept/Decline
+  within a 30-minute countdown") was wrong, and that the table needed field-level detail
+  (not screen-level abstraction) plus a paired "Fields Name Associated in Coding" column next
+  to every Act, and a 3-row WRITTEN/CODED/GAP structure per process.
+- ROOT CAUSE FOUND, confirmed against raw log text: the accept/decline/30-min-countdown
+  language belongs to **WA-2** (Worker App), not Supervisor -- the prior pass had conflated
+  the two apps. Supervisor's own early SA-2 does independently describe a similar gate, but
+  it was superseded later in the same conversation by SA-ROUTE (predictive daily route,
+  Confirm Day Plan lock) and was never built for Supervisor in live code. Both versions are
+  preserved as separate rows in the rebuilt workbook, per the standing "list curtailed scope
+  twice" instruction. Full writeup in docs/SUPERVISOR_INFEED_ACT_OUTPUT.md.
+- Did a full read of all 32 files under app/supervisor/ this session (dashboard, daily-log x6,
+  milestone-tracker x3, extra-works x3, route/plan, certificate, pre-delivery x3, approvals,
+  directives, estimate, inspections, reports, scope-verification, milestone/[bookingRef] x3),
+  not spot checks -- confirmed several new findings the prior pass missed entirely:
+  - /supervisor/approval/[id] does not exist as a route at all, despite being the target of
+    every "Review & Approve"/"Send Back" action across 3 different Supervisor pages -- the
+    entire Site-Head-to-Supervisor approval gate in the payment chain is non-functional
+    (PENDING #25).
+  - /supervisor/reports/new, /supervisor/instruction, and /supervisor/milestone-tracker/propose
+    are also confirmed dead routes; app/supervisor/estimate and app/supervisor/scope-verification
+    are entirely non-functional mockups (real data fetched, zero onClick/actions.ts anywhere in
+    either file); route/plan's manual slot-add and directives' Acknowledge button are also inert
+    (PENDING #26).
+  - job_milestone_substages and milestone_payment_schedule are two independently-writable
+    "milestone submitted" records for the same booking/milestone (one via milestone-tracker,
+    one via the separate milestone/[bookingRef] route), linked only one-way -- same
+    "specified/built twice" pattern as PENDING #22 (PENDING #27).
+  - SA-11 Crew Management's core rule ("Supervisor cannot add workers independently") is
+    inverted in live code -- SubstageCard.tsx lets Supervisor unilaterally assign/remove crew
+    with no coordinator step and no compliance-status visibility. SA-13 (Client Handover
+    Sign-Off), SA-14 (Earnings), and the always-on SOS button are all confirmed not built at
+    all (PENDING #28).
+  - SA-7 Ponding Test Log and SA-8 Plumbing Pressure Test (both hard quality gates with
+    start/end-tap timestamps and blocking logic on downstream trades) collapse into one
+    generic "Test Results" screen with plain numeric fields and no enforcement (PENDING #29).
+- Rebuilt and delivered SUPERVISOR_INFEED_ACT_OUTPUT_v2.xlsx directly to the project owner (not
+  committed -- working review file with a blank Decision column): 19 processes, 59 rows,
+  covering all 9 original Supervisor App modules (SA-1 to SA-14 + SA-ROUTE) plus 8 live-only
+  screens with no original spec match, each with paired "Fields Name Associated in Coding"
+  columns next to every Act.
+- Wrote docs/SUPERVISOR_INFEED_ACT_OUTPUT.md as the permanent, git-tracked summary.
+- No app code changed this session -- pure audit/correction + deliverable-building, per the
+  project owner's explicit instruction.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3

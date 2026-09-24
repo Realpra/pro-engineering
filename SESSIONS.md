@@ -611,14 +611,43 @@ after feedback to add "What Is Actually Coded/Built," a computed "Difference: Sp
 and a refined recommendation column, keeping the Decision column blank and last throughout.
 No app code changed -- pure audit and deliverable-building.
 
-## NEXT SESSION — START HERE (Updated 24 Sep 2026, Session 61)
-- The project owner is reviewing three delivered Excel workbooks (Entity-Relationship Model,
-  Canonical Field List, Live Schema Mapping) and docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) --
-  no schema migration work starts until decisions come back marked on these.
-- When decisions come back: start with the smallest, highest-value, no-redesign-risk items
-  first (Site Incharge FK, premium-approval re-link, PENDING #15-17), leave the worker-routing
-  redesign (PENDING #20, R24-29) and the 17 not-built-entity decisions (PENDING #21) for once
-  the owner has had time to mark those up individually.
+## SESSION 62 — 24 Sep 2026 — SUPERVISOR IN-FEED/ACT/OUTPUT REBUILT AFTER CORRECTION
+Full detail in CLAUDE.md's matching entry and docs/SUPERVISOR_INFEED_ACT_OUTPUT.md. Project
+owner rejected the prior Supervisor in-feed/act/output deliverable, correctly flagging that
+Process 1 ("Job Offer Accept/Decline, 30-minute countdown") was wrong and that the table
+needed field-level detail, not screen-level abstraction. Root cause confirmed against raw log
+text: that language belongs to the Worker App's WA-2 screen, not Supervisor -- conflated by
+the prior pass. Supervisor's own early SA-2 does independently specify something similar, but
+it was superseded later in the same conversation by SA-ROUTE (predictive daily route,
+Confirm Day Plan lock) and never built for Supervisor live; both versions are preserved as
+separate rows per the standing "list curtailed scope twice" rule. Did a full, non-spot-check
+read of all 32 files under app/supervisor/ this session and found several new live defects the
+prior pass missed: /supervisor/approval/[id] doesn't exist despite being the target of every
+approve/reject action in the payment chain; four more dead routes (reports/new, instruction,
+milestone-tracker/propose, plus fully-mockup estimate and scope-verification pages); two
+disconnected milestone-submission records (job_milestone_substages vs milestone_payment_schedule);
+Crew Management's core "cannot add workers independently" rule is inverted in live code; SA-7/
+SA-8's hard quality-gate blocking logic (ponding/pressure tests) doesn't exist, just a free-text
+numeric screen; SA-13 (client sign-off), SA-14 (earnings), and the always-on SOS button are all
+confirmed not built at all. Rebuilt and delivered SUPERVISOR_INFEED_ACT_OUTPUT_v2.xlsx (19
+processes, 59 rows, field-level, paired Fields-in-Coding columns) directly to the project
+owner. No app code changed -- pure audit/correction + deliverable-building.
+
+## NEXT SESSION — START HERE (Updated 24 Sep 2026, Session 62)
+- The project owner is reviewing SUPERVISOR_INFEED_ACT_OUTPUT_v2.xlsx (19 processes) alongside
+  the three Session 61 Excel workbooks and docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) -- no
+  schema migration or Supervisor-code fix starts until decisions come back marked on these.
+- Once Supervisor's format is confirmed acceptable by the project owner, the same
+  in-feed/act/output methodology (WRITTEN/CODED/GAP, field-level, Fields-in-Coding columns) is
+  to be extended to the remaining roles: Super Admin, Admin, Coordinator, Sub-Coordinator, Site
+  Incharge, Client -- gated on that confirmation, not to be started early.
+- Highest-priority live defect found this session, if/when code work resumes: PENDING #25 --
+  /supervisor/approval/[id] doesn't exist, so the entire Supervisor approval gate in the
+  Site-Head-to-Finance payment chain is non-functional today.
+- When schema decisions come back: start with the smallest, highest-value, no-redesign-risk
+  items first (Site Incharge FK, premium-approval re-link, PENDING #15-17), leave the
+  worker-routing redesign (PENDING #20, R24-29) and the 17 not-built-entity decisions
+  (PENDING #21) for once the owner has had time to mark those up individually.
 - Two migrations are still waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
   and 20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
