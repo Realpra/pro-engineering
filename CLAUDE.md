@@ -31,6 +31,43 @@ Real-life end-to-end flow this platform models, in order:
    inspection/checks/milestones, feeds the DAILY EXECUTION VISIT form (Flow ii
    below), monitors milestones and payments through to completion
 
+ROLE HIERARCHY / ACT-CONCLUSION MODEL (confirmed by project owner 24 Sep 2026 Session 59):
+The role/act mapping was specified at project start: most decisions/approvals/acts
+conclude finally at ONE defined role level (not everything escalates). The exception
+is core strategic/financial/business decisions (e.g. premium % or rebate on an
+estimate) — these are decided by admin and then flow to superadmin for
+information/and-or-correction. This exact mechanism already exists in the schema —
+see "PREMIUM/REBATE ESCALATION" below — it is not a gap to design, it is a gap to
+RE-LINK (the approval decision is captured but never applied back to the live
+estimate). Two further role clarifications from the same session:
+- SITE INCHARGE vs SUPERVISOR are NOT the same role and must not share a link.
+  Site Incharge sits AT one job site for its duration, senior-most on-site person,
+  observes every worker's act, posts evidence/reports and (should) request more
+  resources at day's end. Supervisor oversees MANY jobs across a zone, doing
+  periodic inspection visits fixed during estimate/work-methodology formulation
+  by estimator/supervisor/coordinator, triggered by an LTF-ready signal from Site
+  Incharge or by his own planned daily route. Today's code conflates them onto the
+  single `guest_enquiries.supervisor_id` column — confirmed wrong, needs its own
+  Site Incharge link (see PENDING).
+- ESTIMATOR is a function, not one fixed role: a draft estimate can originate from
+  Estimator, from Sub-Coordinator (if he is the labour/subcontractor source), or
+  from Supervisor (on his first visit to a newly posted job). Today `generateBOQ`
+  is callable only from admin's own page — confirmed too narrow, needs opening to
+  Sub-Coordinator and Supervisor as valid draft-estimate sources.
+
+PREMIUM/REBATE ESCALATION — ALREADY BUILT, DISCONNECTED AT THE LAST STEP (found
+Session 59, 24 Sep 2026): `contingency_policy.admin_approval_limit_pct` defines the
+per-vertical/category/tier threshold; `premium_approval_requests.status` runs
+`pending -> approved_by_admin / approved_by_super_admin / rejected`; superadmin's
+dashboard correctly filters `status='pending' AND boq_total>100000`. This is the
+exact hierarchy the project owner describes. BUT `approved_by_admin` and
+`approved_by_super_admin` are written in exactly 2 places
+(app/admin/dashboard/premium-approval-actions.ts,
+app/superadmin/dashboard/actions.ts) and read NOWHERE else in the codebase —
+confirmed by repo-wide grep. Once approved, nothing writes the approved premium %
+back into boq_generated or the client-facing estimate. This is the top-priority
+re-link (see PENDING).
+
 TWO DISTINCT VISIT FLOWS (confirmed 23 Sep 2026, do not merge back into one form):
 - Flow (i) SITE SURVEY — one-time, pre-estimate, step 2 above. Correct
   implementation already exists but is orphaned (17 standalone Screen0X_*.tsx
@@ -106,6 +143,12 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 12. Provision a real mktg_agent login: in Supabase Dashboard -> Authentication -> Users -> Add User (email + password), copy the generated UUID, then run: INSERT INTO users (id, email, full_name, platform_role) VALUES ('<uuid>', '<email>', '<name>', 'mktg_agent'); (exact pattern verified from app/onboarding/actions.ts's worker-creation insert — do not use supabase/schema.sql's users table definition, it's the stale legacy schema with a different role column entirely)
 13. Decide whether "+ New Job" created by staff/Mktg Agents should be tagged with who created it (no created_by/raised_by column exists on guest_enquiries currently — every job looks the same regardless of source)
 14. Run migration supabase/migrations/20260924_site_visit_reports_slot_scoping.sql in Supabase (adds slot_id column, needed by the initReport() slot-scoping fix)
+15. [Session 59 finding, HIGHEST PRIORITY — confirmed built-but-disconnected] Re-link premium/rebate approval: once premium_approval_requests.status is set to approved_by_admin or approved_by_super_admin, nothing applies the approved premium % back into boq_generated/the client-facing estimate. Fix in app/admin/dashboard/premium-approval-actions.ts + app/superadmin/dashboard/actions.ts's approve actions — each needs to also update the live BOQ total, not just the request row.
+16. [Session 59 finding] Give Site Incharge its own FK on guest_enquiries (e.g. site_incharge_id), separate from supervisor_id — confirmed they are two different roles/cardinalities (one Site Incharge embedded per job vs one Supervisor across many jobs), currently forced to share one column.
+17. [Session 59 finding] Build an outbound "request more resources" channel for Site Incharge — today site_instructions only flows INTO Site Incharge (issued_to) from Sub-Coordinator; there is no code path for Site Incharge to raise a request outward. daily_site_logs, despite sounding like Site Incharge's daily report, is actually built for and used by Supervisor only (confirmed via migration comment + code).
+18. [Session 59 finding] Open generateBOQ (app/admin/estimate/[bookingRef]/actions.ts) to Sub-Coordinator and Supervisor as valid draft-estimate sources — today it's callable only from admin's own page, contradicting the confirmed business rule that Estimator/Sub-Coordinator(if labour source)/Supervisor(on first visit) can all draft an estimate.
+19. Build the Rate Intelligence form (/admin/rates/update, PENDING #5) — still doesn't exist as a route. Without it, rate_card/calculation_rules_engine are frozen at their original migration seed, never refreshed from CPWD/market-intelligence sources as the business design (and an earlier session's rate-sourcing work) intended.
+20. [Session 59, broader finding — not yet actioned, needs a decision before any schema migration work] Nearly every cross-entity link in the live schema is a TEXT match (booking_ref, milestone_code) rather than a real foreign key — confirmed via repo-wide grep of every CREATE TABLE/REFERENCES in supabase/migrations/. Tables workers, users, job_milestone_substages, supervisor_daily_routes, scope_change_requests, trade_config, payment_policy have NO migration file at all (live-only, undocumented). A parallel, cleaner entity design once existed in supabase/schema.sql (jobs, job_modules, scope_reports, estimates, milestones etc.) but was abandoned in favor of the current ad hoc live schema built session-by-session — that file is now stale/misleading and should not be used as a reference. "One job, many skilled workers, partial-day/multi-leg routing" is itself modeled THREE separate, uncoordinated ways: worker_day_slots (supervisor-written, TEXT-keyed), worker_shift_schedule (sub-coordinator-written, has a `legs` JSONB column matching the travel-then-work-then-travel route concept exactly, but confirmed NEVER WRITTEN anywhere — read-only decoration on site-incharge's dashboard), and supervisor_daily_routes (coordinator-written, best-normalized of the three, real FK on the worker side, but supervisor-only). Full detail in SESSIONS.md Session 59. A proper fix (one worker_route_legs entity, real FKs throughout) is a deliberate schema-redesign project, not a drip-fix — needs the project owner's go-ahead on scope before starting.
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -382,4 +425,68 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
   files specifically, since the untouched baseline noise elsewhere in the repo is large --
   same pre-existing TS2307/TS7006/TS7026 environmental noise as every prior session).
 - NOT TESTED, per explicit user instruction.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 59 — 24 Sep 2026 — FULL ENTITY-RELATIONSHIP / ROLE-HIERARCHY REVIEW (NO CODE CHANGES)
+Pure investigation and documentation session, at the project owner's explicit direction, before
+any further code work: establish the real entity-relationship map and role-hierarchy across the
+whole schema, evidence-first (grep/read against live migrations and code, not assumption).
+- Confirmed via repo-wide grep of every CREATE TABLE/REFERENCES in supabase/migrations/:
+  `workers`, `users`, `job_milestone_substages`, `supervisor_daily_routes`,
+  `scope_change_requests`, `trade_config`, `payment_policy` have NO migration file at all --
+  pure live-only schema, undocumented in the repo, despite `workers`/`users` being the two most
+  heavily FK-referenced tables in the system.
+- Confirmed `guest_enquiries` (the de facto Job entity) is the target of a real FK from
+  essentially nowhere -- every other table links to it via `booking_ref` TEXT match, not a
+  foreign key. Its own migration comment says a job should convert into a real `jobs` row once
+  qualified by staff -- never built; guest_enquiries has been the permanent Job entity for the
+  system's whole life.
+- Found `supabase/schema.sql`: a clean, normalized, FK-correct entity design (`users`, `workers`,
+  `jobs`, `job_modules`, `scope_reports`, `estimates`, `zone_cost_database`, `milestones`,
+  `deployment_ratings`, `bocw_cess_records`, `worker_day_tracker`, `risk_flags`) that was
+  abandoned in favor of the current organically-grown live schema. It still sits in the repo and
+  is stale/misleading -- do not use it as a reference for anything live.
+- Built a full role x Job relationship table from evidence (grep of every role folder's
+  `.from('guest_enquiries')` calls + the table's RLS policy): Super Admin, Admin, Coordinator,
+  and Sub-Coordinator all have UNIVERSAL, UNSCOPED access to every job today -- no FK, no
+  `.eq()` filter on any role identity anywhere in their code, and the table's own RLS policy is
+  `USING (true)` for any authenticated user. Supervisor is the ONLY role with real per-job
+  scoping (`guest_enquiries.supervisor_id -> workers.id`). Site Incharge shares that exact same
+  column. Client scopes via live-only `client_user_id`/`contact_email`/`client_phone`. Mktg
+  Agent has no relationship to jobs at all beyond linking out to /book.
+- Project owner confirmed (see updated ROLE HIERARCHY section above): most acts/approvals
+  conclude at ONE fixed role by original design (not universal-access-by-accident) -- the
+  exception is strategic/financial decisions (premium/rebate on an estimate) which escalate to
+  superadmin. Investigated and CONFIRMED this exact mechanism already exists, fully built,
+  correctly threshold-gated (`contingency_policy.admin_approval_limit_pct`,
+  `premium_approval_requests.status` chain, superadmin dashboard filtered by
+  `boq_total > 100000`) -- but disconnected at the last step: `approved_by_admin` /
+  `approved_by_super_admin` are written in exactly 2 files and read nowhere else in the
+  repo, so an approved premium never reaches the live estimate. Top-priority fix, see PENDING
+  #15.
+- Project owner confirmed Site Incharge and Supervisor are structurally different (one embedded
+  per-job presence vs. one person covering many jobs' periodic inspections) and must not share
+  a link. Investigated `daily_site_logs` as a candidate Site-Incharge entity -- it's actually
+  built for and used by Supervisor only (per its own migration comment), not Site Incharge.
+  Site Incharge's real activity is on `job_milestone_substages` (evidence/checklist) plus
+  read-only `site_instructions` -- confirmed there is no code path for Site Incharge to send a
+  resource request outward, only to receive instructions. See PENDING #16-17.
+- Project owner confirmed Estimator is a function performable by Estimator, Sub-Coordinator (if
+  labour-sourcing), or Supervisor (on first visit to a new job) -- not one fixed role.
+  Investigated `generateBOQ`: callable only from `app/admin/estimate/`, confirmed too narrow.
+  Also confirmed PENDING #5's Rate Intelligence form (`/admin/rates/update`) still doesn't exist
+  as a route -- `rate_card`/`calculation_rules_engine` are frozen at their original seed. See
+  PENDING #18-19.
+- Investigated the "one job, many skilled workers, partial-day/multi-leg routing" requirement
+  (project owner's own example): found it modeled THREE separate, uncoordinated ways --
+  `worker_day_slots` (supervisor-written, TEXT-keyed, no travel concept), `worker_shift_schedule`
+  (sub-coordinator-written, has a `legs` JSONB column matching the travel-then-work-then-travel
+  concept exactly, but confirmed via repo-wide grep to be NEVER WRITTEN anywhere -- pure
+  read-only decoration on the site-incharge dashboard), and `supervisor_daily_routes`
+  (coordinator-written, best-normalized of the three with real time fields and a real FK, but
+  scoped to supervisors only). None of the three know the other two exist. See PENDING #20 --
+  flagged as a deliberate schema-redesign item, not a drip-fix, pending the project owner's
+  go-ahead on scope.
+- NO CODE CHANGED this session -- purely investigation and documentation, per explicit
+  instruction to fully establish the record before further work.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3

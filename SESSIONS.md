@@ -528,8 +528,47 @@ but left the actual Screen 14 removal/renumbering undone, since SCREEN_COLUMNS i
 and shifting it risks breaking already-submitted site_visit_reports rows without a way to
 verify live. tsc clean.
 
-## NEXT SESSION — START HERE (Updated 24 Sep 2026, continued further)
-- Two migrations are now waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
+## SESSION 59 — 24 Sep 2026 — FULL ENTITY-RELATIONSHIP / ROLE-HIERARCHY REVIEW (NO CODE CHANGES)
+Full detail in CLAUDE.md's matching entry. At the project owner's explicit direction, stopped
+feature work to establish the real entity-relationship map and role hierarchy across the whole
+schema, evidence-first. Key confirmed findings: `workers`/`users`/`job_milestone_substages`/
+`supervisor_daily_routes`/`scope_change_requests`/`trade_config`/`payment_policy` have no
+migration file at all (live-only); `guest_enquiries` (the Job entity) is linked to almost
+everything via `booking_ref` TEXT match, never a real FK; a clean abandoned entity design sits
+stale in `supabase/schema.sql` and should not be used as a reference. Built a full role x Job
+table from grep evidence: Super Admin/Admin/Coordinator/Sub-Coordinator have universal unscoped
+access to every job (RLS is `USING (true)` for any authenticated user); Supervisor is the only
+role with real per-job FK scoping (`supervisor_id`); Site Incharge wrongly shares that same
+column. Project owner then confirmed the role/act hierarchy was defined at project start (acts
+conclude at one role, except strategic/financial decisions which escalate to superadmin) --
+investigated and found this exact premium/rebate escalation mechanism already fully built
+(`contingency_policy.admin_approval_limit_pct`, `premium_approval_requests.status` chain,
+superadmin's `boq_total>100000` filter) but disconnected at the last step: the approved status
+is never read anywhere, so an approved premium never reaches the live estimate -- now the
+single highest-priority fix (PENDING #15). Also confirmed via code: Site Incharge has no
+outbound resource-request channel (only receives instructions) and `daily_site_logs` -- despite
+sounding like Site Incharge's report -- is actually Supervisor's own daily log; `generateBOQ` is
+callable only from Admin's page though Sub-Coordinator/Supervisor should also be able to draft
+estimates per the confirmed business rule; the Rate Intelligence form still doesn't exist.
+Investigated the project owner's own "one job, many skilled workers, partial-day routing"
+example and found it modeled three separate, uncoordinated ways (`worker_day_slots`,
+`worker_shift_schedule` with a `legs` JSONB column that's built but never written anywhere,
+and `supervisor_daily_routes`) -- flagged as a deliberate schema-redesign item pending scope
+sign-off, not a drip-fix. No code changed this session.
+
+## NEXT SESSION — START HERE (Updated 24 Sep 2026, Session 59)
+- HIGHEST PRIORITY (Session 59 finding): re-link the premium/rebate approval -- once
+  premium_approval_requests.status is approved_by_admin/approved_by_super_admin, apply the
+  approved premium % back into boq_generated/the client-facing estimate. See CLAUDE.md
+  PENDING #15 for exact file locations.
+- Give Site Incharge its own FK on guest_enquiries, separate from supervisor_id, and build an
+  outbound resource-request channel for Site Incharge (PENDING #16-17).
+- Open generateBOQ to Sub-Coordinator and Supervisor as valid draft-estimate sources; build the
+  Rate Intelligence form (PENDING #18-19).
+- Larger, scope-decision-needed item: the worker-route/deployment schema redesign (PENDING #20)
+  -- three uncoordinated tables modeling the same "worker's day across multiple job legs"
+  concept, needs the project owner's go-ahead on scope before starting.
+- Two migrations are still waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
   (slot_id column, from the initReport() fix) and
   20260924_milestone_payment_schedule_decision_5_remedy.sql (decision_5_remedy column, from
   the Decision 5 raise action) -- CLAUDE.md PENDING #14 and #9.
@@ -540,11 +579,9 @@ verify live. tsc clean.
   (still pending from before)
 - Remaining Flow (ii) items: test/measurement bank schema decision (screens 11/12, see
   docs/SITE_VISIT_REBUILD_SPEC.md "Not yet designed"), and the actual Screen 14
-  duplicate-of-Screen-6 removal/renumbering (investigated but not executed this session --
-  needs live verification against whatever's already in site_visit_reports before shifting
+  duplicate-of-Screen-6 removal/renumbering (investigated but not executed -- needs live
+  verification against whatever's already in site_visit_reports before shifting
   SCREEN_COLUMNS positions)
-- Everything else from the previous NEXT SESSION notes is still open: Flow (i) end-to-end test,
-  client_description wiring into the client-facing estimate view
 - Supabase: xhlpdbcrncpznrqpcrht
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
