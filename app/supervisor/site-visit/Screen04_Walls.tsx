@@ -107,7 +107,7 @@ export default function Screen04_Walls({ reportId, onComplete, isReview, onBack 
           return path
         })
       )
-      const result = await saveScreen(reportId, 4, 'screen06_walls', {
+      const result = await saveScreen(reportId, 4, 'screen04_walls', {
         walls: { north: northWall, south: southWall, east: eastWall, west: westWall },
         debondedPlaster: anyPoor ? debondedPlaster : null,
         replasteringSpec: replasteringSpec || null,

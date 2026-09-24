@@ -77,7 +77,7 @@ export default function Screen10_Tiles({ reportId, onComplete, isReview, onBack 
     setSubmitting(true)
     setError(null)
     try {
-      const result = await saveScreen(reportId, 10, 'screen08_tiles', {
+      const result = await saveScreen(reportId, 10, 'screen10_tiles', {
         floorTileFormat,
         floorTileType,
         floorTileTier,

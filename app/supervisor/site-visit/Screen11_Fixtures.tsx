@@ -59,7 +59,7 @@ export default function Screen11_Fixtures({ reportId, onComplete, isReview, onBa
     setSubmitting(true)
     setError(null)
     try {
-      const result = await saveScreen(reportId, 11, 'screen09_fixtures', {
+      const result = await saveScreen(reportId, 11, 'screen11_fixtures', {
         wc,
         wcType: wc === 'replace' ? wcType || null : null,
         wcTier: wc === 'replace' ? wcTier || null : null,

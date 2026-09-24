@@ -775,12 +775,22 @@ export default async function SupervisorDashboardPage() {
                     <p className="text-sm font-semibold text-gray-800">{job.job_title ?? 'Active Job'}</p>
                     <p className="text-xs text-gray-400 mt-0.5 capitalize">{job.job_type} · {[job.zone, job.district].filter(Boolean).join(', ')}</p>
                   </div>
-                  <Link
-                    href={`/supervisor/scope-verification?ref=${job.booking_ref}`}
-                    className="shrink-0 bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg"
-                  >
-                    Open →
-                  </Link>
+                  <div className="shrink-0 flex flex-col gap-1.5 items-end">
+                    {job.status === 'confirmed' && (
+                      <Link
+                        href={`/site-survey/${job.booking_ref}`}
+                        className="bg-[#1F3864] text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+                      >
+                        Start Site Survey →
+                      </Link>
+                    )}
+                    <Link
+                      href={`/supervisor/scope-verification?ref=${job.booking_ref}`}
+                      className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+                    >
+                      Open →
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
