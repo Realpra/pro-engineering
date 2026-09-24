@@ -12,6 +12,12 @@ Read this at the start of every session.
 - GitHub: https://github.com/Realpra/pro-engineering
 - Supabase project: xhlpdbcrncpznrqpcrht
 
+## SCHEMA FREEZE IN PROGRESS (started 24 Sep 2026, Session 60)
+docs/ENTITY_RELATIONSHIP_FREEZE.md is the master line-by-line list of every entity
+relationship (29 items, R1-R29) awaiting the project owner's APPROVE / KEEP CURRENT
+/ MODIFY decision. No schema migration work starts on any of it until marked. Read
+this file before proposing any new FK, table, or relationship change.
+
 ## PROCESS FLOW — READ BEFORE ANY FIELD/SCHEMA DECISION (set 23 Sep 2026)
 Real-life end-to-end flow this platform models, in order:
 1. Client posts a job, OR any role sources one via local outreach -> a job record is created
