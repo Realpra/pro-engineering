@@ -99,7 +99,7 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 5. Rate Intelligence form — /admin/rates/update
 6. End-to-end test — real worker registration
 7. Test Flow (i) Site Survey end to end on a real confirmed-status booking, verify generateBOQ output actually changes
-8. Flow (ii) SiteVisitManager.tsx (/supervisor/site-visit) still needs the remaining per-screen fixes in docs/SITE_VISIT_REBUILD_SPEC.md: remarks-on-No, LTF per-substage loop, deployment auto-populate, test/measurement banks, Screen 14 duplicate-of-Screen-6 consolidation. (initReport() slot-scoping DONE — commit 9863c24, migration 20260924_site_visit_reports_slot_scoping.sql needs to be run in Supabase; Screen 15/17->extra-works wiring DONE; Screen 18->decision_5 wiring DONE — see Session 58 continued-further log below)
+8. Flow (ii) SiteVisitManager.tsx (/supervisor/site-visit) still needs: test/measurement banks (screens 11/12 — needs a schema decision, see docs/SITE_VISIT_REBUILD_SPEC.md "Not yet designed"), Screen 14 duplicate-of-Screen-6 consolidation (confirmed Screen17_RiskFlags.tsx was NOT the source of the duplication — it was an already-discarded Flow (i) draft, now deleted; the actual consolidation — removing Screen 14 from Flow (ii) and renumbering 15-21 down — is still undone because it would shift which SCREEN_COLUMNS index each screen writes to, risky to do blind against any already-submitted live rows without testing). (initReport() slot-scoping DONE — commit 9863c24, migration 20260924_site_visit_reports_slot_scoping.sql needs to be run in Supabase; Screen 15/17->extra-works wiring DONE; Screen 18->decision_5 wiring DONE; remarks-on-No pattern DONE for screens 4/5/10/13; LTF per-substage loop DONE for screen 2; deployment auto-populate DONE for screen 3 — see Session 58 continued-further log below)
 9. Run migration supabase/migrations/20260924_milestone_payment_schedule_decision_5_remedy.sql in Supabase (adds decision_5_remedy column, needed by the Decision 5 raise action now built)
 10. Wire boq_sku_catalogue.client_description into client-facing estimate view (real data, currently unused — Session 58 finding)
 11. Extend Flow (i) Site Survey to admin/coordinator/sub_coordinator/superadmin — needs a decision on identifying "who filled this" for roles with no workers row (give them one, or move actions off workers.id onto users.id)
@@ -339,8 +339,47 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - NOT TESTED, per explicit user instruction ("no testing... work ahead... test when on windows
   pc"). Two migrations now pending for the user to run in Supabase: PENDING #9 (decision_5_remedy)
   and PENDING #14 (slot_id, from the earlier initReport() fix).
-- STILL OPEN in PENDING #8: remarks-on-No pattern (screens 4/5/10/13), LTF per-substage loop
-  (screen 2), deployment auto-populate (screen 3), test/measurement banks (screens 11/12 --
-  needs a schema decision per docs/SITE_VISIT_REBUILD_SPEC.md "Not yet designed"), Screen 14
-  duplicate-of-Screen-6 consolidation.
+- STILL OPEN in PENDING #8 at that point: remarks-on-No pattern (screens 4/5/10/13), LTF
+  per-substage loop (screen 2), deployment auto-populate (screen 3), test/measurement banks
+  (screens 11/12), Screen 14 duplicate-of-Screen-6 consolidation.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 58 CONTINUED FURTHER — 24 Sep 2026 — REMAINING SCREEN FIXES, DEAD DRAFT CLEANUP
+- Continued working ahead per user instruction, no live testing. Picked up the remaining
+  additive (non-renumbering) items from PENDING #8.
+- REMARKS-ON-NO PATTERN (screens 4/5/10/13): these screens already had a couple of
+  half-built remarks boxes, but they were dead -- e.g. Screen 4's hazard box and Screen 10's
+  snag box were `textArea('...', '', () => {}, ...)`: a hardcoded empty value and a no-op
+  onChange, so anything typed there was silently discarded, and most checklist items (all of
+  Screen 5, most of Screen 13) had no remarks capture at all. Added a `checkRowWithRemarks()`
+  helper (wraps the existing `checkRow`) and a single `form.checklistRemarks: Record<string,
+  string>` keyed by field name, so every checklist item across all four screens opens a real,
+  saved remarks box on "No" -- not just one item per screen.
+- Screen 3's "Reason for Mismatch" box had the exact same dead-textarea bug -- fixed with a new
+  `attendanceMismatchReason` field.
+- SCREEN 3 DEPLOYMENT AUTO-POPULATE: "Workers Planned" now defaults from
+  job_milestone_substages.skilled_workers_per_day + unskilled_workers_per_day (added to the
+  substage query in page.tsx and the SubstageData type) instead of being typed by hand, with
+  a fallback to manual entry when no substage/deployment figure is available -- per spec.
+- SCREEN 2 LTF PER-SUBSTAGE LOOP: was one global "LTF Status Confirmed? YES/NO" toggle for the
+  whole job. page.tsx now also loads every job_milestone_substages row for the booking
+  (`allSubstages` prop), and Screen 2 renders one Yes/No + conditional remarks box per
+  sub-stage (`form.ltfBySubstage`, keyed by substage id), replacing the single `ltfConfirmed`
+  boolean.
+- SCREEN 14 CONSOLIDATION -- investigated, not executed: confirmed Screen17_RiskFlags.tsx
+  (flagged in the spec as needing a check first) is NOT related to Flow (ii)'s Screen 14 --
+  it's an already-discarded Flow (i) draft (superseded by Screen17_RiskDecisions.tsx per
+  Session 58's earlier collision-resolution work), never imported anywhere. Deleted it along
+  with 3 other confirmed-dead draft files in the same state (Screen16_Materials.tsx,
+  Screen18_Timeline.tsx, Screen19_Submit.tsx -- verified zero importers repo-wide before
+  deleting). The actual Screen 14/Screen 6 consolidation is left undone: SCREEN_COLUMNS is
+  positional (index = screen number - 1), so removing Screen 14 and renumbering 15-21 down to
+  14-20 would shift which column every later screen writes to -- risky to do blind against
+  whatever's already in site_visit_reports for bookings already visited under the current
+  numbering, without the ability to test. Left for a session where live verification is
+  possible.
+- `npx tsc --noEmit`: no new errors introduced (checked with a targeted grep against these two
+  files specifically, since the untouched baseline noise elsewhere in the repo is large --
+  same pre-existing TS2307/TS7006/TS7026 environmental noise as every prior session).
+- NOT TESTED, per explicit user instruction.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3

@@ -514,20 +514,35 @@ instead of being its own disconnected path. Everything fires from Screen 21's AU
 APPROVE button, same point submitReport() already uses. tsc clean (only pre-existing
 environmental noise, no new errors).
 
+## SESSION 58 CONTINUED FURTHER — 24 Sep 2026 — REMAINING SCREEN FIXES, DEAD DRAFT CLEANUP
+Full detail in CLAUDE.md's matching entry. Summary: fixed several dead-textarea bugs (fields
+that looked live in the UI but were hardcoded to `''` with a no-op onChange, so nothing typed
+was ever saved) via a new `checkRowWithRemarks()` helper + `form.checklistRemarks` map, applied
+to every checklist item across screens 4/5/10/13. Screen 3's "Workers Planned" now
+auto-populates from job_milestone_substages.skilled_workers_per_day/unskilled_workers_per_day.
+Screen 2's single job-wide LTF toggle replaced with one Yes/No + remarks per sub-stage
+(page.tsx now loads all of the booking's job_milestone_substages rows). Investigated Screen 14
+duplicate-of-Screen-6 consolidation: confirmed Screen17_RiskFlags.tsx was an unrelated,
+already-discarded Flow (i) draft (deleted, along with 3 other confirmed-dead draft files) --
+but left the actual Screen 14 removal/renumbering undone, since SCREEN_COLUMNS is positional
+and shifting it risks breaking already-submitted site_visit_reports rows without a way to
+verify live. tsc clean.
+
 ## NEXT SESSION — START HERE (Updated 24 Sep 2026, continued further)
 - Two migrations are now waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
   (slot_id column, from the initReport() fix) and
   20260924_milestone_payment_schedule_decision_5_remedy.sql (decision_5_remedy column, from
-  this session's Decision 5 raise action) -- CLAUDE.md PENDING #14 and #9.
+  the Decision 5 raise action) -- CLAUDE.md PENDING #14 and #9.
 - Provision the mktg_agent login in Supabase (CLAUDE.md PENDING #12), then verify the new
   role's login redirect and dashboard actually work end to end
 - Test the corrected /book flow end to end: confirm a new enquiry submits successfully with
   no payment step and contact_name captured, then continue into Flow (i) Site Survey testing
   (still pending from before)
-- Remaining Flow (ii) per-screen fixes (docs/SITE_VISIT_REBUILD_SPEC.md): remarks-on-No pattern
-  (screens 4/5/10/13), LTF per-substage loop (screen 2), deployment auto-populate (screen 3),
-  test/measurement bank schema decision (screens 11/12), Screen 14 duplicate-of-Screen-6
-  consolidation
+- Remaining Flow (ii) items: test/measurement bank schema decision (screens 11/12, see
+  docs/SITE_VISIT_REBUILD_SPEC.md "Not yet designed"), and the actual Screen 14
+  duplicate-of-Screen-6 removal/renumbering (investigated but not executed this session --
+  needs live verification against whatever's already in site_visit_reports before shifting
+  SCREEN_COLUMNS positions)
 - Everything else from the previous NEXT SESSION notes is still open: Flow (i) end-to-end test,
   client_description wiring into the client-facing estimate view
 - Supabase: xhlpdbcrncpznrqpcrht

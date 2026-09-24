@@ -37,6 +37,15 @@ interface SubstageData {
   float_days: number | null
   early_start_date: string | null
   early_finish_date: string | null
+  skilled_workers_per_day: number | null
+  unskilled_workers_per_day: number | null
+}
+
+interface SubstageSummary {
+  id: string
+  substage_code: string
+  substage_name: string
+  status: string
 }
 
 interface ActiveJob {
@@ -54,6 +63,7 @@ interface Props {
   bookingRef?: string
   slotData: SlotData | null
   substageData: SubstageData | null
+  allSubstages: SubstageSummary[]
   activeJobs: ActiveJob[]
 }
 
@@ -128,6 +138,7 @@ export default function SiteVisitManager({
   bookingRef: bookingRefProp,
   slotData,
   substageData,
+  allSubstages,
   activeJobs,
 }: Props) {
   const [screen, setScreen] = useState(1)
@@ -135,17 +146,23 @@ export default function SiteVisitManager({
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
   const [uploadErrors, setUploadErrors] = useState<Record<number, string>>({})
   const [form, setForm] = useState({
+    // Cross-cutting: remarks captured whenever a checklist item is answered
+    // "No" (screens 4/5/10/13), keyed by the item's own form field name.
+    checklistRemarks: {} as Record<string, string>,
     // S01
     checkedIn: false,
     checkInTime: '',
     // S02
     siteHeadName: '',
     siteHeadNote: '',
-    ltfConfirmed: false,
+    // One LTF (Yes/No + remarks) per sub-stage of the job, keyed by substage id
+    // -- not one toggle for the whole job (docs/SITE_VISIT_REBUILD_SPEC.md Screen 2).
+    ltfBySubstage: {} as Record<string, { confirmed: '' | 'Yes' | 'No'; remarks: string }>,
     // S03
     workersPresent: '',
     workersPlanned: '',
     attendanceMatch: '',
+    attendanceMismatchReason: '',
     // S04
     ppeInUse: '',
     siteAccessClear: '',
@@ -242,6 +259,11 @@ export default function SiteVisitManager({
   // One supervisor_daily_routes slot (or, lacking that, the substage) = one visit.
   // Without this, every visit to the same booking collapsed into one shared row.
   const visitSlotId = slotData?.id ?? substageData?.id ?? null
+  // Screen 3's "Workers Planned" should come from the admin's deployment plan,
+  // not be typed by hand — see docs/SITE_VISIT_REBUILD_SPEC.md Screen 3.
+  const plannedFromDeployment = substageData && (substageData.skilled_workers_per_day != null || substageData.unskilled_workers_per_day != null)
+    ? (substageData.skilled_workers_per_day ?? 0) + (substageData.unskilled_workers_per_day ?? 0)
+    : null
 
   useEffect(() => {
     if (!workerId || workerId === '' || !bookingRef || bookingRef === '' || bookingRef === 'unknown-site') return
@@ -249,6 +271,13 @@ export default function SiteVisitManager({
       if (reportId) setReportId(reportId)
     })
   }, [workerId, bookingRef, jobTitle, visitSlotId])
+
+  useEffect(() => {
+    if (plannedFromDeployment != null && plannedFromDeployment > 0 && !form.workersPlanned) {
+      update('workersPlanned', String(plannedFromDeployment))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plannedFromDeployment])
 
   const next = async () => {
     if (reportId && screen <= SCREEN_COLUMNS.length) {
@@ -309,6 +338,20 @@ export default function SiteVisitManager({
       <p className="text-sm font-medium text-gray-700 flex-1">{label}</p>
       {radioGroup(label, value, ['Yes', 'No', 'N/A'], onChange)}
     </div>
+  )
+
+  // Same as checkRow, but a "No" answer opens a remarks box for that specific
+  // item (screens 4/5/10/13 — every checklist item needs its own remark on
+  // failure, not one shared box for the whole screen).
+  const checkRowWithRemarks = (fieldKey: string, label: string, value: string, onChange: (v: string) => void) => (
+    <>
+      {checkRow(label, value, onChange)}
+      {value === 'No' && (
+        <div className="px-5 pb-3 -mt-1 border-b border-gray-100 last:border-0">
+          {textArea('Remarks', form.checklistRemarks[fieldKey] ?? '', v => update('checklistRemarks', { ...form.checklistRemarks, [fieldKey]: v }), 'Explain why...', 2)}
+        </div>
+      )}
+    </>
   )
 
   const inputField = (label: string, value: string, onChange: (v: string) => void, placeholder = '', type = 'text') => (
@@ -387,11 +430,38 @@ export default function SiteVisitManager({
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 space-y-4">
             {inputField('Site Head / Skill Head Name', form.siteHeadName, v => update('siteHeadName', v), 'Name of person briefing you...')}
             {textArea('Site Head Report / Notes', form.siteHeadNote, v => update('siteHeadNote', v), 'What did the Site Head report — progress, issues, readiness...')}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">LTF Status Confirmed?</p>
-              {radioGroup('ltf', form.ltfConfirmed ? 'Yes' : 'No', ['Yes', 'No'], v => update('ltfConfirmed', v === 'Yes'))}
-            </div>
           </div>
+          <div className="bg-[#1F3864] rounded-2xl px-5 py-3">
+            <p className="text-white font-bold text-sm">LTF Status — per Sub-stage</p>
+            <p className="text-blue-200 text-xs mt-0.5">Confirm readiness for every sub-stage of this job</p>
+          </div>
+          {allSubstages.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+              {allSubstages.map(sub => {
+                const answer = form.ltfBySubstage[sub.id] ?? { confirmed: '', remarks: '' }
+                return (
+                  <div key={sub.id} className="px-5 py-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">{sub.substage_name}</p>
+                        <p className="text-xs text-gray-400">{sub.substage_code} · {sub.status}</p>
+                      </div>
+                      {radioGroup(`ltf-${sub.id}`, answer.confirmed, ['Yes', 'No'], v =>
+                        update('ltfBySubstage', { ...form.ltfBySubstage, [sub.id]: { ...answer, confirmed: v as 'Yes' | 'No' } }))}
+                    </div>
+                    {answer.confirmed === 'No' && (
+                      textArea('Remarks', answer.remarks, v =>
+                        update('ltfBySubstage', { ...form.ltfBySubstage, [sub.id]: { ...answer, remarks: v } }), 'e.g. material did not come...', 2)
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
+              <p className="text-xs text-gray-400">No sub-stages found for this booking yet.</p>
+            </div>
+          )}
         </div>
       )
 
@@ -400,13 +470,28 @@ export default function SiteVisitManager({
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 space-y-4">
             {inputField('Workers Present (actual count)', form.workersPresent, v => update('workersPresent', v), 'e.g. 3', 'number')}
-            {inputField('Workers Planned (from deployment)', form.workersPlanned, v => update('workersPlanned', v), 'e.g. 3', 'number')}
+            {plannedFromDeployment != null ? (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-1.5">Workers Planned (from deployment plan)</p>
+                <input
+                  type="number"
+                  value={form.workersPlanned}
+                  onChange={e => update('workersPlanned', e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
+                />
+                <p className="text-xs text-gray-400 mt-1">Auto-populated as {plannedFromDeployment} from the admin milestone plan — edit only if incorrect (explain below).</p>
+              </div>
+            ) : (
+              <>
+                {inputField('Workers Planned (deployment plan unavailable — enter actual)', form.workersPlanned, v => update('workersPlanned', v), 'e.g. 3', 'number')}
+              </>
+            )}
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-2">Attendance Matches Deployment Plan?</p>
               {radioGroup('attendance', form.attendanceMatch, ['Yes', 'No — Short', 'No — Extra'], v => update('attendanceMatch', v))}
             </div>
             {form.attendanceMatch.startsWith('No') && (
-              textArea('Reason for Mismatch', '', () => {}, 'Explain attendance discrepancy...', 2)
+              textArea('Reason for Mismatch', form.attendanceMismatchReason, v => update('attendanceMismatchReason', v), 'Explain attendance discrepancy...', 2)
             )}
           </div>
         </div>
@@ -416,17 +501,11 @@ export default function SiteVisitManager({
       case 4: return (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            {checkRow('PPE in use by all workers', form.ppeInUse, v => update('ppeInUse', v))}
-            {checkRow('Site access clear and safe', form.siteAccessClear, v => update('siteAccessClear', v))}
-            {checkRow('No hazardous conditions observed', form.noHazards, v => update('noHazards', v))}
-            {checkRow('Workers count matches deployment plan', form.workersCountMatch, v => update('workersCountMatch', v))}
+            {checkRowWithRemarks('ppeInUse', 'PPE in use by all workers', form.ppeInUse, v => update('ppeInUse', v))}
+            {checkRowWithRemarks('siteAccessClear', 'Site access clear and safe', form.siteAccessClear, v => update('siteAccessClear', v))}
+            {checkRowWithRemarks('noHazards', 'No hazardous conditions observed', form.noHazards, v => update('noHazards', v))}
+            {checkRowWithRemarks('workersCountMatch', 'Workers count matches deployment plan', form.workersCountMatch, v => update('workersCountMatch', v))}
           </div>
-          {(form.noHazards === 'No') && (
-            <div className="bg-red-50 border border-red-300 rounded-2xl px-5 py-4">
-              <p className="text-red-700 font-bold text-sm mb-2">⚠ Hazard Identified</p>
-              {textArea('Describe Hazard', '', () => {}, 'Describe the hazard in detail...', 3)}
-            </div>
-          )}
         </div>
       )
 
@@ -434,11 +513,11 @@ export default function SiteVisitManager({
       case 5: return (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            {checkRow('Hard Hat', form.hardHat, v => update('hardHat', v))}
-            {checkRow('Safety Shoes', form.safetyShoes, v => update('safetyShoes', v))}
-            {checkRow('Gloves', form.gloves, v => update('gloves', v))}
-            {checkRow('Eye Protection', form.eyeProtection, v => update('eyeProtection', v))}
-            {checkRow('Safety Harness (if working at height)', form.harness, v => update('harness', v))}
+            {checkRowWithRemarks('hardHat', 'Hard Hat', form.hardHat, v => update('hardHat', v))}
+            {checkRowWithRemarks('safetyShoes', 'Safety Shoes', form.safetyShoes, v => update('safetyShoes', v))}
+            {checkRowWithRemarks('gloves', 'Gloves', form.gloves, v => update('gloves', v))}
+            {checkRowWithRemarks('eyeProtection', 'Eye Protection', form.eyeProtection, v => update('eyeProtection', v))}
+            {checkRowWithRemarks('harness', 'Safety Harness (if working at height)', form.harness, v => update('harness', v))}
           </div>
         </div>
       )
@@ -618,17 +697,12 @@ export default function SiteVisitManager({
       case 10: return (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            {checkRow('Work done as described in substage?', form.workDoneAsDescribed, v => update('workDoneAsDescribed', v))}
-            {checkRow('Evidence photos correct and match actual?', form.photosCorrect, v => update('photosCorrect', v))}
-            {checkRow('Test results within specification?', form.testResultsOk, v => update('testResultsOk', v))}
-            {checkRow('No snags or defects observed?', form.noSnags, v => update('noSnags', v))}
-            {checkRow('Ready for next substage to commence?', form.readyForNext, v => update('readyForNext', v))}
+            {checkRowWithRemarks('workDoneAsDescribed', 'Work done as described in substage?', form.workDoneAsDescribed, v => update('workDoneAsDescribed', v))}
+            {checkRowWithRemarks('photosCorrect', 'Evidence photos correct and match actual?', form.photosCorrect, v => update('photosCorrect', v))}
+            {checkRowWithRemarks('testResultsOk', 'Test results within specification?', form.testResultsOk, v => update('testResultsOk', v))}
+            {checkRowWithRemarks('noSnags', 'No snags or defects observed?', form.noSnags, v => update('noSnags', v))}
+            {checkRowWithRemarks('readyForNext', 'Ready for next substage to commence?', form.readyForNext, v => update('readyForNext', v))}
           </div>
-          {form.noSnags === 'No' && (
-            <div className="bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4">
-              {textArea('Describe Snags / Defects', '', () => {}, 'List all snags observed...')}
-            </div>
-          )}
         </div>
       )
 
@@ -662,16 +736,16 @@ export default function SiteVisitManager({
             <div className="bg-gray-50 px-5 py-3 border-b border-gray-100">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Material Specification Check</p>
             </div>
-            {checkRow('Material grade matches BOQ?', form.materialGradeMatch, v => update('materialGradeMatch', v))}
-            {checkRow('Brand / standard matches?', form.brandMatch, v => update('brandMatch', v))}
-            {checkRow('Quantity on site matches requirement?', form.quantityMatch, v => update('quantityMatch', v))}
+            {checkRowWithRemarks('materialGradeMatch', 'Material grade matches BOQ?', form.materialGradeMatch, v => update('materialGradeMatch', v))}
+            {checkRowWithRemarks('brandMatch', 'Brand / standard matches?', form.brandMatch, v => update('brandMatch', v))}
+            {checkRowWithRemarks('quantityMatch', 'Quantity on site matches requirement?', form.quantityMatch, v => update('quantityMatch', v))}
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gray-50 px-5 py-3 border-b border-gray-100">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Method of Working Check</p>
             </div>
-            {checkRow('Trade sequence correct?', form.tradeSequenceCorrect, v => update('tradeSequenceCorrect', v))}
-            {checkRow('Application method correct?', form.applicationMethodCorrect, v => update('applicationMethodCorrect', v))}
+            {checkRowWithRemarks('tradeSequenceCorrect', 'Trade sequence correct?', form.tradeSequenceCorrect, v => update('tradeSequenceCorrect', v))}
+            {checkRowWithRemarks('applicationMethodCorrect', 'Application method correct?', form.applicationMethodCorrect, v => update('applicationMethodCorrect', v))}
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
             <p className="text-xs font-semibold text-gray-500 mb-2">Overall Workmanship Quality</p>

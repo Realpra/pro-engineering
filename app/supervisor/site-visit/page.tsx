@@ -47,10 +47,23 @@ export default async function SiteVisitPage({
           trade_type, booking_ref, status, completion_pct,
           supervisor_checklist, evidence_checklist, evidence_submitted,
           is_critical_path, planned_day, planned_hours, float_days,
-          early_start_date, early_finish_date`)
+          early_start_date, early_finish_date, skilled_workers_per_day,
+          unskilled_workers_per_day`)
         .eq('id', substage)
         .maybeSingle()
     : { data: null }
+
+  // Load every sub-stage of this booking for Screen 2's LTF loop -- LTF status
+  // is confirmed per sub-stage, not once for the whole job (see
+  // docs/SITE_VISIT_REBUILD_SPEC.md Screen 2).
+  const ltfBookingRef = bookingRef || substageData?.booking_ref || slotData?.site_id
+  const { data: allSubstages } = ltfBookingRef
+    ? await supabase
+        .from('job_milestone_substages')
+        .select('id, substage_code, substage_name, status')
+        .eq('booking_ref', ltfBookingRef)
+        .order('planned_day', { ascending: true })
+    : { data: [] }
 
   // Load active jobs for this supervisor
   const { data: activeJobs } = workerRecord
@@ -70,6 +83,7 @@ export default async function SiteVisitPage({
       bookingRef={bookingRef ?? ''}
       slotData={slotData}
       substageData={substageData}
+      allSubstages={allSubstages ?? []}
       activeJobs={activeJobs ?? []}
     />
   )
