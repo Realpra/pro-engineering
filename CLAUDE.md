@@ -79,6 +79,9 @@ See .env.local for credentials
 - Admin: 7 pages (workers/policy/payments/zones/reports/scope/milestones)
 - Client: /client/login + /client/dashboard/[bookingRef] (11 sections)
 - Super Admin: stages 9-14 built
+- Mktg Agent: /mktg-agent/dashboard (built Session 58 continued) — minimal,
+  single-purpose: "+ New Job" link to /book. platform_role = 'mktg_agent'.
+  No login provisioned yet — see PENDING for the SQL to create one.
 
 ## WORKER FIELDS (34 total across 6 screens)
 Screen 1: fullName, phone, email, aadhaarLast4, pan, state, district
@@ -100,6 +103,8 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 9. Decide + build who raises a "Decision 5" payment case — likely Screen 18 of Flow (ii) once fixed (Session 58 finding, spec'd in docs/SITE_VISIT_REBUILD_SPEC.md)
 10. Wire boq_sku_catalogue.client_description into client-facing estimate view (real data, currently unused — Session 58 finding)
 11. Extend Flow (i) Site Survey to admin/coordinator/sub_coordinator/superadmin — needs a decision on identifying "who filled this" for roles with no workers row (give them one, or move actions off workers.id onto users.id)
+12. Provision a real mktg_agent login: in Supabase Dashboard -> Authentication -> Users -> Add User (email + password), copy the generated UUID, then run: INSERT INTO users (id, email, full_name, platform_role) VALUES ('<uuid>', '<email>', '<name>', 'mktg_agent'); (exact pattern verified from app/onboarding/actions.ts's worker-creation insert — do not use supabase/schema.sql's users table definition, it's the stale legacy schema with a different role column entirely)
+13. Decide whether "+ New Job" created by staff/Mktg Agents should be tagged with who created it (no created_by/raised_by column exists on guest_enquiries currently — every job looks the same regardless of source)
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -266,4 +271,28 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - NEXT: end-to-end test Flow (i), then verify generateBOQ output actually changes with real
   survey data behind it. Flow (ii)'s initReport() slot-scoping bug and the per-screen fixes in
   docs/SITE_VISIT_REBUILD_SPEC.md are still open (PENDING #8).
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 58 CONTINUED FURTHER — 24 Sep 2026 — NO UPFRONT PAYMENT + INTERNAL JOB CREATION + MKTG AGENT ROLE
+- BUSINESS LOGIC CORRECTION: real process is no payment is levied until the job is surveyed,
+  estimated, negotiated with the client, and approved by admin/superadmin. The public /book flow
+  was collecting an "advance token" payment before any of that. Fixed: app/book/payment renamed
+  to app/book/submit, payment method UI (UPI/card/netbanking) removed entirely, insert no longer
+  sets payment_method/token_amount, payment_status left to its 'pending' default. Updated the
+  token/payment messaging in app/book/estimate and app/book/confirmation to match (milestone
+  schedule there is now labeled as an indicative preview, not something due now). Removed
+  lib/booking.ts's now-unused tokenAmount field. Verified via grep that nothing downstream reads
+  payment_status or token_amount, so this was a safe, contained change.
+- NEW: "+ New Job" link added to admin, coordinator, sub-coordinator, supervisor, and superadmin
+  dashboards, pointing straight at /book -- since payment is gone, /book already IS "the job
+  card" for staff to fill on a client's behalf (from local outreach, a phone call, etc.), no
+  separate internal form needed.
+- NEW ROLE: Mktg Agent (platform_role = 'mktg_agent'). Added the login.actions.ts redirect case
+  and a minimal /mktg-agent/dashboard whose only feature is the same "+ New Job" link, matching
+  what this role is for. Code side only -- the actual login (Supabase Auth user + a users row)
+  needs to be provisioned in Supabase; exact SQL is in PENDING #12 (verified against the real
+  insert pattern in app/onboarding/actions.ts, not the stale supabase/schema.sql).
+- OPEN QUESTION for later: no created_by/raised_by column exists on guest_enquiries, so a job
+  created by a Mktg Agent looks identical to one from any other source -- fine for now, but
+  worth deciding if per-agent lead tracking becomes needed (PENDING #13).
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3

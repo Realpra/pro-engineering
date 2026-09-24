@@ -485,3 +485,27 @@ guessed.
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
+
+## SESSION 58 CONTINUED FURTHER — 24 Sep 2026 — NO UPFRONT PAYMENT + JOB CREATION TABS + MKTG AGENT ROLE
+Full detail in CLAUDE.md's matching entry. Summary: removed the "advance token" upfront
+payment requirement from the public /book flow (real process: no payment until survey +
+estimate + client negotiation + admin/superadmin approval are all done) -- renamed
+app/book/payment to app/book/submit, stripped all payment UI, updated the estimate and
+confirmation pages' copy to match. Added "+ New Job" links (pointing to /book, now
+payment-free) into admin/coordinator/sub-coordinator/supervisor/superadmin dashboards. Built
+a new Mktg Agent role (platform_role='mktg_agent') with a minimal single-purpose dashboard --
+code side only, login provisioning SQL is in CLAUDE.md PENDING #12.
+
+## NEXT SESSION — START HERE (Updated 24 Sep 2026, continued)
+- Provision the mktg_agent login in Supabase (CLAUDE.md PENDING #12), then verify the new
+  role's login redirect and dashboard actually work end to end
+- Test the corrected /book flow end to end: confirm a new enquiry submits successfully with
+  no payment step and contact_name captured, then continue into Flow (i) Site Survey testing
+  (still pending from before)
+- Everything else from the previous NEXT SESSION note is still open: Flow (i) end-to-end test,
+  Flow (ii) initReport() slot-scoping bug + per-screen fixes in
+  docs/SITE_VISIT_REBUILD_SPEC.md, Decision 5 raise wiring, client_description wiring
+- Supabase: xhlpdbcrncpznrqpcrht
+- supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3
