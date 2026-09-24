@@ -12,7 +12,7 @@ const STEPS = [
   { paths: ['/book/scope-report'],                                  label: 'Scope Report' },
   { paths: ['/book/estimate'],                                      label: 'Cost Estimate' },
   { paths: ['/book/confirmation'],                                  label: 'Order Confirmation' },
-  { paths: ['/book/payment'],                                       label: 'Token Payment' },
+  { paths: ['/book/submit'],                                        label: 'Submit Enquiry' },
 ]
 
 export default function StepHeader() {

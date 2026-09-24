@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Calendar, MapPin, Wrench, FileText, CreditCard, Shield } from 'lucide-react'
+import { CheckCircle2, Calendar, MapPin, Wrench, FileText, Shield } from 'lucide-react'
 import { getBooking } from '@/lib/booking'
 import { cn, formatINR, formatDate, addWeeks } from '@/lib/utils'
 
@@ -21,10 +21,10 @@ const MILESTONES: Milestone[] = [
 ]
 
 const TERMS = [
-  'The estimate is indicative. Final contract price will be confirmed after detailed BOQ.',
+  'The estimate is indicative. Final contract price will be confirmed after a site survey and detailed BOQ.',
   'GST and BOCW cess are statutory and non-negotiable.',
   'Variations from scope will be priced via approved Variation Orders.',
-  'Payment is milestone-linked; advance token to confirm booking.',
+  'No payment is required to submit this enquiry. Payment is milestone-linked and begins only after you review and approve the final scope and price.',
   'Pro Engineering\'s standard terms and defects liability provisions apply.',
 ]
 
@@ -37,7 +37,6 @@ export default function ConfirmationPage() {
   const [startDate, setStartDate]       = useState('')
   const [durationWeeks, setDuration]    = useState(8)
   const [estimateTotal, setTotal]       = useState(0)
-  const [tokenAmount, setToken]         = useState(25_000)
   const [termsAccepted, setTerms]       = useState(false)
 
   useEffect(() => {
@@ -50,7 +49,6 @@ export default function ConfirmationPage() {
     setStartDate(b.startDate || '')
     setDuration(b.durationWeeks || 8)
     setTotal(b.estimateTotal || 0)
-    setToken(b.tokenAmount || 25_000)
   }, [router])
 
   const endDate = startDate ? addWeeks(startDate, durationWeeks) : ''
@@ -58,7 +56,7 @@ export default function ConfirmationPage() {
 
   function handleProceed() {
     if (!termsAccepted) return
-    router.push('/book/payment')
+    router.push('/book/submit')
   }
 
   return (
@@ -66,7 +64,7 @@ export default function ConfirmationPage() {
       <div className="mb-6">
         <p className="text-xs font-semibold text-blue-700 uppercase tracking-widest mb-1">{jobTitle}</p>
         <h1 className="text-2xl font-bold text-slate-900">Order Confirmation</h1>
-        <p className="text-slate-500 text-sm mt-1">Review your booking before making the advance payment</p>
+        <p className="text-slate-500 text-sm mt-1">Review your enquiry before submitting — no payment required</p>
       </div>
 
       {/* Booking summary */}
@@ -99,11 +97,6 @@ export default function ConfirmationPage() {
             <span className="text-xs text-slate-500 w-28 shrink-0">Estimate Total</span>
             <span className="text-sm font-bold text-slate-900">{formatINR(estimateTotal)}</span>
           </div>
-          <div className="px-5 py-3 flex items-center gap-3">
-            <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="text-xs text-slate-500 w-28 shrink-0">Advance Token</span>
-            <span className="text-sm font-bold text-blue-700">{formatINR(tokenAmount)}</span>
-          </div>
         </div>
       </div>
 
@@ -111,23 +104,15 @@ export default function ConfirmationPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
           <Calendar className="w-4 h-4 text-blue-600" />
-          <h2 className="text-sm font-bold text-slate-900">Payment Milestone Schedule</h2>
+          <h2 className="text-sm font-bold text-slate-900">Indicative Payment Milestone Schedule</h2>
+        </div>
+        <div className="px-5 pt-3">
+          <p className="text-xs text-slate-500 mb-3">
+            No payment now — this previews how payment is structured once you approve the final estimate after survey.
+          </p>
         </div>
 
-        <div className="px-5 pt-4 pb-2">
-          {/* Token row separate */}
-          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
-            <div className="w-8 h-8 rounded-full bg-blue-700 text-white flex items-center justify-center text-xs font-bold shrink-0">T</div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-900">Advance Token</p>
-              <p className="text-xs text-slate-500">Due on booking confirmation</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-bold text-blue-700">{formatINR(tokenAmount)}</p>
-              <p className="text-xs text-slate-400">Adjustable against M1</p>
-            </div>
-          </div>
-
+        <div className="px-5 pt-1 pb-2">
           {MILESTONES.map((m, i) => {
             cumulativePercent += m.percent
             const amount = Math.round(estimateTotal * m.percent / 100)
@@ -202,7 +187,7 @@ export default function ConfirmationPage() {
               : 'bg-slate-100 text-slate-400 cursor-not-allowed',
           )}
         >
-          Proceed to Pay {formatINR(tokenAmount)} →
+          Submit Enquiry →
         </button>
         {!termsAccepted && (
           <p className="text-center text-xs text-slate-400 mt-2">Please accept the terms to continue</p>

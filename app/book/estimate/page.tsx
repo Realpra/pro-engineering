@@ -120,10 +120,9 @@ export default function EstimatePage() {
   const gst         = Math.round((adjustedSub + overhead + profit) * 0.18)
   const bocw        = Math.round(adjustedSub * 0.01)
   const total       = adjustedSub + overhead + profit + gst + bocw
-  const token       = Math.max(25_000, Math.round(total * 0.10))
 
   function handleContinue() {
-    saveBooking({ estimateTotal: total, tokenAmount: token })
+    saveBooking({ estimateTotal: total })
     router.push('/book/confirmation')
   }
 
@@ -256,11 +255,11 @@ export default function EstimatePage() {
         </div>
       </div>
 
-      {/* Token note */}
+      {/* Estimate note */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6">
         <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-800 leading-relaxed">
-          This is an indicative estimate based on scope report. Final contract price subject to detailed drawings and BOQ. Advance token: <strong>{formatINR(token)}</strong> (10% of estimate, min ₹25,000).
+          This is an indicative estimate based on scope report. Final contract price subject to a site survey and detailed BOQ. No payment is required until you review and approve the final scope and price.
         </p>
       </div>
 

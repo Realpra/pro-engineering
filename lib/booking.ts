@@ -13,7 +13,6 @@ export interface BookingState {
   siteVisitSlot?: string
   scopeApproved?: boolean
   estimateTotal?: number
-  tokenAmount?: number
   jobId?: string
 }
 
