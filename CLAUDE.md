@@ -99,12 +99,13 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 5. Rate Intelligence form — /admin/rates/update
 6. End-to-end test — real worker registration
 7. Test Flow (i) Site Survey end to end on a real confirmed-status booking, verify generateBOQ output actually changes
-8. Flow (ii) SiteVisitManager.tsx (/supervisor/site-visit) still needs: initReport() scoped by slot/substage instead of booking_ref (repeated daily visits currently overwrite each other), plus the per-screen fixes in docs/SITE_VISIT_REBUILD_SPEC.md (remarks-on-No, LTF per-substage loop, deployment auto-populate, test/measurement banks, Screen 15->extra-works wiring, Screen 18->decision_5 wiring, Screen 14 duplicate-of-Screen-6 consolidation)
-9. Decide + build who raises a "Decision 5" payment case — likely Screen 18 of Flow (ii) once fixed (Session 58 finding, spec'd in docs/SITE_VISIT_REBUILD_SPEC.md)
+8. Flow (ii) SiteVisitManager.tsx (/supervisor/site-visit) still needs the remaining per-screen fixes in docs/SITE_VISIT_REBUILD_SPEC.md: remarks-on-No, LTF per-substage loop, deployment auto-populate, test/measurement banks, Screen 14 duplicate-of-Screen-6 consolidation. (initReport() slot-scoping DONE — commit 9863c24, migration 20260924_site_visit_reports_slot_scoping.sql needs to be run in Supabase; Screen 15/17->extra-works wiring DONE; Screen 18->decision_5 wiring DONE — see Session 58 continued-further log below)
+9. Run migration supabase/migrations/20260924_milestone_payment_schedule_decision_5_remedy.sql in Supabase (adds decision_5_remedy column, needed by the Decision 5 raise action now built)
 10. Wire boq_sku_catalogue.client_description into client-facing estimate view (real data, currently unused — Session 58 finding)
 11. Extend Flow (i) Site Survey to admin/coordinator/sub_coordinator/superadmin — needs a decision on identifying "who filled this" for roles with no workers row (give them one, or move actions off workers.id onto users.id)
 12. Provision a real mktg_agent login: in Supabase Dashboard -> Authentication -> Users -> Add User (email + password), copy the generated UUID, then run: INSERT INTO users (id, email, full_name, platform_role) VALUES ('<uuid>', '<email>', '<name>', 'mktg_agent'); (exact pattern verified from app/onboarding/actions.ts's worker-creation insert — do not use supabase/schema.sql's users table definition, it's the stale legacy schema with a different role column entirely)
 13. Decide whether "+ New Job" created by staff/Mktg Agents should be tagged with who created it (no created_by/raised_by column exists on guest_enquiries currently — every job looks the same regardless of source)
+14. Run migration supabase/migrations/20260924_site_visit_reports_slot_scoping.sql in Supabase (adds slot_id column, needed by the initReport() slot-scoping fix)
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -295,4 +296,51 @@ Read CLAUDE.md and SESSIONS.md. Tell me what was last built and what is pending.
 - OPEN QUESTION for later: no created_by/raised_by column exists on guest_enquiries, so a job
   created by a Mktg Agent looks identical to one from any other source -- fine for now, but
   worth deciding if per-agent lead tracking becomes needed (PENDING #13).
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 58 CONTINUED FURTHER — 24 Sep 2026 — FLOW (II) SCREEN 17/18 WIRING, DECISION 5 RAISE BUILT
+- Per user instruction to keep working ahead without live testing (deferred to Windows PC),
+  continued Flow (ii) PENDING #8 fixes in app/supervisor/site-visit/SiteVisitManager.tsx.
+- SCREEN 18 PAYMENT PROPOSAL: added the reason fields the project owner specified. Decision 2
+  (Partial Release) now has a "Reasons for Partial Release" box (form.partialReleaseReason).
+  Decision 4 (Hold) now has a "Reasons for Holding Release" box (form.holdReason). Decision 5
+  (Reject), which previously had ZERO conditional UI, now has the full two-part structure: "Why
+  Rejected" (bad quality / not as per design / not as per sequence / others+textbox) and "What to
+  Do" (redo complete / redo part affected / create a substage job / others+textbox).
+- DECISION 5 RAISE ACTION BUILT (closes PENDING #9 -- the missing raise-side of an
+  already-orphaned mechanism first flagged Session 58): new `raiseDecision5()` in
+  app/supervisor/site-visit/actions.ts. Finds the matching milestone_payment_schedule row by
+  booking_ref + milestone_code (from substageData, not yet decision-5-raised), writes
+  decision_5_raised_at/decision_5_raised_by/decision_5_reason and a NEW decision_5_remedy column
+  (migration supabase/migrations/20260924_milestone_payment_schedule_decision_5_remedy.sql --
+  the existing decision_5_reason column only had room for the "why" half, the "what to do" half
+  needed its own column per the spec in docs/SITE_VISIT_REBUILD_SPEC.md). Wired into Screen 21's
+  AUTHORIZE & APPROVE button, the same finalization point submitReport() already uses. Also added
+  decision_5_remedy to app/admin/payments/PaymentCard.tsx (type, NIL_PAYMENT, the live Decision 5
+  queue view, and the resolved-history Cell grid) so admin can actually see the supervisor's
+  recommended remedy, not just the reason -- per the standing CLAUDE.md principle that a field
+  must feed forward into every place that needs it.
+- SCREEN 17 SCOPE CHANGE WIRED to the existing, previously-orphaned submitExtraWork() action
+  (app/supervisor/extra-works/actions.ts) -- also called from Screen 21's AUTHORIZE & APPROVE
+  button, mapping scopeChangeTrigger (Trigger A/B/No Scope Change) to
+  technical_recommendation/client_demand, scopeChangeDesc/scopeChangeTechnicalReason/
+  scopeChangeCostImpact into submitExtraWork's description/justification/rough_items shape.
+- SCREEN 15 CLIENT DECISIONS: its "Client has raised a scope change request (Trigger B)"
+  checkbox was a dead toggle with no backend effect. Rather than give it a second, competing
+  submission path, it now feeds forward into Screen 17 instead (sets scopeChangeTrigger to
+  Trigger B and pre-fills scopeChangeDesc from clientDecisionsPending if empty) -- one scope
+  change submission per visit, at the same Screen 21 finalization point as everything else,
+  per the "one conceptual thing, one entry point" principle rather than two disconnected forms
+  both claiming to raise the same kind of request.
+- `npx tsc --noEmit` run: only the pre-existing environmental noise (node_modules not installed
+  in this remote session -- TS2307/TS7026/TS2875/TS2591/TS7006/TS7031 across lib/supabase*,
+  next.config.ts, proxy.ts, etc., same as every prior session's baseline). No new errors from
+  this change.
+- NOT TESTED, per explicit user instruction ("no testing... work ahead... test when on windows
+  pc"). Two migrations now pending for the user to run in Supabase: PENDING #9 (decision_5_remedy)
+  and PENDING #14 (slot_id, from the earlier initReport() fix).
+- STILL OPEN in PENDING #8: remarks-on-No pattern (screens 4/5/10/13), LTF per-substage loop
+  (screen 2), deployment auto-populate (screen 3), test/measurement banks (screens 11/12 --
+  needs a schema decision per docs/SITE_VISIT_REBUILD_SPEC.md "Not yet designed"), Screen 14
+  duplicate-of-Screen-6 consolidation.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3

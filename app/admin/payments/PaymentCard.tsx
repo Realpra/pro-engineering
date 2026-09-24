@@ -53,6 +53,7 @@ export type Payment = {
   decision_5_raised_by: string | null
   decision_5_raised_at: string | null
   decision_5_reason: string | null
+  decision_5_remedy: string | null
   decision_5_admin_decision: string | null
   decision_5_admin_remarks: string | null
   rework_cost_proposed: number | string | null
@@ -103,6 +104,7 @@ export const NIL_PAYMENT: Payment = {
   decision_5_raised_by: null,
   decision_5_raised_at: null,
   decision_5_reason: null,
+  decision_5_remedy: null,
   decision_5_admin_decision: null,
   decision_5_admin_remarks: null,
   rework_cost_proposed: null,
@@ -420,6 +422,10 @@ export default function PaymentCard({
                 <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-0.5">Decision 5 Reason</p>
                 <p className="text-sm text-amber-900">{payment.decision_5_reason ?? '—'}</p>
               </div>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2">
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-0.5">Supervisor Recommended Remedy</p>
+                <p className="text-sm text-amber-900">{payment.decision_5_remedy ?? '—'}</p>
+              </div>
 
               <ActionBtn onClick={() => toggle('d5confirm')} disabled={isEmpty} className="bg-red-600 hover:bg-red-700">
                 CONFIRM D5
@@ -714,6 +720,7 @@ export default function PaymentCard({
             <Cell label="Platform Remarks" value={payment.platform_remarks ?? '—'} />
             <Cell label="Hold Reason" value={payment.admin_hold_reason ?? '—'} />
             <Cell label="Rejection Reason" value={payment.admin_rejection_reason ?? '—'} />
+            <Cell label="Decision 5 Remedy" value={payment.decision_5_remedy ?? '—'} />
             <Cell label="Decision 5 Decision" value={payment.decision_5_admin_decision ?? '—'} />
             <Cell label="Decision 5 Remarks" value={payment.decision_5_admin_remarks ?? '—'} />
             <Cell label="Rework Proposed" value={money(payment.rework_cost_proposed)} />

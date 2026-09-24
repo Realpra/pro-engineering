@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { initReport, saveScreen, submitReport, uploadSiteVisitPhoto } from './actions'
+import { initReport, saveScreen, submitReport, uploadSiteVisitPhoto, raiseDecision5 } from './actions'
+import { submitExtraWork } from '../extra-works/actions'
 
 interface SlotData {
   id: string
@@ -81,6 +82,20 @@ const SCREEN_COLUMNS = [
   'screen19_materials',
   'screen20_submit',
 ]
+
+const DECISION_5_REASON_LABELS: Record<string, string> = {
+  bad_quality: 'Bad Quality',
+  not_as_per_design: 'Not as per Design',
+  not_as_per_sequence: 'Not as per Trade Sequence',
+  others: 'Other',
+}
+
+const DECISION_5_REMEDY_LABELS: Record<string, string> = {
+  redo_complete: 'Redo Complete',
+  redo_part: 'Redo Part Affected',
+  create_substage_job: 'Create a Substage Job',
+  others: 'Other',
+}
 
 const screenTitles = [
   'Check In',
@@ -194,9 +209,15 @@ export default function SiteVisitManager({
     // S18
     paymentDecision: '',
     releasePercent: '',
+    partialReleaseReason: '',
     rectificationItems: '',
     materialLossEstimate: '',
+    holdReason: '',
     revisedTimeline: '',
+    rejectionWhyReason: '' as '' | 'bad_quality' | 'not_as_per_design' | 'not_as_per_sequence' | 'others',
+    rejectionWhyOther: '',
+    rejectionRemedy: '' as '' | 'redo_complete' | 'redo_part' | 'create_substage_job' | 'others',
+    rejectionRemedyOther: '',
     // S19
     submissionTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     slaBlock: '',
@@ -694,7 +715,13 @@ export default function SiteVisitManager({
               <input
                 type="checkbox"
                 checked={form.scopeChangeTriggerB}
-                onChange={e => update('scopeChangeTriggerB', e.target.checked)}
+                onChange={e => {
+                  update('scopeChangeTriggerB', e.target.checked)
+                  if (e.target.checked) {
+                    update('scopeChangeTrigger', 'Trigger B — Client Demand')
+                    if (!form.scopeChangeDesc) update('scopeChangeDesc', form.clientDecisionsPending)
+                  }
+                }}
                 className="w-4 h-4"
               />
               <p className="text-sm font-medium text-gray-700">Client has raised a scope change request (Trigger B)</p>
@@ -781,6 +808,7 @@ export default function SiteVisitManager({
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 space-y-3">
               {inputField('Release % (70-90)', form.releasePercent, v => update('releasePercent', v), 'e.g. 80', 'number')}
               {textArea('Rectification Items', form.rectificationItems, v => update('rectificationItems', v), 'List items to be rectified...')}
+              {textArea('Reasons for Partial Release', form.partialReleaseReason, v => update('partialReleaseReason', v), 'Why is release partial rather than full...')}
             </div>
           )}
           {form.paymentDecision === '3' && (
@@ -794,6 +822,68 @@ export default function SiteVisitManager({
               {inputField('Material Loss Estimate (₹)', form.materialLossEstimate, v => update('materialLossEstimate', v), 'e.g. 15000', 'number')}
               {textArea('Substages Affected', form.rectificationItems, v => update('rectificationItems', v), 'Which substages are affected...')}
               {textArea('Revised Timeline', form.revisedTimeline, v => update('revisedTimeline', v), 'New estimated completion...')}
+              {textArea('Reasons for Holding Release', form.holdReason, v => update('holdReason', v), 'Why is release being held...')}
+            </div>
+          )}
+          {form.paymentDecision === '5' && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">Why Rejected</p>
+                <div className="space-y-2">
+                  {([
+                    { value: 'bad_quality', label: 'Bad Quality' },
+                    { value: 'not_as_per_design', label: 'Not as per Design' },
+                    { value: 'not_as_per_sequence', label: 'Not as per Trade Sequence' },
+                    { value: 'others', label: 'Others' },
+                  ] as const).map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="rejectionWhyReason"
+                        checked={form.rejectionWhyReason === opt.value}
+                        onChange={() => update('rejectionWhyReason', opt.value)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-medium text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {form.rejectionWhyReason === 'others' && (
+                  <div className="mt-2">
+                    {inputField('Specify Reason', form.rejectionWhyOther, v => update('rejectionWhyOther', v), 'Describe why rejected...')}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">What to Do</p>
+                <div className="space-y-2">
+                  {([
+                    { value: 'redo_complete', label: 'Redo Complete' },
+                    { value: 'redo_part', label: 'Redo Part Affected' },
+                    { value: 'create_substage_job', label: 'Create a Substage Job' },
+                    { value: 'others', label: 'Others' },
+                  ] as const).map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="rejectionRemedy"
+                        checked={form.rejectionRemedy === opt.value}
+                        onChange={() => update('rejectionRemedy', opt.value)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-medium text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {form.rejectionRemedy === 'others' && (
+                  <div className="mt-2">
+                    {inputField('Specify Remedy', form.rejectionRemedyOther, v => update('rejectionRemedyOther', v), 'Describe what should be done...')}
+                  </div>
+                )}
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <p className="text-xs text-red-700 font-semibold">Admin will be notified to confirm this Decision 5 case</p>
+              </div>
             </div>
           )}
         </div>
@@ -896,6 +986,27 @@ export default function SiteVisitManager({
                 <button
                   onClick={async () => {
                     if (reportId) await submitReport(reportId)
+                    if (form.scopeChangeTrigger && !form.scopeChangeTrigger.startsWith('No')) {
+                      await submitExtraWork(workerId, {
+                        booking_ref: bookingRef,
+                        trigger_type: form.scopeChangeTrigger.startsWith('Trigger A') ? 'technical_recommendation' : 'client_demand',
+                        client_request: form.scopeChangeTrigger.startsWith('Trigger B') ? (form.clientDecisionsPending || form.scopeChangeDesc) : null,
+                        description: form.scopeChangeDesc,
+                        justification: form.scopeChangeTechnicalReason,
+                        rough_items: form.scopeChangeCostImpact
+                          ? [{ description: form.scopeChangeDesc || 'Scope change', qty: 1, unit: 'lot', amount: Number(form.scopeChangeCostImpact) || 0 }]
+                          : [],
+                      })
+                    }
+                    if (form.paymentDecision === '5') {
+                      const reason = form.rejectionWhyReason === 'others'
+                        ? form.rejectionWhyOther
+                        : DECISION_5_REASON_LABELS[form.rejectionWhyReason] ?? ''
+                      const remedy = form.rejectionRemedy === 'others'
+                        ? form.rejectionRemedyOther
+                        : DECISION_5_REMEDY_LABELS[form.rejectionRemedy] ?? ''
+                      await raiseDecision5(bookingRef, substageData?.milestone_code ?? null, supervisorName, reason, remedy)
+                    }
                     update('submitted', true)
                   }}
                   className="w-full bg-white text-[#1F3864] font-bold py-4 rounded-2xl text-sm"

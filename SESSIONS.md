@@ -496,15 +496,40 @@ payment-free) into admin/coordinator/sub-coordinator/supervisor/superadmin dashb
 a new Mktg Agent role (platform_role='mktg_agent') with a minimal single-purpose dashboard --
 code side only, login provisioning SQL is in CLAUDE.md PENDING #12.
 
-## NEXT SESSION — START HERE (Updated 24 Sep 2026, continued)
+## SESSION 58 CONTINUED FURTHER — 24 Sep 2026 — FLOW (II) SCREEN 17/18 WIRING, DECISION 5 RAISE BUILT
+Full detail in CLAUDE.md's matching entry. Summary: continued PENDING #8 without live testing,
+per user instruction. Screen 18 Payment Proposal got the reason fields the project owner
+specified (Decision 2 "Reasons for Partial Release", Decision 4 "Reasons for Holding Release",
+and Decision 5's full two-part "Why Rejected" / "What to Do" structure, which previously had
+zero conditional UI at all). Built the missing Decision 5 raise action (`raiseDecision5()` in
+app/supervisor/site-visit/actions.ts) that finally closes PENDING #9 -- admin's resolution side
+was fully built since Session 58 but nothing ever raised a case. It matches the
+milestone_payment_schedule row by booking_ref + milestone_code and writes
+decision_5_raised_at/_by/_reason plus a new decision_5_remedy column (migration
+20260924_milestone_payment_schedule_decision_5_remedy.sql -- the existing reason column had no
+room for the "what to do" half). Also surfaced decision_5_remedy in admin's PaymentCard.tsx so
+it isn't write-only. Screen 17 Scope Change wired to the existing, previously-orphaned
+submitExtraWork() action. Screen 15's dead Trigger-B checkbox now feeds forward into Screen 17
+instead of being its own disconnected path. Everything fires from Screen 21's AUTHORIZE &
+APPROVE button, same point submitReport() already uses. tsc clean (only pre-existing
+environmental noise, no new errors).
+
+## NEXT SESSION — START HERE (Updated 24 Sep 2026, continued further)
+- Two migrations are now waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
+  (slot_id column, from the initReport() fix) and
+  20260924_milestone_payment_schedule_decision_5_remedy.sql (decision_5_remedy column, from
+  this session's Decision 5 raise action) -- CLAUDE.md PENDING #14 and #9.
 - Provision the mktg_agent login in Supabase (CLAUDE.md PENDING #12), then verify the new
   role's login redirect and dashboard actually work end to end
 - Test the corrected /book flow end to end: confirm a new enquiry submits successfully with
   no payment step and contact_name captured, then continue into Flow (i) Site Survey testing
   (still pending from before)
-- Everything else from the previous NEXT SESSION note is still open: Flow (i) end-to-end test,
-  Flow (ii) initReport() slot-scoping bug + per-screen fixes in
-  docs/SITE_VISIT_REBUILD_SPEC.md, Decision 5 raise wiring, client_description wiring
+- Remaining Flow (ii) per-screen fixes (docs/SITE_VISIT_REBUILD_SPEC.md): remarks-on-No pattern
+  (screens 4/5/10/13), LTF per-substage loop (screen 2), deployment auto-populate (screen 3),
+  test/measurement bank schema decision (screens 11/12), Screen 14 duplicate-of-Screen-6
+  consolidation
+- Everything else from the previous NEXT SESSION notes is still open: Flow (i) end-to-end test,
+  client_description wiring into the client-facing estimate view
 - Supabase: xhlpdbcrncpznrqpcrht
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch

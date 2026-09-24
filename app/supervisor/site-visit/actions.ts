@@ -92,6 +92,48 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
   return {}
 }
 
+// Raises the Decision 5 (Reject / Complete Redo) case Screen 18 of Flow (ii)
+// collects. admin's resolution side (app/admin/payments/actions.ts) already
+// reads/writes decision_5_admin_decision etc. on milestone_payment_schedule --
+// this was the missing raise side (CLAUDE.md PENDING #9).
+export async function raiseDecision5(
+  bookingRef: string,
+  milestoneCode: string | null,
+  raisedByRole: string,
+  reason: string,
+  remedy: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  let query = (supabase as SupabaseAny)
+    .from('milestone_payment_schedule')
+    .select('id')
+    .eq('booking_ref', bookingRef)
+    .is('decision_5_raised_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (milestoneCode) query = query.eq('milestone_code', milestoneCode)
+
+  const { data: row, error: fetchErr } = await query.maybeSingle()
+
+  if (fetchErr) return { error: fetchErr.message }
+  if (!row) return { error: 'No matching milestone payment schedule row found for this booking/milestone' }
+
+  const { error: updateErr } = await (supabase as SupabaseAny)
+    .from('milestone_payment_schedule')
+    .update({
+      decision_5_raised_at: new Date().toISOString(),
+      decision_5_raised_by: raisedByRole,
+      decision_5_reason: reason,
+      decision_5_remedy: remedy,
+    })
+    .eq('id', row.id)
+
+  if (updateErr) return { error: updateErr.message }
+  return {}
+}
+
 export async function uploadSiteVisitPhoto(
   bookingRef: string,
   screenName: string,
