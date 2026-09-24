@@ -27,6 +27,7 @@ export async function loginAction(formData: FormData) {
     else if (role === 'client') redirect('/client/dashboard')
     else if (role === 'coordinator') redirect('/coordinator/dashboard')
     else if (role === 'admin') redirect('/admin/dashboard')
+    else if (role === 'mktg_agent') redirect('/mktg-agent/dashboard')
     else if (!profile) return { error: `No profile record found for user ${user.id}. Contact administrator.` }
     else return { error: `Unrecognised role "${profile.platform_role}". Contact administrator.` }
   } catch(e) {

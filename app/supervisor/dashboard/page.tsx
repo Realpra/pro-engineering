@@ -237,6 +237,7 @@ export default async function SupervisorDashboardPage() {
             { href: '/supervisor/directives', label: '📣 Directives', badge: false },
             { href: '/supervisor/reports', label: '📝 Reports', badge: false },
             { href: '/supervisor/certificate', label: '🏅 Certificate', badge: false },
+            { href: '/book', label: '+ New Job', badge: false },
           ].map(item => (
             <Link
               key={item.href}

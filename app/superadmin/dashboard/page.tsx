@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import SuperAdminDashboard from './SuperAdminDashboard'
 
@@ -128,6 +129,12 @@ export default async function SuperAdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/book"
+              className="text-xs font-bold text-white bg-[#2E74B5] px-3 py-1.5 rounded-lg"
+            >
+              + New Job
+            </Link>
             <span className="text-blue-300 text-sm hidden sm:block">{user.email}</span>
             <span className="text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
               Super Admin

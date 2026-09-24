@@ -127,11 +127,19 @@ export default async function CoordinatorDashboardPage() {
             <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider">Pro Engineering</p>
             <p className="text-white font-bold text-sm leading-tight">{displayName} · Coordinator</p>
           </div>
-          <form action="/api/auth/signout" method="POST">
-            <button className="text-blue-300 text-xs font-semibold border border-blue-400/40 px-3 py-1.5 rounded-lg">
-              Sign Out
-            </button>
-          </form>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/book"
+              className="text-white text-xs font-bold bg-[#2E74B5] px-3 py-1.5 rounded-lg"
+            >
+              + New Job
+            </Link>
+            <form action="/api/auth/signout" method="POST">
+              <button className="text-blue-300 text-xs font-semibold border border-blue-400/40 px-3 py-1.5 rounded-lg">
+                Sign Out
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
