@@ -5,19 +5,28 @@ import { createClient } from '@/lib/supabase/server'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
 
+// slotId scopes a report to one Flow (ii) daily execution visit (one
+// supervisor_daily_routes slot = one visit = one row), instead of collapsing
+// every visit to the same booking into a single row. Flow (i) SITE SURVEY
+// (app/site-survey/[bookingRef]) calls this with no slotId at all -- it keeps
+// matching supervisor_id + booking_ref with slot_id IS NULL, unaffected by this.
 export async function initReport(
   supervisorId: string,
   bookingRef: string,
   jobTitle: string,
+  slotId?: string | null,
 ): Promise<{ reportId?: string; error?: string }> {
   const supabase = await createClient()
 
-  const { data: existing, error: fetchErr } = await supabase
+  let query = supabase
     .from('site_visit_reports')
     .select('id')
     .eq('supervisor_id', supervisorId)
     .eq('booking_ref', bookingRef)
-    .maybeSingle()
+
+  query = slotId ? query.eq('slot_id', slotId) : query.is('slot_id', null)
+
+  const { data: existing, error: fetchErr } = await query.maybeSingle()
 
   if (fetchErr) return { error: fetchErr.message }
   if (existing) return { reportId: existing.id }
@@ -27,6 +36,7 @@ export async function initReport(
     .insert({
       supervisor_id: supervisorId,
       booking_ref: bookingRef,
+      slot_id: slotId ?? null,
       status: 'in_progress',
       screen01_job_details: { jobTitle },
     })

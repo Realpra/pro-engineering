@@ -218,13 +218,16 @@ export default function SiteVisitManager({
   const ltfNote = slotData?.ltf_note ?? ''
   const bookingRef = bookingRefProp || substageData?.booking_ref || slotData?.site_id || 'unknown-site'
   const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
+  // One supervisor_daily_routes slot (or, lacking that, the substage) = one visit.
+  // Without this, every visit to the same booking collapsed into one shared row.
+  const visitSlotId = slotData?.id ?? substageData?.id ?? null
 
   useEffect(() => {
     if (!workerId || workerId === '' || !bookingRef || bookingRef === '' || bookingRef === 'unknown-site') return
-    initReport(workerId, bookingRef, jobTitle).then(({ reportId, error }) => {
+    initReport(workerId, bookingRef, jobTitle, visitSlotId).then(({ reportId, error }) => {
       if (reportId) setReportId(reportId)
     })
-  }, [workerId, bookingRef, jobTitle])
+  }, [workerId, bookingRef, jobTitle, visitSlotId])
 
   const next = async () => {
     if (reportId && screen <= SCREEN_COLUMNS.length) {
