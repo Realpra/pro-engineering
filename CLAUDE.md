@@ -610,3 +610,130 @@ whole schema, evidence-first (grep/read against live migrations and code, not as
 - No app code changed this session -- pure audit/correction + deliverable-building, per the
   project owner's explicit instruction.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 63 — 24-25 Sep 2026 — ROUTE/RISK-FLAG REGRESSIONS CONFIRMED, THEN FULL MASTER FLOW-STRINGS WORKBOOK
+- First part of session: rebuilt SUPERVISOR_INFEED_ACT_OUTPUT to v3 then v4 correcting earlier
+  passes, and confirmed three further findings, recorded live as PENDING #31-33:
+  - #31 CONFIRMED REGRESSION (introduced by this project's own Session 58): `supervisor_daily_routes.slot_type`
+    (6 options) is fully modeled in route-planning UI/DB but every slot links to the same
+    `/supervisor/site-visit?slot={id}` (Flow ii) regardless of type -- a `scope_survey`/
+    `client_visit`/`estimate_visit` slot should instead open the pre-confirm Site Survey form at
+    `/site-survey/[bookingRef]`. Confirmed by grep: 3 hard-coded hrefs with no branch on slot_type.
+  - #32 CONFIRMED REGRESSION (Session 58, commit b50a5697): `Screen17_RiskFlags.tsx` was deleted
+    in Session 58's "dead draft cleanup" on the mistaken belief it was an unrelated discarded
+    Flow (i) draft -- per the original June spec (june.md:37217-37238) it was a real, deliberately
+    specified "Risk Flag Summary" screen that aggregates every risk flag from Screens 2-13 and
+    writes `site_visit_reports.risk_flag_count`, a column STILL ACTIVELY READ by
+    `app/admin/scope-report/[id]/page.tsx:70` and `ScopeReportView.tsx:852` -- silently stuck at 0
+    since the only writer was deleted.
+  - #33 Crew Management (SA-11) ambiguity from Session 62 resolved by the project owner:
+    Supervisor MAY move workers unilaterally between his own controlled/active jobs (deliberate
+    flexibility) -- the real gap is narrower: `milestone-tracker/page.tsx:59-62`'s worker pool
+    query has no scoping to the requesting supervisor's own active jobs at all.
+- Second part of session, at the project owner's explicit direction: re-read the entity-
+  relationship freeze status (confirmed all 29 R-items in docs/ENTITY_RELATIONSHIP_FREEZE.md
+  still unmarked), delivered ENTITY_RELATIONSHIP_FREEZE.xlsx for the owner's own-pace review
+  (not committed -- working review file), and confirmed via a direct Supabase query that the
+  live database is PostgreSQL 17.6 -- no blockers for the planned Expand-Contract
+  (`ADD CONSTRAINT ... NOT VALID` + `VALIDATE CONSTRAINT`) zero-downtime FK-migration pattern
+  once schema decisions come back.
+- Project owner then rejected the freeze-list format as far too small for the project's real
+  scope ("thousands... across files") and asked for a fundamentally different deliverable: the
+  REAL, code-verified flow string for every role/entity, written as one row per continuous
+  chain of state-transitions, branching into labelled child rows wherever the code branches
+  (tree notation, `(A: ... | B: ... | C: ...)`), each hop cited to an exact file:line. Built and
+  delivered JOB_FLOW_STRINGS.xlsx tracing `guest_enquiries.status` (the Job entity) this way --
+  76 touchpoints checked, 8 rows, 5 confirmed gaps -- as the template for the format going forward.
+- Project owner then attached all 4 original design-conversation logs (June/July/August/Sept-
+  consolidated 2026) and gave a detailed, verbatim instruction to build ONE master workbook in
+  this exact tree-string format covering EVERY named process area -- Supervisor visit, Payment
+  flow, Worker onboarding, Worker allotment, Job schedule, Job substages & milestones, Client
+  interaction (full lifecycle, job request through takeover), Superadmin flow, Admin flow, and
+  per-role act-chains for Coordinator/Sub-Coordinator/Supervisor/Site Visit Manager/Site Head/
+  Estimator/Worker by type & skill -- with columns C/D/E fully populated on every row (no
+  "n/a") and a NEW dedicated column for the real data field names each row touches, missing no
+  act or field.
+- Launched 6 parallel background research agents (isolated worktrees), each doing an
+  exhaustive grep-and-read (not a sample) of every touchpoint for its assigned tables/pages,
+  cross-referenced against the converted design logs: (1) Coordinator/Sub-Coordinator/Site
+  Incharge full action catalogues, (2) Worker onboarding/allotment/skill-filter trace, (3)
+  Client-facing lifecycle (`/book` through dashboard through payment), (4)
+  `supervisor_daily_routes` + `job_milestone_substages` full lifecycle, (5) Super Admin/Admin
+  full action catalogues, (6) Payment flow across `payment_confirmations`, `milestone_payment_
+  schedule`, `boq_generated`, `premium_approval_requests`, `contingency_policy`,
+  `platform_premium_policy`. All 6 saved to scratchpad for the record.
+- KEY NEW FACTS CONFIRMED THIS SESSION, not previously documented in CLAUDE.md:
+  - `app/admin/dashboard/page.tsx` imports NOTHING but `LogoutButton` -- all 5 of its own
+    approval panels (`WorkersTable`, `BookingsTable`, `MilestoneApprovalsPanel`,
+    `PendingPaymentsPanel`, `PremiumApprovalsPanel`) are fully-written, fully-functional, and
+    NEVER rendered by any page anywhere. This is the exact, single root cause of: the
+    coordinator/admin-verify side of `payment_confirmations` being unreachable, the coordinator-
+    approve/release side of `milestone_payment_schedule` being unreachable, and confirms the
+    premium-approval disconnection (PENDING #15) is worse than previously described -- the
+    admin-side approve/reject actions exist and are correct, they are simply orphaned.
+  - Coordinator's ENTIRE role tree has only 4 live mutations (`assignStaff` + 3 zone-registry
+    actions) -- every other "decision" surface (payments, escalations, procurement, scope-
+    reports quality gate, reports inbox, workers-approval) across ~10 pages is static, unwired
+    UI. `coordinator_approved_at` is read pervasively, written nowhere in the entire codebase.
+  - `contingency_policy` has a genuine column-name-drift bug: Admin's `/admin/policy` edit path
+    writes `contingency_pct`/`max_deviation_pct`; SuperAdmin's edit path writes
+    `max_contingency_pct`/`admin_approval_limit_pct`; the only reader (`getPolicyRate`, used
+    during BOQ generation) reads only the SuperAdmin path's columns -- editing Contingency from
+    the Admin page has NO EFFECT WHATSOEVER on what's actually enforced. Cross-referenced
+    against june.md: this is historical drift from an unfinished column rename, not a typo.
+  - `syncMilestonePaymentStatus` is an exact code duplicate between
+    `app/supervisor/milestone-tracker/actions.ts` and `app/site-incharge/substage/[id]/actions.ts`.
+  - `workers.current_job_id` has two incompatible meanings depending on which of two independent
+    assignment paths wrote it (a substage UUID via Supervisor's `assignWorkerToSubstage`, vs an
+    enquiry UUID via Sub-Coordinator's `assignWorkerToJob`) -- causes a confirmed real lookup bug
+    at `sub-coordinator/workers/page.tsx:226` (looks the UUID up in a map keyed by booking_ref
+    string -- always a miss, under either write path).
+  - The `/book` public wizard's Scope Report and Cost Estimate steps are 100% static/mocked,
+    fully disconnected from the real `boq_generated` estimate shown later in Client Dashboard;
+    the only real DB write in the whole 9-step public flow is the final insert.
+  - Magic-link and OTP client login both generate/store a token but never actually dispatch it
+    via any channel -- confirmed non-functional as implemented, UI shows a static "sent" banner regardless.
+  - `premium_approval_requests` with `boq_total<=100000` have NO reachable approval UI anywhere
+    (SuperAdmin's dashboard filters them out; the Admin-level panel is the orphaned one above) --
+    a genuine coverage gap, not just a duplicate, confirming and sharpening PENDING #15.
+  - NO handover/takeover/documents-vault/rating screen exists anywhere in `app/client/*` --
+    the client-facing lifecycle simply stops after milestone payments with no closing act,
+    despite `/book/confirmation`'s static milestone labels implying Handover/Retention stages.
+  - Site Incharge remains the cleanest role in the whole codebase -- all 3 of its actions are
+    fully live-wired, zero dead UI found, across 3 separate research passes now.
+- Synthesized all 6 agent reports plus the Job/Estimator trace plus the Supervisor v4 content
+  into MASTER_FLOW_STRINGS.xlsx: 17 sheets (~200 rows) -- Notation, Job Lifecycle, Client
+  Interaction, Payment Flow, Worker Onboarding, Worker Allotment & Skill, Job Schedule/Routes,
+  Substages & Milestones, Supervisor Visit, Superadmin Flow, Admin Flow, Coordinator Flow,
+  Sub-Coordinator Flow, Site Incharge Flow, Estimator (cross-role function), Worker by Type &
+  Skill, and a final Role-Assigned Summary Strings sheet (one condensed act-chain row per
+  role) -- delivered directly to the project owner (not committed; working review file).
+  Every row cites exact file:line, every role touching that hop, a finding (live/gap/
+  duplicate/drift, colour-coded), and the real DB column/form-field names involved.
+- No app code changed this session -- pure audit/deliverable-building, per the project owner's
+  explicit direction throughout.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 25 Sep 2026, Session 63)
+- The project owner is now reviewing MASTER_FLOW_STRINGS.xlsx (17 sheets) alongside the three
+  Session 61 Excel workbooks, SUPERVISOR_INFEED_ACT_OUTPUT_v4.xlsx, and
+  docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) -- no schema migration or code fix starts on any
+  of this until decisions come back marked.
+- If/when code work resumes, the two ungated ("Track A") items remain safe to start
+  immediately regardless of R1-R29 decisions: (1) a canonical schema-types contract via
+  `supabase gen types typescript`, (2) writing the 7 missing migration files for tables
+  confirmed live-only (`workers`, `users`, `job_milestone_substages`, `supervisor_daily_routes`,
+  `scope_change_requests`, `trade_config`, `payment_policy`).
+- Highest-value, lowest-redesign-risk fixes once decisions come back, in rough priority order:
+  PENDING #15 (premium/rebate re-link, now confirmed root-caused to the orphaned admin/
+  dashboard panels), #16 (Site Incharge FK), #31 (slot_type link branching -- small, isolated,
+  well-specified fix), #32 (risk_flag_count writer restoration).
+- Two migrations are still waiting to be run in Supabase:
+  20260924_site_visit_reports_slot_scoping.sql and
+  20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
+- Provision the mktg_agent login in Supabase (PENDING #12).
+- Test the corrected /book flow and Flow (i) Site Survey end to end once testing resumes
+  (deferred to Windows PC per earlier instruction).
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3

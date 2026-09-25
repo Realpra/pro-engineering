@@ -633,21 +633,50 @@ confirmed not built at all. Rebuilt and delivered SUPERVISOR_INFEED_ACT_OUTPUT_v
 processes, 59 rows, field-level, paired Fields-in-Coding columns) directly to the project
 owner. No app code changed -- pure audit/correction + deliverable-building.
 
-## NEXT SESSION — START HERE (Updated 24 Sep 2026, Session 62)
-- The project owner is reviewing SUPERVISOR_INFEED_ACT_OUTPUT_v2.xlsx (19 processes) alongside
-  the three Session 61 Excel workbooks and docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) -- no
-  schema migration or Supervisor-code fix starts until decisions come back marked on these.
-- Once Supervisor's format is confirmed acceptable by the project owner, the same
-  in-feed/act/output methodology (WRITTEN/CODED/GAP, field-level, Fields-in-Coding columns) is
-  to be extended to the remaining roles: Super Admin, Admin, Coordinator, Sub-Coordinator, Site
-  Incharge, Client -- gated on that confirmation, not to be started early.
-- Highest-priority live defect found this session, if/when code work resumes: PENDING #25 --
-  /supervisor/approval/[id] doesn't exist, so the entire Supervisor approval gate in the
-  Site-Head-to-Finance payment chain is non-functional today.
-- When schema decisions come back: start with the smallest, highest-value, no-redesign-risk
-  items first (Site Incharge FK, premium-approval re-link, PENDING #15-17), leave the
-  worker-routing redesign (PENDING #20, R24-29) and the 17 not-built-entity decisions
-  (PENDING #21) for once the owner has had time to mark those up individually.
+## SESSION 63 — 24-25 Sep 2026 — MASTER FLOW-STRINGS WORKBOOK (17 SHEETS, ALL ROLES/PROCESSES)
+Full detail in CLAUDE.md's matching entry. Confirmed and recorded 3 further live defects early
+in the session (PENDING #31-33): the Session-58-introduced regression where
+`supervisor_daily_routes.slot_type` never branches which report screen a route slot opens
+(every slot links to Flow ii regardless of type); the Session-58-introduced regression where
+deleting `Screen17_RiskFlags.tsx` as a "discarded draft" actually removed the only writer of
+`site_visit_reports.risk_flag_count`, a column Admin's scope-report view still reads (stuck at
+0 ever since); and the Crew Management ambiguity resolved by the project owner (Supervisor may
+move workers between his own jobs; the real gap is the milestone-tracker worker-pool query
+having no scoping to the requesting supervisor's own jobs at all). Delivered
+ENTITY_RELATIONSHIP_FREEZE.xlsx for the owner's own-pace review and confirmed via direct query
+that the live DB is PostgreSQL 17.6 (no blocker for the planned zero-downtime FK pattern).
+Project owner then rejected the R1-R29 freeze list as far too small for the project's real
+scope and asked for the actual code-verified flow strings instead -- built JOB_FLOW_STRINGS.xlsx
+(tracing guest_enquiries.status, 76 touchpoints, tree-branch notation) as the template, then,
+after being given all 4 original design logs and a detailed formatting instruction, launched 6
+parallel research agents (Coordinator/Sub-Coord/Site Incharge; Worker onboarding/allotment/
+skill; Client lifecycle; Job schedule + substages/milestones; Super Admin/Admin; Payment flow)
+and synthesized everything into MASTER_FLOW_STRINGS.xlsx: 17 sheets, ~200 rows, one continuous
+code-cited act-string per row with tree-branch child rows, columns C/D/E and a new Data Field
+Names column populated throughout. Key new facts this session surfaced (full list in CLAUDE.md):
+`app/admin/dashboard/page.tsx` renders NONE of its own 5 approval panels (root cause of the
+premium-approval disconnection being worse than previously documented); Coordinator has only 4
+live mutations across its entire tree; `contingency_policy` has a confirmed column-name-drift
+bug making the Admin edit path a silent no-op; `workers.current_job_id` has two incompatible
+meanings causing a confirmed real lookup bug; the `/book` public wizard's scope-report/estimate
+steps are 100% mocked; magic-link/OTP client login never actually dispatch; no client
+handover/takeover/rating screen exists anywhere. No app code changed -- pure audit and
+deliverable-building, per the project owner's explicit direction throughout.
+
+## NEXT SESSION — START HERE (Updated 25 Sep 2026, Session 63)
+- The project owner is now reviewing MASTER_FLOW_STRINGS.xlsx (17 sheets) alongside the three
+  Session 61 Excel workbooks, SUPERVISOR_INFEED_ACT_OUTPUT_v4.xlsx, and
+  docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) -- no schema migration or code fix starts until
+  decisions come back marked on these.
+- If/when code work resumes, two items stay ungated regardless of R1-R29 decisions: (1) a
+  canonical schema-types contract via `supabase gen types typescript`, (2) writing the 7
+  missing migration files for confirmed live-only tables (workers, users,
+  job_milestone_substages, supervisor_daily_routes, scope_change_requests, trade_config,
+  payment_policy).
+- Highest-value, lowest-redesign-risk fixes once decisions come back, in rough priority order:
+  PENDING #15 (premium/rebate re-link, now root-caused to the orphaned admin/dashboard
+  panels), #16 (Site Incharge FK), #31 (slot_type link branching -- small, isolated, well-
+  specified), #32 (risk_flag_count writer restoration).
 - Two migrations are still waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
   and 20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
