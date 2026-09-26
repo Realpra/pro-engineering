@@ -167,12 +167,12 @@ Screen 6: declared, agreed (review + declaration only)
 6. End-to-end test — real worker registration
 7. Test Flow (i) Site Survey end to end on a real confirmed-status booking, verify generateBOQ output actually changes
 8. Flow (ii) SiteVisitManager.tsx (/supervisor/site-visit) still needs: test/measurement banks (screens 11/12 — needs a schema decision, see docs/SITE_VISIT_REBUILD_SPEC.md "Not yet designed"), Screen 14 duplicate-of-Screen-6 consolidation (confirmed Screen17_RiskFlags.tsx was NOT the source of the duplication — it was an already-discarded Flow (i) draft, now deleted; the actual consolidation — removing Screen 14 from Flow (ii) and renumbering 15-21 down — is still undone because it would shift which SCREEN_COLUMNS index each screen writes to, risky to do blind against any already-submitted live rows without testing). (initReport() slot-scoping DONE — commit 9863c24, migration 20260924_site_visit_reports_slot_scoping.sql needs to be run in Supabase; Screen 15/17->extra-works wiring DONE; Screen 18->decision_5 wiring DONE; remarks-on-No pattern DONE for screens 4/5/10/13; LTF per-substage loop DONE for screen 2; deployment auto-populate DONE for screen 3 — see Session 58 continued-further log below)
-9. Run migration supabase/migrations/20260924_milestone_payment_schedule_decision_5_remedy.sql in Supabase (adds decision_5_remedy column, needed by the Decision 5 raise action now built)
+9. [DONE Session 66 — run live in Supabase, confirmed Success] Run migration supabase/migrations/20260924_milestone_payment_schedule_decision_5_remedy.sql in Supabase (adds decision_5_remedy column, needed by the Decision 5 raise action now built)
 10. Wire boq_sku_catalogue.client_description into client-facing estimate view (real data, currently unused — Session 58 finding)
 11. Extend Flow (i) Site Survey to admin/coordinator/sub_coordinator/superadmin — needs a decision on identifying "who filled this" for roles with no workers row (give them one, or move actions off workers.id onto users.id)
 12. Provision a real mktg_agent login: in Supabase Dashboard -> Authentication -> Users -> Add User (email + password), copy the generated UUID, then run: INSERT INTO users (id, email, full_name, platform_role) VALUES ('<uuid>', '<email>', '<name>', 'mktg_agent'); (exact pattern verified from app/onboarding/actions.ts's worker-creation insert — do not use supabase/schema.sql's users table definition, it's the stale legacy schema with a different role column entirely)
 13. Decide whether "+ New Job" created by staff/Mktg Agents should be tagged with who created it (no created_by/raised_by column exists on guest_enquiries currently — every job looks the same regardless of source)
-14. Run migration supabase/migrations/20260924_site_visit_reports_slot_scoping.sql in Supabase (adds slot_id column, needed by the initReport() slot-scoping fix)
+14. [DONE Session 66 — run live in Supabase, confirmed Success] Run migration supabase/migrations/20260924_site_visit_reports_slot_scoping.sql in Supabase (adds slot_id column, needed by the initReport() slot-scoping fix)
 15. [Session 59 finding, HIGHEST PRIORITY — confirmed built-but-disconnected] Re-link premium/rebate approval: once premium_approval_requests.status is set to approved_by_admin or approved_by_super_admin, nothing applies the approved premium % back into boq_generated/the client-facing estimate. Fix in app/admin/dashboard/premium-approval-actions.ts + app/superadmin/dashboard/actions.ts's approve actions — each needs to also update the live BOQ total, not just the request row.
 16. [Session 59 finding] Give Site Incharge its own FK on guest_enquiries (e.g. site_incharge_id), separate from supervisor_id — confirmed they are two different roles/cardinalities (one Site Incharge embedded per job vs one Supervisor across many jobs), currently forced to share one column.
 17. [Session 59 finding] Build an outbound "request more resources" channel for Site Incharge — today site_instructions only flows INTO Site Incharge (issued_to) from Sub-Coordinator; there is no code path for Site Incharge to raise a request outward. daily_site_logs, despite sounding like Site Incharge's daily report, is actually built for and used by Supervisor only (confirmed via migration comment + code).
@@ -192,11 +192,13 @@ Screen 6: declared, agreed (review + declaration only)
 31. [Session 63 finding, CONFIRMED REGRESSION — introduced by this project's own Session 58] `supervisor_daily_routes.slot_type` (6 options: inspection, overhang, client_visit, scope_survey, estimate_visit, hq) is fully modeled in the route-planning UI and database, but nothing downstream reads it — every route slot, regardless of stated purpose, links to the same `/supervisor/site-visit?slot={id}` (Flow ii, the post-job-confirmed Daily Execution form). A `scope_survey` or `client_visit`/`estimate_visit` slot (which should open the pre-job-confirmed Site Survey form at `/site-survey/[bookingRef]`) opens the wrong screen set. Confirmed by grep: `app/supervisor/dashboard/page.tsx:575,589` and `app/supervisor/route/plan/page.tsx:310` all hard-code the same href with no branch on `slot.slot_type`. Fix: branch the slot's report link on `slot_type` (client_visit/scope_survey/estimate_visit → Site Survey; inspection/overhang → Daily Execution; hq → no site-visit link).
 32. [Session 63 finding, CONFIRMED REGRESSION — introduced by this project's own Session 58, commit b50a5697] `Screen17_RiskFlags.tsx` was deleted in Session 58's "dead draft cleanup" on the reasoning that it was "an unrelated, already-discarded Flow (i) draft with zero importers." That's true that nothing imported it, but false that it was a draft: per the original June spec (june.md lines 37217-37238) it was a real, deliberately-specified "Risk Flag Summary" screen that aggregates every risk flag raised across Screens 2-13, shows them to Coordinator, and on a "SUBMIT RISK FLAGS FOR COORDINATOR REVIEW" button writes `site_visit_reports.risk_flag_count`. That column is STILL ACTIVELY READ today by `app/admin/scope-report/[id]/page.tsx:70` and `ScopeReportView.tsx:852`, displayed to Admin as every job's "Risk Flags" count — which has been silently stuck at 0 since the only writer was deleted. Needs the aggregation+write-back logic restored (revived screen, or folded into an existing one) before this is considered closed. Full context in docs/SUPERVISOR_INFEED_ACT_OUTPUT.md.
 33. [Session 63 finding] SA-11 Crew Management ambiguity from Session 62 resolved by the project owner: Supervisor MAY move workers unilaterally between HIS OWN controlled/active jobs (deliberate flexibility) — the actual gap is narrower than first flagged: `app/supervisor/milestone-tracker/page.tsx:59-62`'s worker pool query has NO scoping to the requesting supervisor's own controlled jobs at all (`SELECT ... FROM workers` with only zone/trade/skill filters) — it should be restricted to workers already earmarked/assigned to one of THIS supervisor's active jobs (`guest_enquiries.supervisor_id`) for that day, not the entire workers table.
-34. [Session 65] Run migration supabase/migrations/20260926_workers_identity_and_login_fields.sql in Supabase (adds gender/dob/whatsapp_same/whatsapp_phone/login_email columns to workers, needed by the Worker Onboarding freeze fixes now built).
+34. [DONE — confirmed via 2 live Mac test registrations in Session 65 continued] Run migration supabase/migrations/20260926_workers_identity_and_login_fields.sql in Supabase (adds gender/dob/whatsapp_same/whatsapp_phone/login_email columns to workers, needed by the Worker Onboarding freeze fixes now built).
 35. [Session 65] `app/onboarding/actions.ts` (the sibling of `app/onboarding/[trade]/actions.ts`) has its own duplicate, differently-signatured `createWorkerAuthAccount`/`checkPhoneExists` — confirmed by grep to have zero importers anywhere (the landing page `app/onboarding/page.tsx` only renders trade-picker links, never imports it). Orphaned dead code, not fixed this session — build-it-or-retire-it call needed, same discipline as PENDING #21.
 36. [Session 65] `app/coordinator/workers/page.tsx:31`'s `bocwPending` filter (`is_active && approval_status !== 'approved'`) is built on the same dead `'approved'` value fixed elsewhere this session, but this one is a different kind of bug: it's gating BOCW-compliance follow-up on `approval_status` at all, which doesn't look like the right column for a BOCW-specific check. Left alone deliberately — needs its own decision on what this filter should actually check before touching it, not a guess-fix.
 37. [Session 65] `app/admin/workers/WorkerTabs.tsx:17` and `app/admin/workers/page.tsx:44`'s "Previously Approved" tab/stat both key on the same dead `'approved'` value (an `admin_approved` tab already exists separately) — never populates. Needs a decision: retire the tab (recommended, since nothing ever wrote 'approved' and no evidence describes what it was meant to distinguish from admin_approved), or repoint it to a real meaning.
-38. [Session 65 continued] Run the 3 new full-spec migrations in Supabase: `20260926_worker_onboarding_full_spec.sql`, `20260926_geo_zone_sector_many_to_many.sql`, `20260926_worker_profile_photo.sql`. Then live-test the rebuilt 14-screen Mason onboarding flow end to end (see NEXT SESSION section above for the full checklist) — this has not been done at all yet, this cloud session has no Supabase network access.
+38. [DONE Session 66] Run the 3 new full-spec migrations in Supabase: `20260926_worker_onboarding_full_spec.sql`, `20260926_geo_zone_sector_many_to_many.sql`, `20260926_worker_profile_photo.sql`, plus 2 corrective migrations Session 66 found were needed (`20260926_worker_onboarding_check_constraint_fixes.sql` for 5 CHECK-constraint/UI mismatches, and the geo seed's `ON CONFLICT` rewrite). Live-tested the rebuilt 14-screen Mason onboarding flow end to end on production — succeeded (Worker ID WRK-MAS-2026-6972). See Session 66's entry for the 6 bugs the live run caught and fixed along the way.
+41. [Session 66 finding] `workers` has 3 rows (Suresh Singh/Mason, Pradeep Yadav/Electrician, Mohan Das/Waterproofer) with `approval_status = 'approved'`, a value confirmed by full grep + git history to have never been written by any code, past or present. Traced to pre-existing seed/placeholder data from before this repo's git history began (28 Aug 2026) — all 3 share `worker_code = NULL` (impossible via the real registration path) and an identical microsecond timestamp (only possible from a batch INSERT). Project owner's explicit decision: leave as-is deliberately, as a standing data-sanity canary — not a bug to fix.
+42. [Session 66] Duplicate-phone-check catch, the generated Worker2026 login actually being used to sign in, and a *new* (not backfilled) Track-2 acceptance reaching admin's queue live were still not tested this session — only the historical backfill for the 18 already-stuck workers was done and verified. Also not done: the coverage check cross-referencing the live 14-screen run against Worker Onboarding's full branch map for any orphaned UI path.
 39. [Session 65 continued] Propagate the new full-spec worker fields — especially health/physical-restriction data (height/dust/other + the 7 new capability fields) — into the Sub-Coordinator/Coordinator/Admin review UIs (`app/admin/workers/WorkerCard.tsx`, `WorkerTabs.tsx`, `app/coordinator/zone-registry/WorkerAssessmentPanel.tsx`, sub-coordinator's workers page). Per the explicit instruction that this is "a matter of record... moved with the onboarding request to all levels in process of approval" — captured on the worker row now, but not yet surfaced anywhere reviewers actually look. Not started.
 40. [Session 65 continued] Extend the full-spec Worker Onboarding build (currently Mason-only) to the other 8 trades — Plumber, Electrician, Waterproofer, Painter, Carpenter, False Ceiling Installer, Helper, Supervisor. The 14-screen form and actions are already trade-parametrized (`getOnboardingReferenceData(trade)`), so this should mainly mean seeding each trade's own Section C skill questions into `trade_skill_questions` from the original design logs — verify that assumption live on a second trade before treating it as a pure data task.
 
@@ -972,10 +974,105 @@ original design logs have all actually been checked -- not any one alone.**
 - Two decisions still open from the earlier pass, deliberately not guessed at: PENDING #36
   (`bocwPending` filter) and #37 ("Previously Approved" tab).
 - PENDING #35: decide build-it-or-retire-it on the orphaned duplicate `app/onboarding/actions.ts`.
-- Two older migrations are still waiting to be run in Supabase, alongside the three new ones:
-  20260924_site_visit_reports_slot_scoping.sql and
-  20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
+
+## SESSION 66 — 26 Sep 2026 — ACCOUNT SECURITY LOCKDOWN, THEN WORKER ONBOARDING GENUINELY FROZEN
+Two-part session: a full account-security review (collaborator/GitHub/Supabase), then finally
+running Worker Onboarding's live-run + Amendment 2 data-integrity check (Session 65 continued's
+last open item) to completion, live-testing on Windows against the real Supabase project.
+
+**Security lockdown** (project owner had shared repo access with a colleague and wanted it ended
+and audited): confirmed via `list_repository_collaborators`, full commit history, and branch list
+that no unauthorized collaborator, commit, or branch exists on the repo; confirmed via full git
+history scan that no secret was ever committed (`.env.local` always gitignored, zero JWT/key-
+shaped strings in any commit). Real finding, unrelated to the collaborator question: Supabase's
+own linter flagged `public.workers` as **RLS policies exist but RLS itself was disabled** --
+meaning the anon key (public, embedded in the site's JS) could read/write the entire table with
+no restriction despite 5 policies existing. Fixed immediately (`ALTER TABLE workers ENABLE ROW
+LEVEL SECURITY`), confirmed via a repo-wide `pg_policies`-vs-`relrowsecurity` query that no other
+table has the same bug. Rotated the Supabase secret/service-role key end to end (new key created,
+verified live via a direct curl against the REST API using the new key, swapped into local
+`.env.local` and Vercel's env vars, redeployed, re-verified, then the old key was deleted) --
+precautionary, since a hole existed and a collaborator had been present, not because either was
+proven to have been exploited. GitHub account hygiene (SSH keys, OAuth apps, forking, 2FA) handed
+to the project owner as manual checks (no API access to personal account settings from here).
+
+**Worker Onboarding's live run, finally executed** (closing the loop Session 65 continued left
+open): a real Mason registration was run end to end through the actual rebuilt 14-screen flow on
+`pro-engineering.vercel.app` (not the old MVP) -- but getting there required fixing 6 more real
+bugs the live run itself caught, each confirmed and fixed in turn rather than guessed at:
+1. Master branch was still 4 days stale on Vercel (pointed at Session 57's commit) -- fast-
+   forward merged `claude/gracious-knuth-vxwkc3` into `master` (clean ancestor check first).
+2. The full-spec migrations had never actually been run in Supabase at all (PENDING #38/#14/#9,
+   now closed) -- run via one combined script, in dependency order.
+3. `20260926_worker_onboarding_full_spec.sql`'s geo_hierarchy seed DO block used
+   `ON CONFLICT (name)`, assuming a unique constraint on `geo_hierarchy.name` that has never
+   existed in the live schema (confirmed: its own migration only ever declared id/name/type/
+   created_at) -- failed with `42P10` the first time it actually ran against a real database.
+   Rewritten to upsert via explicit `SELECT`-then-`INSERT`-or-`UPDATE`, needing no constraint.
+4. All 15 `CREATE POLICY` statements across the new migrations were made idempotent
+   (`DROP POLICY IF EXISTS` first) after a copy-paste-corrupted re-run hit a stray syntax error --
+   makes the whole migration set safely re-runnable regardless of how far a prior attempt got.
+5. Vercel's real build (with actual `@types/react` present, unlike this repo's node_modules-less
+   sandbox) caught a TS2783 error in `app/onboarding/[trade]/page.tsx`:
+   `secondarySkillDetails` was typed as `Record<string, SecondarySkillDetail>`, telling
+   TypeScript every entry is guaranteed to exist -- making the literal defaults for a brand-new
+   entry look like dead code TS refuses to compile. Retyped as `Partial<Record<...>>`, matching
+   actual runtime behavior. Verified this time with a real `npm install && npm run build` in this
+   session (not just the sandbox's `tsc --noEmit`) before pushing -- compiled clean, all 66 routes.
+6. **5 of 6 `CHECK` constraints added in the full-spec migration didn't match the actual UI
+   dropdown values** in `page.tsx` -- `can_carry_25kg_50m`, `can_work_heights_2m`,
+   `available_days_per_month`, `notice_period_needed`, `owns_smartphone` were each written
+   independently from their corresponding `Sel` component's options and none of the 5 matched
+   (only `prefers_team_or_solo` happened to agree). Confirmed live: the first real registration
+   attempt failed with `violates check constraint workers_available_days_per_month_check`.
+   Fixed via a new corrective migration matching the constraints to the UI's real values
+   (not editing the original migration, same discipline as the geo Zone/Sector correction).
+- With all 6 fixed, a real Mason registration completed successfully live: Worker ID
+  `WRK-MAS-2026-6972`, login email generated (`rammu26sep26_mason_6972@proengineering.in`), no
+  partial-save warnings on the success screen.
+- **Amendment 2's data-integrity check, run for real**: queried live `workers.approval_status`
+  distribution -- found **18 of 47 workers (38%) stuck on `coordinator_approved`**, the exact
+  dead pre-fix value Track 2 used to write before Session 65's correction, meaning 18 real
+  workers were invisible to any `admin_approved`-gated picker in production right now, not a
+  hypothetical. Backfilled (`UPDATE ... SET approval_status = 'pending_admin_approval' WHERE
+  approval_status = 'coordinator_approved'`), re-queried, confirmed zero rows remain on the dead
+  value. Separately found 3 rows on a literal `approved` value that CLAUDE.md's own Session 65
+  record had claimed was "never written by anything" -- traced conclusively (all 3 share a
+  `worker_code` of NULL, impossible via the real registration code path; identical timestamps to
+  the microsecond, only possible from a single batch INSERT; dated 28 Aug 2026, before this
+  repo's entire git history) to pre-existing seed/placeholder data (Suresh Singh/Mason, Pradeep
+  Yadav/Electrician, Mohan Das/Waterproofer), not a live code bug. Presented to the project owner
+  as a real decision (leave / deactivate / delete), not guessed at -- decision: **leave as-is
+  deliberately**, to serve as a standing data-sanity canary for future code/query correctness.
+- **Worker Onboarding is now genuinely frozen** under `docs/SCHEMA_FREEZE_METHODOLOGY.md` --
+  step 3 (live run) and Amendment 2 (data-integrity check + backfill, confirmed by re-query, not
+  assumed) are both satisfied for the first time, not just the schema/code being written.
+- Still open, not blocking the freeze but real: the duplicate-phone-check catch, the generated
+  login actually being used to log in, and a *new* (not backfilled) Track-2 acceptance reaching
+  admin's queue live were not tested this session -- only the historical backfill for existing
+  stuck rows was done. Also not done: the coverage check (cross-referencing the live run against
+  Worker Onboarding's branch map for any orphaned UI path in the 14-screen rebuild).
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3 (merged into `master` this session too).
+
+## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 66)
+- **Worker Onboarding is frozen.** Per docs/SCHEMA_FREEZE_METHODOLOGY.md's recommended sequence,
+  the natural next process is Worker Allotment & Skill (shares `workers.approval_status` with
+  Onboarding), or whatever the project owner prioritizes instead.
+- Before starting the next process, 3 small loose ends from Worker Onboarding worth closing when
+  convenient (not blocking, not guessed at): PENDING #42 (duplicate-phone-check live test, the
+  generated Worker2026 login actually signing in, a fresh Track-2 acceptance reaching admin's
+  queue), PENDING #39 (surface the new health/restriction/skill fields in Sub-Coordinator/
+  Coordinator/Admin review UIs), PENDING #40 (extend the full-spec build to the other 8 trades).
+- Two small decisions still open, deliberately not guessed at: PENDING #36 (`bocwPending` filter)
+  and #37 ("Previously Approved" tab).
+- PENDING #35: decide build-it-or-retire-it on the orphaned duplicate `app/onboarding/actions.ts`.
+- Provision the mktg_agent login in Supabase (PENDING #12).
+- Security note: the Supabase secret/service-role key was rotated this session (old one deleted).
+  If any deploy/local env still errors with an API-key failure, it's pointed at the dead key --
+  update it from Supabase Settings -> API, not from any value recorded in this file or git.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3

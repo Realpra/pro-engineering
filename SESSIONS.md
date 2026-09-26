@@ -767,3 +767,46 @@ migrations have been run and the new flow has never been clicked through.
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
+
+## SESSION 66 — 26 Sep 2026 — ACCOUNT SECURITY LOCKDOWN, THEN WORKER ONBOARDING FROZEN FOR REAL
+Full detail in CLAUDE.md's matching entry. Two parts. First, a full security review after the
+project owner ended a colleague's repo access: confirmed no unauthorized collaborator/commit/
+branch/leaked secret in git history, but found a real live issue unrelated to the collaborator --
+Supabase's linter caught `public.workers` having RLS policies defined but RLS itself disabled,
+meaning the public anon key could read/write the whole table unrestricted. Fixed immediately,
+confirmed no other table has the same bug, then rotated the Supabase secret key end to end
+(created, verified live via curl, swapped into env vars, redeployed, re-verified, old key
+deleted) as a precaution. Second part: finally executed Worker Onboarding's live run + Amendment
+2 check that Session 65 continued had left undone. Getting a real registration through the
+rebuilt 14-screen flow surfaced and fixed 6 more real bugs in turn: master branch was 4 days
+stale on Vercel (fast-forwarded); the 3 new full-spec migrations plus 2 older pending ones had
+never actually been run in Supabase (run via one combined script); the geo_hierarchy seed's
+ON CONFLICT assumed a unique constraint that's never existed on the live table (rewritten to an
+explicit upsert); all 15 CREATE POLICY statements made idempotent after a copy-paste corruption;
+a real TS2783 build error Vercel's actual build caught that this sandbox's node_modules-less tsc
+couldn't (fixed and verified with a real npm install && npm run build this time); and 5 of 6
+CHECK constraints in the full-spec migration didn't match the UI's actual dropdown values at all
+(fixed via a corrective migration). With those fixed, a real Mason registration completed live
+(Worker ID WRK-MAS-2026-6972). Then ran Amendment 2's actual data-integrity check: found 18 of 47
+workers (38%) stuck on the dead coordinator_approved value from before Session 65's Track-2 fix,
+backfilled and re-verified at zero remaining -- a real, current production bug, not hypothetical.
+Separately traced 3 rows on a literal 'approved' value (which CLAUDE.md's own earlier record had
+wrongly claimed was never written) to pre-git-history seed/placeholder data via null worker_code
++ identical microsecond timestamp + a date before this repo's first commit -- presented as a
+decision, not guessed at; project owner chose to leave them as a deliberate data-sanity canary.
+Worker Onboarding is now genuinely frozen -- step 3 and Amendment 2 both actually satisfied and
+verified by re-query, not just written and assumed.
+
+## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 66)
+- Worker Onboarding is frozen. Take up Worker Allotment & Skill next per
+  docs/SCHEMA_FREEZE_METHODOLOGY.md's recommended sequence, or the project owner's priority.
+- Small loose ends, not blocking: PENDING #42 (duplicate-phone-check live test, Worker2026 login
+  actually signing in, a fresh Track-2 acceptance reaching admin's queue), PENDING #39 (surface
+  new fields in Sub-Coordinator/Coordinator/Admin review UIs), PENDING #40 (extend to other 8
+  trades), PENDING #36/#37 (two dead-filter decisions), PENDING #35 (orphaned duplicate file).
+- Provision the mktg_agent login in Supabase (PENDING #12).
+- Security note: Supabase secret key was rotated this session; if anything errors with an
+  API-key failure, get the current value from Supabase Settings -> API, not from any old record.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3
