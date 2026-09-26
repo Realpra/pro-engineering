@@ -192,7 +192,7 @@ type Form = {
   skillAnswers: Record<string, string>
 
   secondaryTrades: string[]; nextTrainingInterest: string
-  secondarySkillDetails: Record<string, SecondarySkillDetail>
+  secondarySkillDetails: Partial<Record<string, SecondarySkillDetail>>
 
   rejectedWorkHistory: string; standoutJobDescription: string; hasAppreciationCertificate: boolean
   selfRatedQualityScore: string; selfRatedQualityReason: string; qualityCheckMethod: string
@@ -545,7 +545,7 @@ export default function TradeOnboardingPage() {
           saveSecondarySkills(workerId, form.secondaryTrades.map((t): SecondarySkillInput => ({
             skillName: t,
             ratingLevel: form.secondarySkillDetails[t]?.ratingLevel || 'competent',
-            jobsLast2yr: form.secondarySkillDetails[t]?.jobsLast2yr ? Number(form.secondarySkillDetails[t].jobsLast2yr) : undefined,
+            jobsLast2yr: form.secondarySkillDetails[t]?.jobsLast2yr ? Number(form.secondarySkillDetails[t]!.jobsLast2yr) : undefined,
             complexExample: form.secondarySkillDetails[t]?.complexExample || undefined,
           }))),
           saveAccidentHistory(workerId, form.accidentIncidents),
