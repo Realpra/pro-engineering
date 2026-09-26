@@ -717,18 +717,49 @@ credentials, so the migration hasn't run and no live click-through has happened 
 required next step (methodology step 3 + Amendment 2's data-integrity check) before this process
 counts as fully proven, not just code-frozen.
 
-## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 65)
-- Run migration 20260926_workers_identity_and_login_fields.sql in Supabase (PENDING #34), then
-  live-test Worker Onboarding end to end (register a worker, confirm the new fields persist, the
-  duplicate-phone check actually catches a repeat, the generated login works, a Track-2
-  acceptance reaches admin's queue) -- do not skip this, it's the live-run + data-integrity check
-  the methodology requires before this process is truly frozen, not just code-changed.
+## SESSION 65 CONTINUED — 26 Sep 2026 — FULL-SPEC WORKER ONBOARDING REBUILD
+Full detail in CLAUDE.md's matching entry. Two local test runs confirmed the original 7 fixes
+live; when asked to verify the new fields were checked against existing concepts first, this
+session's first answer was a false-confidence "confirmed" based on live code only -- the project
+owner directly called this "cheating," naming it as a violation of the freeze methodology's
+"search before creating fresh" step. Corrected by actually reading the original design logs,
+which surfaced the real finding: the live 6-screen form is a documented, deliberate Tier-1 MVP of
+an 11-section (A-K) original spec. Project owner rejected continuing with the MVP and directed
+the full spec be built, Mason first. Delivered the required 4-point completeness report before
+writing code (self-found gap: profile_photo_url/selfie upload never wired despite the bucket
+existing since the original build), got explicit design decisions (geo hierarchy is
+State->District->Region->Zone->Sector with Sector served by MULTIPLE Zones, many-to-many by
+proximity; existing fields kept as-is with richer fields added alongside per Expand-Contract;
+health/restriction data must flow to every review level; declared/agreed become real persisted
+booleans with a server timestamp), then built: 3 new migrations (full-spec schema across ~90
+worker columns + 4 new child tables + geo hierarchy fix, a corrective many-to-many junction table
+for zone/sector coverage, profile_photo_url), a full actions.ts rewrite (reference-data fetchers,
+comprehensive RegistrationInput, child-table savers, real photo upload to the previously-unused
+worker-selfies bucket), and a full page.tsx rewrite (6 screens -> 14, covering every Section A-K
+field). tsc clean (the one look-alike error, a key-prop mismatch on a component inside .map(), is
+the same pre-existing no-@types/react sandbox pattern already present on 5 other unrelated files).
+NOT LIVE-TESTED -- this cloud session has no Supabase network access at all; none of the 3 new
+migrations have been run and the new flow has never been clicked through.
+
+## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 65 continued)
+- Run the 3 new full-spec migrations in Supabase (PENDING #38): worker_onboarding_full_spec,
+  geo_zone_sector_many_to_many, worker_profile_photo. Then live-test the full 14-screen Mason
+  onboarding flow end to end -- every new column and all 4 child tables populate, the photo
+  upload actually lands in worker-selfies and sets profile_photo_url, the zone picker's cascade
+  and sector-coverage display work against the seeded Noida data, declaration_confirmed_at is
+  only set when both checkboxes are ticked. Do not call Worker Onboarding frozen until this runs.
+- Also still open from the original pass: duplicate-phone check, generated login (Worker2026),
+  Track-2 acceptance reaching admin's queue -- none of these got a live click-through yet either.
+- PENDING #39: surface the new health/restriction/skill/accident fields in the Sub-Coordinator/
+  Coordinator/Admin review UIs -- captured now, not yet visible to reviewers anywhere.
+- PENDING #40: once Mason is live-verified, extend the full-spec build to the other 8 trades --
+  mainly seeding each trade's Section C skill questions, since the form/actions are already
+  trade-parametrized; verify that assumption live before treating it as pure data work.
 - Two small decisions still open, deliberately not guessed at: PENDING #36 (bocwPending filter)
   and #37 (Previously Approved tab).
 - PENDING #35: decide build-it-or-retire-it on the orphaned duplicate app/onboarding/actions.ts.
-- Once Worker Onboarding is live-verified, take up the next process per
-  docs/SCHEMA_FREEZE_METHODOLOGY.md -- Worker Allotment & Skill is the natural next one (shares
-  workers.approval_status with Onboarding), or whatever the project owner prioritizes.
+- Once Worker Onboarding is fully live-verified, take up the next process per
+  docs/SCHEMA_FREEZE_METHODOLOGY.md -- Worker Allotment & Skill is the natural next one.
 - Two older migrations also still pending: 20260924_site_visit_reports_slot_scoping.sql and
   20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
