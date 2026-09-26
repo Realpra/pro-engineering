@@ -78,6 +78,63 @@ be chosen under time pressure even when the correct answer is "the earlier freez
 actually wrong" — silently letting an incorrect frozen process survive permanently
 under the appearance of a clean, additive history.
 
+## EXECUTION CHECKLIST — HOW TO ACTUALLY RUN EACH AMENDMENT (added 26 Sep 2026)
+
+The three amendments above state what must be true. This section is the concrete
+procedure for making it true, step by step, so a session actually running the
+methodology has something operational to follow rather than re-deriving it each time.
+
+### Amendment 1 — functional-canonical tie-break, procedure
+1. When a conflict surfaces (two fields/columns for one concept), list every
+   candidate column. (Worked example: `contingency_pct`/`max_deviation_pct` vs
+   `max_contingency_pct`/`admin_approval_limit_pct`.)
+2. For each candidate, grep the entire codebase for every place it is READ — not
+   just written. Every `.select`, destructure, or reference.
+3. Trace each read site forward: does it feed a live, reachable decision (e.g.
+   `getPolicyRate`, used in BOQ generation), or is it only read by orphaned/
+   unrendered code? Cross-check against the orphaned-code findings already recorded
+   (MASTER_FLOW_STRINGS.xlsx, CLAUDE.md) so an orphaned reader is never mistaken for
+   the live one.
+4. Whichever candidate is read by live, reachable logic is canonical. Record the
+   decision with file:line evidence in that process's freeze record.
+5. The losing candidate is NOT deleted. Mark it deprecated in the record; leave it
+   in the database.
+6. Fix the code path that was writing to the deprecated column so it writes to the
+   canonical one instead (this is the actual code change this amendment produces).
+
+### Amendment 2 — data-integrity check, procedure
+1. Once a column is declared canonical (via step 4 above, or even when there was no
+   naming conflict at all), query the live table before calling the field frozen:
+   how many existing rows have the canonical column NULL/stale while the
+   deprecated column (or any other historical source) holds a real value.
+2. If such rows exist, backfill them: `UPDATE ... SET canonical_col = deprecated_col
+   WHERE canonical_col IS NULL AND deprecated_col IS NOT NULL` (adapt per field).
+3. Re-run the query. It must return zero rows before the field counts as frozen.
+4. Record the before/after row counts as evidence in the freeze record, alongside
+   the Amendment 1 tie-break decision.
+5. Run this for every field in the process being frozen, not only ones that had a
+   naming conflict — a correctly-named field can still carry silent legacy gaps
+   from before it existed.
+
+### Amendment 3 — addition-vs-contradiction split, procedure
+1. Whenever a later process's live run touches an already-frozen field, STOP before
+   acting and classify the finding first.
+2. The test: can the new need be met by adding a new field alongside, with every
+   existing reader/writer of the frozen field behaving exactly as before? →
+   **Addition**. Does meeting it require changing what the frozen field means, or
+   reveal that Amendment 1's tie-break picked the wrong canonical source? →
+   **Contradiction**.
+3. If Addition: create the new field via the normal small, scoped "create fresh"
+   step (per the core process's step 2). Note it in the record. The earlier
+   process's freeze record is untouched.
+4. If Contradiction: explicitly reopen that earlier process's freeze record, cite
+   the new evidence, and re-run Amendment 1's tie-break and Amendment 2's
+   integrity check for that field before re-freezing it. This step may never be
+   shortcut into "just add a field" to avoid reopening something.
+5. Log every contradiction as its own dated entry: which process found it, which
+   earlier process it reopened, what changed. This is the audit trail that stops a
+   field from silently drifting again without a record.
+
 ## TWO SUPPORTING CHECKS CARRIED OVER FROM THE DISCUSSION (apply within the core process, not as separate phases)
 
 - **Coverage check before declaring a process's run sufficient.** Cross-reference the
