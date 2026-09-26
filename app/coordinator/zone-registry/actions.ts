@@ -83,9 +83,15 @@ export async function saveWorkerAssessment(formData: FormData): Promise<void> {
     if (val) updatePayload[key] = val
   }
 
-  // Update approval status based on decision
+  // Update approval status based on decision. 'accepted' pushes straight to
+  // pending_admin_approval (matching sendToAdmin's own value in
+  // app/admin/dashboard/approvalActions.ts) rather than stopping at coordinator_approved --
+  // this assessment screen is a single decision point with no separate "send to admin" step,
+  // so accepting here IS agreeing to push the worker on to the next level (Worker Onboarding
+  // freeze, Session 65). Previously this left Track-2-approved workers permanently stuck,
+  // invisible to any admin_approved-gated worker picker.
   if (decision === 'accepted') {
-    updatePayload.approval_status = 'coordinator_approved'
+    updatePayload.approval_status = 'pending_admin_approval'
   } else if (decision === 'rejected') {
     updatePayload.approval_status = 'rejected'
   } else if (decision === 'returned') {

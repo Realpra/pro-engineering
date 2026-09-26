@@ -25,8 +25,11 @@ export default async function CoordinatorWorkersPage() {
     .order('approval_status', { ascending: true })
     .order('trade', { ascending: true })
 
-  const pendingCoordinator = (allWorkers ?? []).filter(w => w.approval_status === 'subcoordinator_approved')
-  const activeWorkers = (allWorkers ?? []).filter(w => w.approval_status === 'coordinator_approved' || w.approval_status === 'approved')
+  // 'subcoordinator_approved' and bare 'approved' were never written against
+  // workers.approval_status (Worker Onboarding freeze, Session 65) -- confirmed dead filters,
+  // both queues were always empty. 'sub_coordinator_reviewed' is the real value.
+  const pendingCoordinator = (allWorkers ?? []).filter(w => w.approval_status === 'sub_coordinator_reviewed')
+  const activeWorkers = (allWorkers ?? []).filter(w => w.approval_status === 'coordinator_approved')
   const approaching120 = (allWorkers ?? []).filter(w => (w.total_deployments ?? 0) >= 100 && w.is_active)
   const bocwPending = (allWorkers ?? []).filter(w => w.is_active && w.approval_status !== 'approved')
 

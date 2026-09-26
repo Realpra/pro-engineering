@@ -57,7 +57,10 @@ export default async function CoordinatorDashboardPage() {
   const { data: pendingWorkers } = await supabase
     .from('workers')
     .select('id, full_name, trade, approval_status')
-    .eq('approval_status', 'subcoordinator_approved')
+    // 'subcoordinator_approved' was never written against workers.approval_status (Worker
+    // Onboarding freeze, Session 65) -- 'sub_coordinator_reviewed' is the real value written
+    // by reviewWorker() and means the sub-coordinator has recommended this worker ahead.
+    .eq('approval_status', 'sub_coordinator_reviewed')
     .order('created_at', { ascending: false })
 
   const { data: allWorkers } = await supabase

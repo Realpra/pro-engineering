@@ -90,6 +90,8 @@ export default function TradeOnboardingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [workerCode, setWorkerCode] = useState('')
+  const [loginEmail, setLoginEmail] = useState('')
+  const [authError, setAuthError] = useState('')
   const [form, setForm] = useState<Form>(INIT)
 
   function set(k: keyof Form, v: any) { setForm(f => ({...f, [k]: v})) }
@@ -108,6 +110,7 @@ export default function TradeOnboardingPage() {
     if (screen === 1) {
       if (!form.fullName.trim()) return setError('Full name is required')
       if (!/^\d{10}$/.test(form.phone)) return setError('Phone number must be 10 digits')
+      if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return setError('A valid email address is required')
       if (form.aadhaarLast4 && !/^\d{4}$/.test(form.aadhaarLast4)) return setError('Aadhaar last 4 must be exactly 4 digits')
       const { exists } = await checkPhoneExists(form.phone)
       if (exists) return setError('This phone number is already registered. Contact your coordinator.')
@@ -132,6 +135,10 @@ export default function TradeOnboardingPage() {
         email: form.email || undefined,
         aadhaarLast4: form.aadhaarLast4 || undefined,
         pan: form.pan || undefined,
+        gender: form.gender || undefined,
+        dob: form.dob || undefined,
+        whatsappSame: form.whatsappSame,
+        whatsappPhone: form.whatsappSame ? undefined : (form.whatsappPhone || undefined),
         state: form.state,
         district: form.district || undefined,
         city: form.city || undefined,
@@ -167,13 +174,14 @@ export default function TradeOnboardingPage() {
         setError(result.error + ' (debug: error in result)')
         return
       }
-      console.log('Registration success:', result)
       setWorkerCode(result.workerCode)
-      if (form.email && result.workerId) {
-        try {
-          await createWorkerAuthAccount(form.email, form.phone, form.fullName, result.workerId)
-        } catch (_) {
-          // auth account creation failed silently — worker record already saved
+      if (result.workerId) {
+        const authResult = await createWorkerAuthAccount(trade, form.fullName, result.workerId, result.workerCode)
+        if ('error' in authResult) {
+          console.error('Auth account creation failed:', authResult.error)
+          setAuthError(authResult.error)
+        } else {
+          setLoginEmail(authResult.loginEmail)
         }
       }
       setScreen(7)
@@ -280,11 +288,11 @@ export default function TradeOnboardingPage() {
             </div>
 
             <div>
-              <label className={lbl}>Email Address</label>
+              <label className={lbl}>Email Address {req}</label>
               <input className={inp} type="email" value={form.email}
                 onChange={e=>set('email',e.target.value)}
-                placeholder="Required for platform login" />
-              <p className="text-xs text-gray-400 mt-1">Provide email to get platform login access after approval</p>
+                placeholder="Your own contact email" />
+              <p className="text-xs text-gray-400 mt-1">Used for contact — your platform login is generated separately once approved</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -434,6 +442,13 @@ export default function TradeOnboardingPage() {
               <label className={lbl}>Team Name (if part of a team)</label>
               <input className={inp} value={form.team_name}
                 onChange={e=>set('team_name',e.target.value)} placeholder="Team or contractor name" />
+            </div>
+
+            <div>
+              <label className={lbl}>Team Number</label>
+              <input className={inp} value={form.teamNumber}
+                onChange={e=>set('teamNumber',e.target.value)} placeholder="Team / sub-contract code" />
+              <p className="text-xs text-gray-400 mt-1">If you're onboarding through a sub-contractor, or as part of a whole team ready for full job deployment (multiple skills covered by the team, no need to itemize each member's skill separately), enter the team's number here to link every team member together.</p>
             </div>
 
             <div className="flex gap-3">
@@ -750,9 +765,14 @@ export default function TradeOnboardingPage() {
               <div className="text-white font-bold text-2xl tracking-widest">{workerCode}</div>
               <div className="text-blue-200 text-xs mt-1">Save this ID — you will need it for future reference</div>
             </div>
-            {form.email && (
-              <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-6 text-sm text-orange-700">
-                Login credentials will be sent to <strong>{form.email}</strong> after your account is approved by our coordinator.
+            {loginEmail && (
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3 mb-6 text-sm text-green-700">
+                Platform login created: <strong>{loginEmail}</strong>. Ask your coordinator for the password.
+              </div>
+            )}
+            {authError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-6 text-sm text-red-700">
+                Registration was saved, but the platform login account could not be created: {authError}. Contact your coordinator.
               </div>
             )}
             <div className="bg-gray-50 rounded-xl p-4 space-y-1 mt-4">
