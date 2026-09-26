@@ -109,6 +109,15 @@ See .env.local for credentials
 - siteincharge62@proengineering.in
 - supervisor62@proengineering.in
 
+## WORKER DEV/BETA LOGIN CONVENTION (added Session 65, 26 Sep 2026)
+Each worker registered via /onboarding/[trade] now gets its own real, distinct Supabase
+auth.users row (never shared between workers) with a systematically generated login email:
+`<slugified full name>_<slugified trade>_<last 4 of worker_code>@proengineering.in`, stored in
+the new `workers.login_email` column. All worker accounts share one universal password for the
+dev/beta stage: `Worker2026`. This is deliberate (project owner's decision) so staff can log in
+as any worker during testing without depending on real email delivery -- it is not a shared
+account (every worker still has their own row/id), only the password is shared.
+
 ## BROKEN LOGINS (Supabase ticket SU-472225)
 - superadmin@proengineering.in
 - client1-7@proengineering.in
@@ -131,17 +140,27 @@ See .env.local for credentials
   single-purpose: "+ New Job" link to /book. platform_role = 'mktg_agent'.
   No login provisioned yet — see PENDING for the SQL to create one.
 
-## WORKER FIELDS (34 total across 6 screens)
-Screen 1: fullName, phone, email, aadhaarLast4, pan, state, district
-Screen 2: address, city, pincode
-Screen 3: skillLevel, sector, labourType, employmentType, secondaryTrades, yearsExperience, jobsCompleted
-Screen 4: zones, isAvailable, dailyWage, hourlyRate
-Screen 5: bocwRegistered, bocwNumber, pfUan, esicIp, bankAccount, ifscCode, emergencyName, emergencyPhone
-Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, teamNumber, declared, agreed
+## WORKER FIELDS (corrected against live code, Session 65 -- the old version of this section
+## had the wrong screen for several fields, confirmed by the Worker Onboarding freeze)
+Screen 1: fullName, phone, whatsappSame, whatsappPhone, email(now required), aadhaarLast4, pan,
+  gender, dob (gender/dob newly wired Session 65 -- previously captured but silently dropped)
+Screen 2: state, district, city, pincode, address
+Screen 3: skillLevel, sector, labourType, employmentType, secondaryTrades, yearsExperience,
+  jobsCompleted, teamName, teamNumber (teamNumber's input added Session 65 -- was fully plumbed
+  end-to-end but had no <input> anywhere; used when onboarding via sub-contract or as part of a
+  whole team ready for full deployment, not itemized by individual skill)
+Screen 4: zones, isAvailable, dailyWage, hourlyRate, heightRestriction, dustRestriction,
+  deploymentRestriction
+Screen 5: bocwRegistered, bocwNumber, pfUan, esicIp, bankAccount, ifscCode, emergencyName,
+  emergencyPhone
+Screen 6: declared, agreed (review + declaration only)
 
 ## PENDING
 1. Auth fix — Supabase SU-472225
-2. Worker phone duplicate check on Vercel
+2. [FIXED Session 65, NOT YET LIVE-TESTED] Worker phone duplicate check on Vercel -- root
+   cause confirmed and fixed: checkPhoneExists now uses the service-role client instead of the
+   anon client, since workers had no anon SELECT policy (only anon INSERT for the public form).
+   Needs a live end-to-end test (register with a duplicate phone, confirm it's actually caught).
 3. Real rate card data — Noida Sector 62/63/64 in /admin/zones
 4. Sub-coordinator complete build
 5. Rate Intelligence form — /admin/rates/update
@@ -173,6 +192,10 @@ Screen 6: heightRestriction, dustRestriction, deploymentRestriction, teamName, t
 31. [Session 63 finding, CONFIRMED REGRESSION — introduced by this project's own Session 58] `supervisor_daily_routes.slot_type` (6 options: inspection, overhang, client_visit, scope_survey, estimate_visit, hq) is fully modeled in the route-planning UI and database, but nothing downstream reads it — every route slot, regardless of stated purpose, links to the same `/supervisor/site-visit?slot={id}` (Flow ii, the post-job-confirmed Daily Execution form). A `scope_survey` or `client_visit`/`estimate_visit` slot (which should open the pre-job-confirmed Site Survey form at `/site-survey/[bookingRef]`) opens the wrong screen set. Confirmed by grep: `app/supervisor/dashboard/page.tsx:575,589` and `app/supervisor/route/plan/page.tsx:310` all hard-code the same href with no branch on `slot.slot_type`. Fix: branch the slot's report link on `slot_type` (client_visit/scope_survey/estimate_visit → Site Survey; inspection/overhang → Daily Execution; hq → no site-visit link).
 32. [Session 63 finding, CONFIRMED REGRESSION — introduced by this project's own Session 58, commit b50a5697] `Screen17_RiskFlags.tsx` was deleted in Session 58's "dead draft cleanup" on the reasoning that it was "an unrelated, already-discarded Flow (i) draft with zero importers." That's true that nothing imported it, but false that it was a draft: per the original June spec (june.md lines 37217-37238) it was a real, deliberately-specified "Risk Flag Summary" screen that aggregates every risk flag raised across Screens 2-13, shows them to Coordinator, and on a "SUBMIT RISK FLAGS FOR COORDINATOR REVIEW" button writes `site_visit_reports.risk_flag_count`. That column is STILL ACTIVELY READ today by `app/admin/scope-report/[id]/page.tsx:70` and `ScopeReportView.tsx:852`, displayed to Admin as every job's "Risk Flags" count — which has been silently stuck at 0 since the only writer was deleted. Needs the aggregation+write-back logic restored (revived screen, or folded into an existing one) before this is considered closed. Full context in docs/SUPERVISOR_INFEED_ACT_OUTPUT.md.
 33. [Session 63 finding] SA-11 Crew Management ambiguity from Session 62 resolved by the project owner: Supervisor MAY move workers unilaterally between HIS OWN controlled/active jobs (deliberate flexibility) — the actual gap is narrower than first flagged: `app/supervisor/milestone-tracker/page.tsx:59-62`'s worker pool query has NO scoping to the requesting supervisor's own controlled jobs at all (`SELECT ... FROM workers` with only zone/trade/skill filters) — it should be restricted to workers already earmarked/assigned to one of THIS supervisor's active jobs (`guest_enquiries.supervisor_id`) for that day, not the entire workers table.
+34. [Session 65] Run migration supabase/migrations/20260926_workers_identity_and_login_fields.sql in Supabase (adds gender/dob/whatsapp_same/whatsapp_phone/login_email columns to workers, needed by the Worker Onboarding freeze fixes now built).
+35. [Session 65] `app/onboarding/actions.ts` (the sibling of `app/onboarding/[trade]/actions.ts`) has its own duplicate, differently-signatured `createWorkerAuthAccount`/`checkPhoneExists` — confirmed by grep to have zero importers anywhere (the landing page `app/onboarding/page.tsx` only renders trade-picker links, never imports it). Orphaned dead code, not fixed this session — build-it-or-retire-it call needed, same discipline as PENDING #21.
+36. [Session 65] `app/coordinator/workers/page.tsx:31`'s `bocwPending` filter (`is_active && approval_status !== 'approved'`) is built on the same dead `'approved'` value fixed elsewhere this session, but this one is a different kind of bug: it's gating BOCW-compliance follow-up on `approval_status` at all, which doesn't look like the right column for a BOCW-specific check. Left alone deliberately — needs its own decision on what this filter should actually check before touching it, not a guess-fix.
+37. [Session 65] `app/admin/workers/WorkerTabs.tsx:17` and `app/admin/workers/page.tsx:44`'s "Previously Approved" tab/stat both key on the same dead `'approved'` value (an `admin_approved` tab already exists separately) — never populates. Needs a decision: retire the tab (recommended, since nothing ever wrote 'approved' and no evidence describes what it was meant to distinguish from admin_approved), or repoint it to a real meaning.
 
 ## SESSION RULES
 - Never write code without explicit permission per change
@@ -767,25 +790,93 @@ summary, is the one to follow going forward.
   session produced the process itself, not its first application.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
 
-## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 64)
-- docs/SCHEMA_FREEZE_METHODOLOGY.md is now the process to follow for every schema/relationship
-  decision -- read it before touching any table. No process has been run through it yet.
-- Next concrete step: get the project owner's confirmation on the starting sequence (shared
-  core entities first, then Payment Flow, etc. -- see the doc's STATUS section), then run the
-  FIRST process (recommended: the shared-core pass on guest_enquiries/workers/users) through the
-  full 7-step methodology, including both amendments' checks, as the proof-of-process before
-  scaling to the rest.
-- docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) and docs/ORIGINAL_SPEC_AUDIT.md are the evidence
-  catalogue to draw on per-process, not a separate approval track to clear first.
-- MASTER_FLOW_STRINGS.xlsx (17 sheets) is the process map -- work through it one sheet at a time
-  per the methodology's step 1, applying the coverage check (cross-reference each live run
-  against that sheet's full branch list) at each step.
-- Two migrations are still waiting to be run in Supabase:
+## SESSION 65 — 26 Sep 2026 — WORKER ONBOARDING FROZEN (FIRST PROCESS RUN UNDER THE NEW METHODOLOGY)
+Project owner selected Worker Onboarding (not the shared-core pass) as the first process to run
+through docs/SCHEMA_FREEZE_METHODOLOGY.md, working directly from MASTER_FLOW_STRINGS.xlsx's
+"04 Worker Onboarding" sheet with a decision written into column B of every row needing one.
+Every file touched was read in full before editing, per session rules.
+- **Screen 1 email now required** alongside name/phone (Aadhaar/PAN stay optional, fillable
+  later) -- per the project owner's explicit "name/phone/email must, rest in due course" rule.
+- **gender/dob/whatsapp_same/whatsapp_phone wired end to end**: these were captured in the UI
+  but had no DB column, so they were silently discarded on every submission. New migration
+  `20260926_workers_identity_and_login_fields.sql` adds the columns (PENDING #34, not yet run in
+  Supabase); `submitWorkerRegistration` and the Screen 1 form now actually send them.
+- **checkPhoneExists fixed at the root cause** (closes PENDING #2): `workers` has an `anon`
+  INSERT policy (needed for the public form) but NO `anon` SELECT policy at all -- so the
+  duplicate-phone check, running as the anon client, always saw zero rows regardless of reality.
+  Fixed by switching to the service-role client for this one check, not by opening a public
+  SELECT policy on `workers` (which would have exposed every worker's phone/bank/Aadhaar data to
+  any anonymous visitor via the REST API -- a real security regression that was explicitly
+  avoided rather than traded for convenience).
+- **createWorkerAuthAccount redesigned for dev/beta, per the project owner's explicit design**:
+  every worker still gets its own real, distinct `auth.users` row (never shared -- this was
+  checked directly with the project owner before implementing, since "one real mail and phone
+  for all login" could have meant a literally shared account, which would have broken
+  `workers.auth_user_id` as a 1:1 identifier). Instead each worker's login email is
+  systematically generated (`<name>_<trade>_<worker_code suffix>@proengineering.in`, stored in
+  new `workers.login_email`) and all worker accounts share one password (`Worker2026`) for this
+  stage -- documented in CLAUDE.md's new WORKER DEV/BETA LOGIN CONVENTION section. The previous
+  version generated a random, never-communicated temp password and silently swallowed every
+  failure (`catch(_){}`with no error surfaced anywhere) -- both fixed: the success screen now
+  shows the real generated login email, or a real error if account creation genuinely failed,
+  instead of the old "credentials will be emailed to you" message that nothing ever backed.
+- **Track 2 no longer dead-ends** (closes the confirmed real bug from the Worker Onboarding
+  sheet): `saveWorkerAssessment`'s `accepted` branch previously set `approval_status:
+  'coordinator_approved'` and stopped, permanently invisible to any `admin_approved`-gated
+  worker picker. Per the project owner's decision ("coordinator approved means he pushes to next
+  level"), it now sets `pending_admin_approval` directly -- the same value Track 1's
+  `sendToAdmin` produces -- so Track 2 converges into the same downstream admin queue instead of
+  running a second, competing pipeline.
+- **3 confirmed dead read-filters fixed** (closes the row-12 finding): `coordinator/dashboard/
+  page.tsx:60` and `coordinator/workers/page.tsx:28` checked `'subcoordinator_approved'` (no
+  underscore) against `workers.approval_status` -- a value never written there (the one writer
+  of that exact string targets `job_milestone_substages`, a different table entirely). Per the
+  project owner's decision that this concept means "sub-coordinator recommends the worker
+  ahead," both now check the real value, `sub_coordinator_reviewed` (written by `reviewWorker`).
+  The dead `|| approval_status === 'approved'` clause in `coordinator/workers/page.tsx:29`
+  (never written by anything) was also removed.
+- **Team Number's missing input added** (Screen 3): was a fully plumbed dead field end-to-end
+  (type, review display, server action, DB column) with no `<input>` anywhere in the JSX. Project
+  owner clarified its real purpose: it links a worker into a team/sub-contract when onboarding as
+  part of a whole team ready for full deployment, where individual skills don't need itemizing
+  separately -- the input and its helper text now reflect exactly that.
+- **Left alone, deliberately, not guessed at**: `coordinator/workers/page.tsx:31`'s `bocwPending`
+  filter and `admin/workers/WorkerTabs.tsx:17`'s "Previously Approved" tab are both built on the
+  same dead `'approved'` value but need their own decision about what they should actually check
+  (PENDING #36-37) -- fixing them to a plausible-looking value without knowing the real intent
+  would risk exactly the kind of guessed fix the new methodology is meant to prevent.
+- **Also found, not fixed**: `app/onboarding/actions.ts` (sibling of the file actually used) has
+  its own duplicate, differently-signatured `createWorkerAuthAccount`/`checkPhoneExists` with
+  zero importers anywhere -- confirmed orphaned dead code (PENDING #35).
+- `npx tsc --noEmit`: zero new errors in any changed file, verified by diffing against this
+  sandboxed session's pre-existing environmental baseline (no node_modules installed here, same
+  TS2307/TS7006/TS7026/TS2591/TS7031/TS2875 noise as every prior session).
+- NOT LIVE-TESTED: this session has no Supabase credentials (.env.local isn't present in this
+  cloud checkout) and could not run the migration or click through the actual app. This is the
+  first process frozen under the new methodology's step 5, but step 3 (run the process live and
+  observe it) and Amendment 2's data-integrity check still need to happen once the migration is
+  run and someone can log in and register a real worker end to end.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 65)
+- Run migration `20260926_workers_identity_and_login_fields.sql` in Supabase (PENDING #34),
+  then live-test Worker Onboarding end to end: register a worker, confirm gender/dob/whatsapp
+  actually persist, confirm the duplicate-phone check actually catches a repeat, confirm the
+  generated login email/password actually work, confirm a Track-2 (zone-registry assessment)
+  acceptance actually reaches admin's queue. This is Amendment 2's data-integrity check plus the
+  methodology's step 3 (live run) for the process just frozen -- do not skip it.
+- Two decisions still open from this session, deliberately not guessed at: PENDING #36
+  (`bocwPending` filter) and #37 ("Previously Approved" tab) -- both need a quick call on what
+  they should actually check before touching them.
+- PENDING #35: decide build-it-or-retire-it on the orphaned duplicate `app/onboarding/actions.ts`.
+- Once Worker Onboarding is live-verified, take up the next process per
+  docs/SCHEMA_FREEZE_METHODOLOGY.md -- Worker Allotment & Skill is the natural next one (shares
+  `workers.approval_status` with Onboarding, per the doc's own recommended sequence), or follow
+  whatever priority the project owner sets.
+- Two older migrations are still waiting to be run in Supabase, alongside the new one:
   20260924_site_visit_reports_slot_scoping.sql and
   20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
-- Test the corrected /book flow and Flow (i) Site Survey end to end once testing resumes
-  (deferred to Windows PC per earlier instruction).
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3

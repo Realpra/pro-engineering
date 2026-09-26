@@ -692,21 +692,46 @@ one -- this is exactly how the worker-routing triplication and estimates/boq_gen
 duplication happened). No app code changed; no process has been run through this methodology
 yet -- this session produced the process itself.
 
-## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 64)
-- docs/SCHEMA_FREEZE_METHODOLOGY.md is now the process for every schema/relationship decision --
-  read it before touching any table. No process has been run through it yet.
-- Next concrete step: confirm the starting sequence with the project owner (shared core
-  entities -- guest_enquiries/workers/users -- first, then Payment Flow, then Substages &
-  Milestones, then Worker Onboarding+Allotment together, then the rest by priority -- see the
-  doc's STATUS section), then run the FIRST process through the full methodology as proof-of-process.
-- docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) and docs/ORIGINAL_SPEC_AUDIT.md are the evidence
-  catalogue to draw on per-process now, not a separate approval track to clear first.
-- MASTER_FLOW_STRINGS.xlsx (17 sheets) is the process map to work through one sheet at a time.
-- Two migrations are still waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
-  and 20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
+## SESSION 65 — 26 Sep 2026 — WORKER ONBOARDING FROZEN (FIRST PROCESS RUN UNDER THE METHODOLOGY)
+Full detail in CLAUDE.md's matching entry. Project owner picked Worker Onboarding (not the
+shared-core pass) as the first process to freeze, annotating decisions directly onto
+MASTER_FLOW_STRINGS.xlsx's Worker Onboarding sheet. Implemented all of them after reading every
+touched file first: Screen 1 email now required; gender/dob/whatsapp_same/whatsapp_phone wired
+end to end (new migration adds the columns, PENDING #34, not yet run); checkPhoneExists fixed at
+the root cause (workers had an anon INSERT policy but no anon SELECT policy, so the duplicate-
+phone check always saw zero rows -- fixed via a service-role client bypass rather than opening a
+public SELECT policy that would have exposed worker PII, closing PENDING #2); createWorkerAuthAccount
+redesigned so every worker still gets a real, distinct auth.users row (confirmed with the project
+owner this was not meant to be one literally shared account) with a systematically generated
+login email and one shared dev-stage password, replacing a random never-communicated password and
+a silently-swallowed failure path; Track 2's coordinator-assessment "accepted" branch no longer
+dead-ends at coordinator_approved, now pushes straight to pending_admin_approval matching Track
+1's own next step; 3 confirmed dead read-filters checking never-written approval_status values
+('subcoordinator_approved', bare 'approved') fixed to the real value, sub_coordinator_reviewed;
+Team Number's missing form input added on Screen 3, now correctly described as linking a worker
+into a sub-contract/whole-team deployment. Two related dead filters (bocwPending,
+"Previously Approved" tab) were deliberately left alone pending their own decision rather than
+guessed at (PENDING #36-37), and an orphaned duplicate actions file was found, not fixed
+(PENDING #35). tsc clean (no new errors). NOT LIVE-TESTED -- this cloud session has no Supabase
+credentials, so the migration hasn't run and no live click-through has happened yet; that's the
+required next step (methodology step 3 + Amendment 2's data-integrity check) before this process
+counts as fully proven, not just code-frozen.
+
+## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 65)
+- Run migration 20260926_workers_identity_and_login_fields.sql in Supabase (PENDING #34), then
+  live-test Worker Onboarding end to end (register a worker, confirm the new fields persist, the
+  duplicate-phone check actually catches a repeat, the generated login works, a Track-2
+  acceptance reaches admin's queue) -- do not skip this, it's the live-run + data-integrity check
+  the methodology requires before this process is truly frozen, not just code-changed.
+- Two small decisions still open, deliberately not guessed at: PENDING #36 (bocwPending filter)
+  and #37 (Previously Approved tab).
+- PENDING #35: decide build-it-or-retire-it on the orphaned duplicate app/onboarding/actions.ts.
+- Once Worker Onboarding is live-verified, take up the next process per
+  docs/SCHEMA_FREEZE_METHODOLOGY.md -- Worker Allotment & Skill is the natural next one (shares
+  workers.approval_status with Onboarding), or whatever the project owner prioritizes.
+- Two older migrations also still pending: 20260924_site_visit_reports_slot_scoping.sql and
+  20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
-- Test the corrected /book flow and Flow (i) Site Survey end to end once testing resumes
-  (deferred to Windows PC per earlier instruction).
 - Supabase: xhlpdbcrncpznrqpcrht
 - supervisor62 worker ID: a52b0238-87e9-49b4-9fcf-be2b93efd053
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
