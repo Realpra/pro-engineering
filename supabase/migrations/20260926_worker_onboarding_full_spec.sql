@@ -48,32 +48,71 @@ DECLARE
   v_region_id   UUID;
   v_zone1_id    UUID;
 BEGIN
-  INSERT INTO geo_hierarchy (name, level, short_code, is_active)
-    VALUES ('Uttar Pradesh', 'state', 'UP', true)
-    ON CONFLICT (name) DO UPDATE SET level = 'state'
-    RETURNING id INTO v_state_id;
+  -- geo_hierarchy.name has no unique constraint in the live schema, so this
+  -- upserts by explicit lookup instead of ON CONFLICT (which requires one).
+  SELECT id INTO v_state_id FROM geo_hierarchy WHERE name = 'Uttar Pradesh' LIMIT 1;
+  IF v_state_id IS NULL THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active)
+      VALUES ('Uttar Pradesh', 'state', 'UP', true)
+      RETURNING id INTO v_state_id;
+  ELSE
+    UPDATE geo_hierarchy SET level = 'state', short_code = 'UP', is_active = true
+      WHERE id = v_state_id;
+  END IF;
 
-  INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
-    VALUES ('Gautam Buddha Nagar', 'district', 'GBN', true, v_state_id)
-    ON CONFLICT (name) DO UPDATE SET level = 'district', parent_id = v_state_id
-    RETURNING id INTO v_district_id;
+  SELECT id INTO v_district_id FROM geo_hierarchy WHERE name = 'Gautam Buddha Nagar' LIMIT 1;
+  IF v_district_id IS NULL THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
+      VALUES ('Gautam Buddha Nagar', 'district', 'GBN', true, v_state_id)
+      RETURNING id INTO v_district_id;
+  ELSE
+    UPDATE geo_hierarchy SET level = 'district', short_code = 'GBN', is_active = true, parent_id = v_state_id
+      WHERE id = v_district_id;
+  END IF;
 
-  INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
-    VALUES ('Noida Region', 'region', 'NR', true, v_district_id)
-    ON CONFLICT (name) DO UPDATE SET level = 'region', parent_id = v_district_id
-    RETURNING id INTO v_region_id;
+  SELECT id INTO v_region_id FROM geo_hierarchy WHERE name = 'Noida Region' LIMIT 1;
+  IF v_region_id IS NULL THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
+      VALUES ('Noida Region', 'region', 'NR', true, v_district_id)
+      RETURNING id INTO v_region_id;
+  ELSE
+    UPDATE geo_hierarchy SET level = 'region', short_code = 'NR', is_active = true, parent_id = v_district_id
+      WHERE id = v_region_id;
+  END IF;
 
-  INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
-    VALUES ('Zone 1', 'zone', 'Z1', true, v_region_id)
-    ON CONFLICT (name) DO UPDATE SET level = 'zone', parent_id = v_region_id
-    RETURNING id INTO v_zone1_id;
+  SELECT id INTO v_zone1_id FROM geo_hierarchy WHERE name = 'Zone 1' LIMIT 1;
+  IF v_zone1_id IS NULL THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
+      VALUES ('Zone 1', 'zone', 'Z1', true, v_region_id)
+      RETURNING id INTO v_zone1_id;
+  ELSE
+    UPDATE geo_hierarchy SET level = 'zone', short_code = 'Z1', is_active = true, parent_id = v_region_id
+      WHERE id = v_zone1_id;
+  END IF;
 
-  INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
-    VALUES
-      ('Noida Sector 62', 'sector', 'S62', true, v_zone1_id),
-      ('Noida Sector 63', 'sector', 'S63', true, v_zone1_id),
-      ('Noida Sector 64', 'sector', 'S64', true, v_zone1_id)
-    ON CONFLICT (name) DO UPDATE SET level = 'sector', parent_id = v_zone1_id;
+  IF NOT EXISTS (SELECT 1 FROM geo_hierarchy WHERE name = 'Noida Sector 62') THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
+      VALUES ('Noida Sector 62', 'sector', 'S62', true, v_zone1_id);
+  ELSE
+    UPDATE geo_hierarchy SET level = 'sector', short_code = 'S62', is_active = true, parent_id = v_zone1_id
+      WHERE name = 'Noida Sector 62';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM geo_hierarchy WHERE name = 'Noida Sector 63') THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
+      VALUES ('Noida Sector 63', 'sector', 'S63', true, v_zone1_id);
+  ELSE
+    UPDATE geo_hierarchy SET level = 'sector', short_code = 'S63', is_active = true, parent_id = v_zone1_id
+      WHERE name = 'Noida Sector 63';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM geo_hierarchy WHERE name = 'Noida Sector 64') THEN
+    INSERT INTO geo_hierarchy (name, level, short_code, is_active, parent_id)
+      VALUES ('Noida Sector 64', 'sector', 'S64', true, v_zone1_id);
+  ELSE
+    UPDATE geo_hierarchy SET level = 'sector', short_code = 'S64', is_active = true, parent_id = v_zone1_id
+      WHERE name = 'Noida Sector 64';
+  END IF;
 END $$;
 
 -- ============================================================================
