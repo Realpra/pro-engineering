@@ -663,20 +663,45 @@ steps are 100% mocked; magic-link/OTP client login never actually dispatch; no c
 handover/takeover/rating screen exists anywhere. No app code changed -- pure audit and
 deliverable-building, per the project owner's explicit direction throughout.
 
-## NEXT SESSION — START HERE (Updated 25 Sep 2026, Session 63)
-- The project owner is now reviewing MASTER_FLOW_STRINGS.xlsx (17 sheets) alongside the three
-  Session 61 Excel workbooks, SUPERVISOR_INFEED_ACT_OUTPUT_v4.xlsx, and
-  docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) -- no schema migration or code fix starts until
-  decisions come back marked on these.
-- If/when code work resumes, two items stay ungated regardless of R1-R29 decisions: (1) a
-  canonical schema-types contract via `supabase gen types typescript`, (2) writing the 7
-  missing migration files for confirmed live-only tables (workers, users,
-  job_milestone_substages, supervisor_daily_routes, scope_change_requests, trade_config,
-  payment_policy).
-- Highest-value, lowest-redesign-risk fixes once decisions come back, in rough priority order:
-  PENDING #15 (premium/rebate re-link, now root-caused to the orphaned admin/dashboard
-  panels), #16 (Site Incharge FK), #31 (slot_type link branching -- small, isolated, well-
-  specified), #32 (risk_flag_count writer restoration).
+## SESSION 64 — 26 Sep 2026 — SCHEMA FREEZE METHODOLOGY FINALIZED (NO CODE CHANGES)
+Full detail in CLAUDE.md's matching entry and docs/SCHEMA_FREEZE_METHODOLOGY.md -- that
+document is the one to follow going forward. Project owner rejected R1-R29's item-by-item
+paper review as too casual for how entangled this schema actually is, and drove the session to
+a replacement: freeze one whole PROCESS at a time, validated by watching it actually run, not
+by reading an isolated relationship line. An initial "expand the whole database up front so
+nothing is lost, then contract" counter-proposal was challenged and dropped -- none of the
+confirmed bugs are data-loss problems, they're structural disagreements, so a whole-database
+expand just doubles the surface holding the same inconsistency. The project owner's own
+process (expand only what each process touches when it's taken up; run it live; on disagreement
+between two existing fields, freeze both if genuinely different concepts or keep one if the
+same; freeze the process once agreed correct; reuse frozen fields in later processes; never
+unfreeze, only add fresh fields alongside) was refined into 3 amendments, each proven necessary
+by a real bug already found in this codebase: (1) the "keep the first-created one" tie-break is
+wrong -- contingency_policy's first-created columns are the dead ones, a later rename produced
+the columns actually read live, so the tie-break must be "which one the running code actually
+depends on," traced end to end; (2) a column-name decision isn't a data-correctness check, so a
+query-the-existing-rows-for-nulls step is now required before any field counts as frozen; (3)
+"never unfreeze" had no way to tell a genuinely new need apart from a later process proving an
+earlier freeze was actually wrong -- fixed by requiring every such finding to be classified as
+Addition (add alongside) or Contradiction (reopen, fix, re-freeze that earlier process), never
+quietly relabeled to avoid reopening it. Two supporting checks carried over: a coverage check
+(cross-reference each live run against MASTER_FLOW_STRINGS.xlsx's full branch map so orphaned/
+never-rendered code is forced into an explicit decision instead of silently skipped) and a
+search-before-create-fresh step (check for an existing not-yet-frozen field before adding a new
+one -- this is exactly how the worker-routing triplication and estimates/boq_generated
+duplication happened). No app code changed; no process has been run through this methodology
+yet -- this session produced the process itself.
+
+## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 64)
+- docs/SCHEMA_FREEZE_METHODOLOGY.md is now the process for every schema/relationship decision --
+  read it before touching any table. No process has been run through it yet.
+- Next concrete step: confirm the starting sequence with the project owner (shared core
+  entities -- guest_enquiries/workers/users -- first, then Payment Flow, then Substages &
+  Milestones, then Worker Onboarding+Allotment together, then the rest by priority -- see the
+  doc's STATUS section), then run the FIRST process through the full methodology as proof-of-process.
+- docs/ENTITY_RELATIONSHIP_FREEZE.md (R1-R29) and docs/ORIGINAL_SPEC_AUDIT.md are the evidence
+  catalogue to draw on per-process now, not a separate approval track to clear first.
+- MASTER_FLOW_STRINGS.xlsx (17 sheets) is the process map to work through one sheet at a time.
 - Two migrations are still waiting to be run in Supabase: 20260924_site_visit_reports_slot_scoping.sql
   and 20260924_milestone_payment_schedule_decision_5_remedy.sql (PENDING #14 and #9).
 - Provision the mktg_agent login in Supabase (PENDING #12).
