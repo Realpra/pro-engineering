@@ -15,8 +15,10 @@ CREATE TABLE IF NOT EXISTS geo_zone_sector_coverage (
 );
 
 ALTER TABLE geo_zone_sector_coverage ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "geo_zone_sector_coverage_authenticated_read" ON geo_zone_sector_coverage;
 CREATE POLICY "geo_zone_sector_coverage_authenticated_read"
   ON geo_zone_sector_coverage FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "geo_zone_sector_coverage_anon_read" ON geo_zone_sector_coverage;
 CREATE POLICY "geo_zone_sector_coverage_anon_read"
   ON geo_zone_sector_coverage FOR SELECT TO anon USING (true);
 

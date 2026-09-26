@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS trade_skill_questions (
   UNIQUE (trade, question_code)
 );
 ALTER TABLE trade_skill_questions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "trade_skill_questions_authenticated_read" ON trade_skill_questions;
 CREATE POLICY "trade_skill_questions_authenticated_read"
   ON trade_skill_questions FOR SELECT TO authenticated USING (true);
 
@@ -137,10 +138,13 @@ CREATE TABLE IF NOT EXISTS worker_skill_answers (
   UNIQUE (worker_id, question_code)
 );
 ALTER TABLE worker_skill_answers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "worker_skill_answers_authenticated_read" ON worker_skill_answers;
 CREATE POLICY "worker_skill_answers_authenticated_read"
   ON worker_skill_answers FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "worker_skill_answers_insert_anon" ON worker_skill_answers;
 CREATE POLICY "worker_skill_answers_insert_anon"
   ON worker_skill_answers FOR INSERT TO anon WITH CHECK (true);
+DROP POLICY IF EXISTS "worker_skill_answers_insert_authenticated" ON worker_skill_answers;
 CREATE POLICY "worker_skill_answers_insert_authenticated"
   ON worker_skill_answers FOR INSERT TO authenticated WITH CHECK (true);
 
@@ -174,10 +178,13 @@ CREATE TABLE IF NOT EXISTS worker_secondary_skills (
   UNIQUE (worker_id, skill_name)
 );
 ALTER TABLE worker_secondary_skills ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "worker_secondary_skills_authenticated_read" ON worker_secondary_skills;
 CREATE POLICY "worker_secondary_skills_authenticated_read"
   ON worker_secondary_skills FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "worker_secondary_skills_insert_anon" ON worker_secondary_skills;
 CREATE POLICY "worker_secondary_skills_insert_anon"
   ON worker_secondary_skills FOR INSERT TO anon WITH CHECK (true);
+DROP POLICY IF EXISTS "worker_secondary_skills_insert_authenticated" ON worker_secondary_skills;
 CREATE POLICY "worker_secondary_skills_insert_authenticated"
   ON worker_secondary_skills FOR INSERT TO authenticated WITH CHECK (true);
 
@@ -206,10 +213,13 @@ CREATE TABLE IF NOT EXISTS worker_work_samples (
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE worker_work_samples ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "worker_work_samples_authenticated_read" ON worker_work_samples;
 CREATE POLICY "worker_work_samples_authenticated_read"
   ON worker_work_samples FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "worker_work_samples_insert_anon" ON worker_work_samples;
 CREATE POLICY "worker_work_samples_insert_anon"
   ON worker_work_samples FOR INSERT TO anon WITH CHECK (true);
+DROP POLICY IF EXISTS "worker_work_samples_insert_authenticated" ON worker_work_samples;
 CREATE POLICY "worker_work_samples_insert_authenticated"
   ON worker_work_samples FOR INSERT TO authenticated WITH CHECK (true);
 
@@ -244,10 +254,13 @@ CREATE TABLE IF NOT EXISTS worker_accident_history (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE worker_accident_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "worker_accident_history_authenticated_read" ON worker_accident_history;
 CREATE POLICY "worker_accident_history_authenticated_read"
   ON worker_accident_history FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "worker_accident_history_insert_anon" ON worker_accident_history;
 CREATE POLICY "worker_accident_history_insert_anon"
   ON worker_accident_history FOR INSERT TO anon WITH CHECK (true);
+DROP POLICY IF EXISTS "worker_accident_history_insert_authenticated" ON worker_accident_history;
 CREATE POLICY "worker_accident_history_insert_authenticated"
   ON worker_accident_history FOR INSERT TO authenticated WITH CHECK (true);
 
