@@ -56,7 +56,7 @@ export default async function CertificatePage() {
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, booking_ref, status,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, actual_completion_date`)
+          substage_approved_at, actual_completion_date`)
         .in('booking_ref', bookingRefs)
         .eq('status', 'completed')
         .order('supervisor_submitted_at', { ascending: false })
@@ -99,7 +99,7 @@ export default async function CertificatePage() {
             </div>
             <div>
               <p className="text-green-400 font-bold text-2xl">
-                {(completedSubstages ?? []).filter(s => s.coordinator_approved_at).length}
+                {(completedSubstages ?? []).filter(s => s.substage_approved_at).length}
               </p>
               <p className="text-blue-300 text-xs">Coordinator Approved</p>
             </div>
@@ -204,13 +204,13 @@ export default async function CertificatePage() {
                         <p className="text-xs text-gray-400">{s.substage_code} · {s.booking_ref}</p>
                       </div>
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                        s.coordinator_approved_at
+                        s.substage_approved_at
                           ? 'bg-green-100 text-green-700 border-green-300'
                           : s.subcoordinator_reviewed_at
                           ? 'bg-blue-100 text-blue-700 border-blue-300'
                           : 'bg-orange-100 text-orange-700 border-orange-300'
                       }`}>
-                        {s.coordinator_approved_at ? '✓ Approved' : s.subcoordinator_reviewed_at ? 'Sub-Coord Review' : 'Pending'}
+                        {s.substage_approved_at ? '✓ Approved' : s.subcoordinator_reviewed_at ? 'Sub-Coord Review' : 'Pending'}
                       </span>
                     </div>
 
@@ -235,7 +235,7 @@ export default async function CertificatePage() {
                         </div>
                         <div>
                           <p className="text-gray-400">Coordinator Approved</p>
-                          <p className="font-semibold text-gray-700">{formatDateTime(s.coordinator_approved_at)}</p>
+                          <p className="font-semibold text-gray-700">{formatDateTime(s.substage_approved_at)}</p>
                         </div>
                       </div>
 

@@ -28,9 +28,6 @@ interface SubstageData {
   booking_ref: string
   status: string
   completion_pct: number | null
-  supervisor_checklist: any
-  evidence_checklist: any
-  evidence_submitted: any
   site_checklist: any
   site_evidence_checklist: any
   site_evidence_submitted: any
@@ -321,10 +318,10 @@ export default function SiteVisitManager({
   }
 
   // Checklist from substage -- site_checklist/site_evidence_checklist are the
-  // correctly-named columns (Site Incharge is the real writer), falling back
-  // to the legacy supervisor_-prefixed names for any not-yet-migrated row.
-  const evidenceChecklist = (substageData?.site_evidence_checklist as any[]) ?? (substageData?.evidence_checklist as any[]) ?? []
-  const supervisorChecklist = (substageData?.site_checklist as any[]) ?? (substageData?.supervisor_checklist as any[]) ?? []
+  // correctly-named columns (Site Incharge is the real writer), resolved
+  // canonically, read alone.
+  const evidenceChecklist = (substageData?.site_evidence_checklist as any[]) ?? []
+  const supervisorChecklist = (substageData?.site_checklist as any[]) ?? []
 
   const radioGroup = (name: string, value: string, options: string[], onChange: (v: string) => void) => (
     <div className="flex flex-wrap gap-3">

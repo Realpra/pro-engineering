@@ -31,11 +31,11 @@ export default async function CoordinatorEscalationsPage() {
         .select(`id, substage_code, substage_name, milestone_code,
           booking_ref, trade_type, status, completion_pct,
           is_critical_path, float_days,
-          subcoordinator_reviewed_at, coordinator_approved_at,
+          subcoordinator_reviewed_at, substage_approved_at,
           supervisor_submitted_at`)
         .in('booking_ref', bookingRefs)
         .not('subcoordinator_reviewed_at', 'is', null)
-        .is('coordinator_approved_at', null)
+        .is('substage_approved_at', null)
         .order('subcoordinator_reviewed_at', { ascending: true })
     : { data: [] }
 

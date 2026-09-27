@@ -34,7 +34,7 @@ export default async function SubstageDetailPage({ params }: { params: Promise<{
     .order('sequence_order', { ascending: true })
 
   // Build checklist merging templates with saved state
-  const savedChecklist = (sub.supervisor_checklist as any[]) ?? []
+  const savedChecklist = (sub.site_checklist as any[]) ?? []
   const checklist = (templates ?? []).map(t => {
     const saved = savedChecklist.find((s: any) => s.item === t.item_text && s.type === t.item_type)
     return {
@@ -46,7 +46,7 @@ export default async function SubstageDetailPage({ params }: { params: Promise<{
     }
   })
 
-  const evidenceChecklist = (sub.evidence_checklist as any[]) ?? []
+  const evidenceChecklist = (sub.site_evidence_checklist as any[]) ?? []
   const isCritical = sub.is_critical_path
   const isPartDay = sub.planned_hours && Number(sub.planned_hours) < 8
   const isMultiShift = sub.planned_hours && Number(sub.planned_hours) >= 15
@@ -240,7 +240,7 @@ export default async function SubstageDetailPage({ params }: { params: Promise<{
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Approved</span>
-            <span className="text-xs font-semibold text-gray-800">{sub.coordinator_approved_at ? new Date(sub.coordinator_approved_at).toLocaleString('en-GB') : '—'}</span>
+            <span className="text-xs font-semibold text-gray-800">{sub.substage_approved_at ? new Date(sub.substage_approved_at).toLocaleString('en-GB') : '—'}</span>
           </div>
         </div>
 

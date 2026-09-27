@@ -85,9 +85,9 @@ export default async function SubCoordinatorApprovalsPage() {
         .from('job_milestone_substages')
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, booking_ref, status, completion_pct,
-          supervisor_checklist, evidence_checklist, evidence_submitted,
+          site_checklist, site_evidence_checklist, site_evidence_submitted,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, is_critical_path, float_days,
+          substage_approved_at, is_critical_path, float_days,
           planned_day, planned_hours`)
         .in('booking_ref', bookingRefs)
         .not('supervisor_submitted_at', 'is', null)
@@ -102,7 +102,7 @@ export default async function SubCoordinatorApprovalsPage() {
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, booking_ref, status,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, is_critical_path`)
+          substage_approved_at, is_critical_path`)
         .in('booking_ref', bookingRefs)
         .not('subcoordinator_reviewed_at', 'is', null)
         .order('subcoordinator_reviewed_at', { ascending: false })
@@ -192,9 +192,9 @@ export default async function SubCoordinatorApprovalsPage() {
             <div className="space-y-3">
               {overdue.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
-                const evidence = (s.evidence_checklist as any[]) ?? []
-                const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
+                const evidence = (s.site_evidence_checklist as any[]) ?? []
+                const evidenceSubmitted = (s.site_evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
                 async function sendBackAction(formData: FormData) {
@@ -259,9 +259,9 @@ export default async function SubCoordinatorApprovalsPage() {
             <div className="space-y-3">
               {urgent.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
-                const evidence = (s.evidence_checklist as any[]) ?? []
-                const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
+                const evidence = (s.site_evidence_checklist as any[]) ?? []
+                const evidenceSubmitted = (s.site_evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
                 async function sendBackAction(formData: FormData) {
@@ -330,9 +330,9 @@ export default async function SubCoordinatorApprovalsPage() {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {pending.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
-                const evidence = (s.evidence_checklist as any[]) ?? []
-                const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
+                const evidence = (s.site_evidence_checklist as any[]) ?? []
+                const evidenceSubmitted = (s.site_evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
                 async function sendBackAction(formData: FormData) {
@@ -409,11 +409,11 @@ export default async function SubCoordinatorApprovalsPage() {
                     </p>
                   </div>
                   <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                    s.coordinator_approved_at
+                    s.substage_approved_at
                       ? 'bg-green-100 text-green-700 border-green-300'
                       : 'bg-blue-100 text-blue-700 border-blue-300'
                   }`}>
-                    {s.coordinator_approved_at ? '✓ Coord Approved' : '→ Finance'}
+                    {s.substage_approved_at ? '✓ Coord Approved' : '→ Finance'}
                   </span>
                 </div>
               ))}

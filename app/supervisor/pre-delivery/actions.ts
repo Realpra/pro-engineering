@@ -68,12 +68,84 @@ export async function submitPreDeliveryAssessment(
 
   if (error) return { error: error.message }
 
-  // scope_snag_items (the fan-out this used to also write) is a confirmed
-  // dead-end table -- nothing anywhere in the repo reads it back.
-  // pre_delivery_assessment.supervisor_snag_items (written above) is the
-  // real, actually-read source. Retired per Duplicate/Conflict #11 -- see
-  // 20260927_retire_dead_sink_tables.sql.
+  // scope_snag_items: this is the real SA-12 Snag List (june.md 10515-10522)
+  // -- a per-item, individually resolvable record, distinct in purpose from
+  // supervisor_snag_items above (a point-in-time JSONB copy of what was found
+  // during THIS inspection). Each item starts 'open' and is tracked/resolved
+  // independently across however many follow-up visits it takes, which the
+  // JSONB blob on pre_delivery_assessment cannot represent on its own.
+  if (data.snag_items.length > 0) {
+    const { error: snagErr } = await supabase.from('scope_snag_items').insert(
+      data.snag_items.map(item => ({
+        booking_ref: data.booking_ref,
+        snag_location: item.location,
+        snag_description: item.description,
+        snag_severity: item.severity,
+        snag_photo_url: item.photo_url,
+        admin_flagged: data.supervisor_flagged_to_admin,
+        resolution_status: 'open',
+      })),
+    )
+    if (snagErr) return { error: snagErr.message }
+  }
 
+  revalidatePath('/supervisor/pre-delivery')
+  return { success: true }
+}
+
+export type OpenSnag = {
+  id: string
+  booking_ref: string
+  snag_location: string | null
+  snag_description: string | null
+  snag_severity: 'minor' | 'medium' | 'major' | 'critical'
+  snag_photo_url: string | null
+  resolution_status: 'open' | 'resolved' | 'client_accepted'
+}
+
+export async function getSnagsForJob(bookingRef: string): Promise<OpenSnag[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('scope_snag_items')
+    .select('id, booking_ref, snag_location, snag_description, snag_severity, snag_photo_url, resolution_status')
+    .eq('booking_ref', bookingRef)
+    .order('snag_severity', { ascending: false })
+  return (data as OpenSnag[]) ?? []
+}
+
+// Per the original SA-12 rule: a critical snag can only be marked Resolved
+// (actually fixed), never Client Accepted -- that escape hatch is only for
+// minor/medium/major items the client is willing to live with.
+export async function resolveSnagItem(
+  snagId: string,
+  resolution: 'resolved' | 'client_accepted',
+  resolvedBy: string,
+  notes: string | null,
+): Promise<{ success?: true; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: snag, error: fetchErr } = await supabase
+    .from('scope_snag_items')
+    .select('snag_severity')
+    .eq('id', snagId)
+    .single()
+  if (fetchErr) return { error: fetchErr.message }
+
+  if (snag.snag_severity === 'critical' && resolution === 'client_accepted') {
+    return { error: 'Critical snags cannot be client-accepted -- they must be marked Resolved.' }
+  }
+
+  const { error } = await supabase
+    .from('scope_snag_items')
+    .update({
+      resolution_status: resolution,
+      resolved_at: new Date().toISOString(),
+      resolved_by: resolvedBy,
+      resolution_notes: notes,
+    })
+    .eq('id', snagId)
+
+  if (error) return { error: error.message }
   revalidatePath('/supervisor/pre-delivery')
   return { success: true }
 }

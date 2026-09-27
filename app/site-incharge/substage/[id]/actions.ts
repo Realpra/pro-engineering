@@ -58,15 +58,14 @@ export async function updateSupervisorChecklist(
 
   // supervisor_checklist is a misnomer -- Site Incharge is the only writer of
   // this column anywhere in the repo (Supervisor's own SubstageCard.tsx only
-  // ever reads a count). site_checklist is the correctly-named column added
-  // alongside it (20260927_job_milestone_substages_site_columns.sql);
-  // supervisor_checklist is kept in sync so out-of-scope readers (coordinator/
-  // payments, supervisor/estimate+approvals+inspections, sub-coordinator/
-  // approvals) keep working until they're migrated to the new name.
+  // ever reads a count). site_checklist is the correctly-named column
+  // (20260927_job_milestone_substages_site_columns.sql), resolved
+  // canonically -- every reader across coordinator/supervisor/sub-coordinator
+  // now reads site_checklist directly, so this no longer dual-writes the
+  // legacy supervisor_checklist column.
   const { error } = await (supabase as SupabaseAny)
     .from('job_milestone_substages')
     .update({
-      supervisor_checklist: checklist,
       site_checklist: checklist,
       updated_at: new Date().toISOString(),
     })
@@ -106,21 +105,21 @@ export async function uploadEvidence(
   // Get current substage data
   const { data: substage } = await supabase
     .from('job_milestone_substages')
-    .select('evidence_checklist, evidence_submitted')
+    .select('site_evidence_checklist, site_evidence_submitted')
     .eq('id', substageId)
     .single()
 
   if (!substage) throw new Error('Substage not found')
 
-  // Update evidence_checklist confirmed flag
-  const checklist = (substage.evidence_checklist as any[]) ?? []
+  // Update evidence checklist confirmed flag
+  const checklist = (substage.site_evidence_checklist as any[]) ?? []
   if (checklist[index]) {
     checklist[index].confirmed = true
     checklist[index].url = urlData.publicUrl
   }
 
-  // Update evidence_submitted
-  const submitted = (substage.evidence_submitted as any[]) ?? []
+  // Update evidence submitted
+  const submitted = (substage.site_evidence_submitted as any[]) ?? []
   submitted[index] = {
     label,
     url: urlData.publicUrl,
@@ -128,13 +127,12 @@ export async function uploadEvidence(
     uploaded_at: new Date().toISOString(),
   }
 
-  // Same dual-write discipline as updateSupervisorChecklist above -- see
-  // 20260927_job_milestone_substages_site_columns.sql.
+  // Resolved canonically -- see 20260927_job_milestone_substages_site_columns.sql.
+  // Every reader now reads site_evidence_checklist/site_evidence_submitted
+  // directly, so this no longer dual-writes the legacy column names.
   const { error } = await (supabase as SupabaseAny)
     .from('job_milestone_substages')
     .update({
-      evidence_checklist: checklist,
-      evidence_submitted: submitted,
       site_evidence_checklist: checklist,
       site_evidence_submitted: submitted,
       updated_at: new Date().toISOString(),

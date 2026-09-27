@@ -59,7 +59,7 @@ export default async function CoordinatorJobsPage() {
 
   const { data: substages } = await supabase
     .from('job_milestone_substages')
-    .select('booking_ref, status, coordinator_approved_at, subcoordinator_reviewed_at')
+    .select('booking_ref, status, substage_approved_at, subcoordinator_reviewed_at')
 
   const getJobProgress = (ref: string) => {
     const s = (substages ?? []).filter(x => x.booking_ref === ref)

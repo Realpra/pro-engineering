@@ -7,12 +7,41 @@ import { revalidatePath } from 'next/cache'
 export type ScopeActionResult = { success: true } | { error: string }
 
 // ─── ACTION 1 ───────────────────────────────────────────────────────────────
+// SA-12's original rule (june.md 10515-10522): "Critical snags cannot be
+// Client accepted -- must be Resolved. Milestone locked until all snags are
+// Resolved or Client accepted." Handover is the real-world equivalent of
+// that milestone lock for this codebase's flow -- enforced here, not just
+// recorded.
 export async function adminApproveHandover(
   assessmentId: string,
   adminUserId: string,
   conditions: string
 ): Promise<ScopeActionResult> {
   const supabase: any = await createClient()
+
+  const { data: assessment, error: fetchErr } = await supabase
+    .from('pre_delivery_assessment')
+    .select('booking_ref')
+    .eq('id', assessmentId)
+    .single()
+  if (fetchErr) return { error: fetchErr.message }
+
+  const { data: openSnags, error: snagErr } = await supabase
+    .from('scope_snag_items')
+    .select('snag_severity, resolution_status')
+    .eq('booking_ref', assessment.booking_ref)
+    .eq('resolution_status', 'open')
+  if (snagErr) return { error: snagErr.message }
+
+  if ((openSnags?.length ?? 0) > 0) {
+    const criticalCount = openSnags.filter((s: any) => s.snag_severity === 'critical').length
+    return {
+      error: criticalCount > 0
+        ? `${criticalCount} critical snag(s) are still open and must be Resolved before handover.`
+        : `${openSnags.length} snag(s) are still open -- each must be Resolved or Client Accepted before handover.`,
+    }
+  }
+
   const now = new Date().toISOString()
   const { error } = await supabase
     .from('pre_delivery_assessment')

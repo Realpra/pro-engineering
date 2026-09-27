@@ -95,7 +95,7 @@ export default async function SubCoordinatorDashboardPage() {
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, booking_ref, status, completion_pct,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, is_critical_path, float_days`)
+          substage_approved_at, is_critical_path, float_days`)
         .in('booking_ref', bookingRefs)
         .not('supervisor_submitted_at', 'is', null)
         .is('subcoordinator_reviewed_at', null)

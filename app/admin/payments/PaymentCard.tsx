@@ -45,6 +45,7 @@ export type Payment = {
   coordinator_approved_at: string | null
   admin_approved_at: string | null
   payment_released_at: string | null
+  token_payment_verified_at: string | null
   status: string | null
   platform_remarks: string | null
   coordinator_payment_remarks: string | null
@@ -96,6 +97,7 @@ export const NIL_PAYMENT: Payment = {
   coordinator_approved_at: null,
   admin_approved_at: null,
   payment_released_at: null,
+  token_payment_verified_at: null,
   status: null,
   platform_remarks: null,
   coordinator_payment_remarks: null,
@@ -322,6 +324,9 @@ export default function PaymentCard({
         <Cell label="Trigger Condition" value={payment.trigger_condition ?? '—'} />
         <Cell label="Supervisor Submitted" value={fmtDate(payment.supervisor_submitted_at)} />
         <Cell label="Coordinator Approved" value={fmtDate(payment.coordinator_approved_at)} />
+        {payment.milestone_code === 'M0' && (
+          <Cell label="Token Payment Verified" value={fmtDate(payment.token_payment_verified_at)} />
+        )}
         <Cell label="Coordinator Remarks" value={payment.coordinator_payment_remarks ?? '—'} />
         <Cell label="Days Waiting" value={waiting == null ? '—' : `${waiting} day${waiting === 1 ? '' : 's'}`} />
         {mode === 'decision5' && <Cell label="Decision 5 Raised" value={fmtDate(payment.decision_5_raised_at)} />}

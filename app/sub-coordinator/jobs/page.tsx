@@ -29,7 +29,7 @@ export default async function JobsPage() {
     .from('job_milestone_substages')
     .select(`id, substage_code, milestone_code, booking_ref, status,
       completion_pct, is_critical_path, supervisor_submitted_at,
-      subcoordinator_reviewed_at, coordinator_approved_at`)
+      subcoordinator_reviewed_at, substage_approved_at`)
     .order('milestone_code', { ascending: true })
 
   const { data: supervisors } = await supabase

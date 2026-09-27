@@ -635,8 +635,12 @@ export async function saveMilestonePlan(
     constraint_type: r.constraintType||'ASAP',
     constraint_date: r.constraintDate||null,
     weather_delay_days: r.weatherDelayDays||0,
-    evidence_checklist: r.evidenceRequired?r.evidenceRequired.map(e=>({label:e,type:'photo',confirmed:false})):[],
-    supervisor_checklist: r.supervisorChecklist?r.supervisorChecklist.map(e=>({item:e,checked:false})):[],
+    // site_checklist/site_evidence_checklist are the correctly-named columns
+    // (Site Incharge is the actual filler, despite the historical "supervisor_"
+    // naming) -- resolved canonically here at creation time too, no dual-write
+    // to the legacy evidence_checklist/supervisor_checklist columns.
+    site_evidence_checklist: r.evidenceRequired?r.evidenceRequired.map(e=>({label:e,type:'photo',confirmed:false})):[],
+    site_checklist: r.supervisorChecklist?r.supervisorChecklist.map(e=>({item:e,checked:false})):[],
     subcoordinator_checklist: r.subcoordinatorChecklist?r.subcoordinatorChecklist.map(e=>({item:e,checked:false})):[],
     coordinator_checklist: r.coordinatorChecklist?r.coordinatorChecklist.map(e=>({item:e,checked:false})):[],
     labour_assignments: r.labourAssignments||[],

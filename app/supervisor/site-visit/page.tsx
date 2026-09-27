@@ -45,7 +45,6 @@ export default async function SiteVisitPage({
         .from('job_milestone_substages')
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, booking_ref, status, completion_pct,
-          supervisor_checklist, evidence_checklist, evidence_submitted,
           site_checklist, site_evidence_checklist, site_evidence_submitted,
           is_critical_path, planned_day, planned_hours, float_days,
           early_start_date, early_finish_date, skilled_workers_per_day,

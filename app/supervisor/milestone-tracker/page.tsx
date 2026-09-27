@@ -49,8 +49,7 @@ export default async function MilestoneTrackerPage() {
           is_critical_path, planned_day, float_days,
           early_start_date, early_finish_date, planned_hours,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, substage_approved_at, supervisor_checklist,
-          evidence_checklist, evidence_submitted, site_checklist,
+          substage_approved_at, site_checklist,
           site_evidence_checklist, site_evidence_submitted, labour_assignments`)
         .in('booking_ref', bookingRefs)
         .order('milestone_code', { ascending: true })

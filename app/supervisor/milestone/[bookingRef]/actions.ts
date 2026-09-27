@@ -61,21 +61,20 @@ export async function coordinatorApproveMilestone({
   const supabase = await createClient()
   const now = new Date().toISOString()
 
-  // coordinator_approved_at is also written by Client's verifyPayment
-  // (app/client/payment/actions.ts) for a completely different event --
-  // "coordinator verified the client's M0 token payment UTR" -- sharing one
-  // column name for two distinct real-world facts (Duplicate/Conflict #2).
-  // milestone_evidence_approved_at is the correctly-scoped new column for
-  // THIS event; coordinator_approved_at is kept in sync for out-of-scope
-  // readers (admin/dashboard, PaymentCard.tsx, MilestoneTabs.tsx) not yet
-  // migrated to the new name.
+  // coordinator_approved_at is the correct, canonical, heavily-depended-on
+  // name for THIS event ("coordinator/supervisor approved the milestone
+  // evidence") -- confirmed by PaymentCard.tsx's own "Days Waiting"/
+  // "Coordinator Approved" cells, which are distinct from its separate
+  // admin_approved_at cell (Admin's own later sign-off). The real conflict
+  // was Client's verifyPayment (app/client/payment/actions.ts) wrongly
+  // overloading this same column for an unrelated event ("coordinator
+  // verified the client's M0 token payment UTR") -- fixed there, not here.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('milestone_payment_schedule')
     .update({
       status: 'coordinator_approved',
       coordinator_approved_at: now,
-      milestone_evidence_approved_at: now,
       updated_at: now,
     })
     .eq('id', milestoneId)

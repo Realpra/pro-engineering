@@ -1,12 +1,31 @@
--- Supervisor Visit schema freeze, Duplicate/Conflict #11 and #12:
--- worker_day_slots and scope_snag_items are both confirmed pure write sinks
--- -- inserted/deleted by Supervisor's code on every crew assignment / flagged
--- pre-delivery inspection, but NEVER read anywhere else in the repo (grep-
--- confirmed by 3 independent research passes). The real, actually-consumed
--- sources for the same facts already exist:
---   worker_day_slots      -> job_milestone_substages.labour_assignments
---   scope_snag_items      -> pre_delivery_assessment.supervisor_snag_items
--- The app-side writes into these two tables were removed in the accompanying
--- code change; this drops the now-fully-orphaned tables themselves.
-DROP TABLE IF EXISTS worker_day_slots;
-DROP TABLE IF EXISTS scope_snag_items;
+-- SUPERSEDED -- this migration originally dropped worker_day_slots and
+-- scope_snag_items outright. The project owner explicitly rejected that:
+-- per Amendment 1 step 5 ("the losing candidate is NOT deleted, mark it
+-- deprecated, leave it in the database") and because both tables trace to
+-- real, specific original design intent that was never actually finished,
+-- not simple accidental duplicates:
+--
+-- worker_day_slots: per the project's own docs/ENTITY_RELATIONSHIP_FREEZE.md
+-- (R24-R29, "Worker <-> Job" relationships), this table is one of THREE
+-- overlapping, never-cleanly-designed attempts at the same worker-routing
+-- concept (worker_day_slots / worker_shift_schedule / supervisor_daily_
+-- routes). The catalogue's own proposed fix (R27, a single worker_route_legs
+-- entity replacing all three) is explicitly marked "the one that needs your
+-- explicit go-ahead before any migration work starts -- it's a redesign, not
+-- a drip-fix." That go-ahead has not been given. Restoring the table and its
+-- existing writes as-is (not inventing a new R27 design here) until that
+-- explicit decision is made -- see the code change restoring
+-- assignWorkerToSubstage/removeWorkerFromSubstage's writes.
+--
+-- scope_snag_items: traced to a real, well-specified original feature --
+-- SA-12 Snag List (june.md lines 10515-10522, 11104-11105, 11219-11224):
+-- item-by-item location/description/severity/photo/resolution tracking,
+-- with a hard business rule ("Critical snags cannot be Client-accepted --
+-- must be Resolved. Milestone locked until all snags are Resolved or Client
+-- accepted") plus later refinements (recovery-cost flagging, periodic
+-- escalation). scope_snag_items was only ever half-built -- an insert with
+-- no resolution_status, no read/resolve UI, and no milestone-lock
+-- enforcement. This migration now builds out that missing half instead of
+-- discarding the table -- see 20260927_scope_snag_items_sa12_snag_list.sql.
+
+-- (No DROP statements. Both tables are retained.)

@@ -9,7 +9,7 @@ type MilestoneRow = {
   milestone_code: string
   milestone_name: string
   payment_amount: number
-  evidence_submitted: Record<string, string> | null
+  evidence_submitted: { item?: string; notes?: string; uploaded_by?: string; uploaded_at?: string }[] | null
   supervisor_submitted_at: string | null
   status: string
   trigger_condition: string
@@ -94,9 +94,9 @@ export default function MilestoneApprovalsPanel({
 
           <div className="bg-gray-50 rounded-xl p-4 mb-4">
             <p className="text-xs font-semibold text-gray-500 mb-2">SUPERVISOR NOTES</p>
-            {m.evidence_submitted ? (
+            {m.evidence_submitted && m.evidence_submitted.length > 0 ? (
               <>
-                <p className="text-sm text-gray-700">{m.evidence_submitted.notes}</p>
+                <p className="text-sm text-gray-700">{m.evidence_submitted[0]?.notes}</p>
                 <p className="text-xs text-gray-400 mt-1">
                   Submitted: {m.supervisor_submitted_at ? fmtDate(m.supervisor_submitted_at) : 'pending'}
                 </p>

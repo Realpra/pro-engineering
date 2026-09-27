@@ -41,10 +41,10 @@ export default async function CoordinatorDashboardPage() {
   const { data: pendingPayments } = bookingRefs.length > 0
     ? await supabase
         .from('job_milestone_substages')
-        .select('id, substage_code, substage_name, booking_ref, milestone_code, subcoordinator_reviewed_at, coordinator_approved_at, is_critical_path')
+        .select('id, substage_code, substage_name, booking_ref, milestone_code, subcoordinator_reviewed_at, substage_approved_at, is_critical_path')
         .in('booking_ref', bookingRefs)
         .not('subcoordinator_reviewed_at', 'is', null)
-        .is('coordinator_approved_at', null)
+        .is('substage_approved_at', null)
         .order('subcoordinator_reviewed_at', { ascending: true })
     : { data: [] }
 

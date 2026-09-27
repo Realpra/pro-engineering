@@ -208,17 +208,16 @@ export async function adminApproveSubstage(
 ): Promise<MilestoneActionResult> {
   const supabase: any = await createClient()
   const now = new Date().toISOString()
+  // Every other role's page (coordinator, supervisor, sub-coordinator,
+  // site-incharge) now reads substage_approved_at directly -- resolved
+  // canonically, no dual-write to the legacy coordinator_approved_at column
+  // (Supervisor Visit schema freeze, Session 67).
   const { error } = await supabase
     .from('job_milestone_substages')
     .update({
       substage_approval_status: 'approved',
       substage_approved_by: adminUserId,
       substage_approved_at: now,
-      // coordinator_approved_at is the field every other role's page (coordinator,
-      // supervisor, sub-coordinator, site-incharge) actually reads to know a
-      // substage cleared final approval -- nothing else in the app ever set it,
-      // so admin's approval was invisible everywhere outside this page.
-      coordinator_approved_at: now,
       updated_at: now,
     })
     .eq('id', substageId)

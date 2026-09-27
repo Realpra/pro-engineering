@@ -85,7 +85,7 @@ export default async function InspectionsPage() {
         .from('job_milestone_substages')
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, booking_ref, status, completion_pct,
-          supervisor_checklist, evidence_checklist, evidence_submitted,
+          site_checklist, site_evidence_checklist, site_evidence_submitted,
           supervisor_submitted_at, is_critical_path, planned_day,
           early_start_date, early_finish_date, float_days`)
         .in('booking_ref', bookingRefs)
@@ -170,8 +170,8 @@ export default async function InspectionsPage() {
             <div className="space-y-3">
               {overdue.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
-                const evidence = (s.evidence_checklist as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
+                const evidence = (s.site_evidence_checklist as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 return (
                   <div key={s.id} className="bg-white rounded-2xl border border-red-300 shadow-sm overflow-hidden">
@@ -218,7 +218,7 @@ export default async function InspectionsPage() {
             <div className="space-y-3">
               {urgent.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 return (
                   <div key={s.id} className="bg-white rounded-2xl border border-orange-300 shadow-sm overflow-hidden">

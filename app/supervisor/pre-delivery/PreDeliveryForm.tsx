@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { submitPreDeliveryAssessment, uploadSnagPhoto, type SnagItem } from './actions'
+import { useState, useEffect, useCallback } from 'react'
+import { submitPreDeliveryAssessment, uploadSnagPhoto, getSnagsForJob, resolveSnagItem, type SnagItem, type OpenSnag } from './actions'
 
 type Job = {
   booking_ref: string
@@ -35,6 +35,36 @@ export default function PreDeliveryForm({ supervisorId, jobs }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // SA-12 Snag List: existing snags raised on a prior visit to this job,
+  // tracked and resolved individually across however many follow-up visits
+  // it takes -- distinct from the "Snag Items" section below, which is for
+  // logging NEW snags found on THIS inspection.
+  const [existingSnags, setExistingSnags] = useState<OpenSnag[]>([])
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [resolveError, setResolveError] = useState<string | null>(null)
+
+  const loadExistingSnags = useCallback(async (ref: string) => {
+    if (!ref) { setExistingSnags([]); return }
+    const snags = await getSnagsForJob(ref)
+    setExistingSnags(snags)
+  }, [])
+
+  useEffect(() => {
+    loadExistingSnags(bookingRef)
+  }, [bookingRef, loadExistingSnags])
+
+  async function handleResolve(snagId: string, resolution: 'resolved' | 'client_accepted') {
+    setResolvingId(snagId)
+    setResolveError(null)
+    const result = await resolveSnagItem(snagId, resolution, supervisorId, null)
+    setResolvingId(null)
+    if (result.error) {
+      setResolveError(result.error)
+    } else {
+      loadExistingSnags(bookingRef)
+    }
+  }
 
   function addSnag() {
     setSnags(prev => [...prev, { location: '', description: '', severity: 'minor', photoUrl: null, uploading: false, error: null }])
@@ -159,6 +189,57 @@ export default function PreDeliveryForm({ supervisorId, jobs }: Props) {
           ))}
         </div>
       </section>
+
+      {existingSnags.length > 0 && (
+        <section>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+            Open Snags From Prior Visits ({existingSnags.filter(s => s.resolution_status === 'open').length} open)
+          </p>
+          <div className="space-y-3">
+            {resolveError && <p className="text-red-600 text-xs">{resolveError}</p>}
+            {existingSnags.map(snag => (
+              <div key={snag.id} className={`bg-white rounded-2xl border shadow-sm px-5 py-4 space-y-2 ${snag.snag_severity === 'critical' ? 'border-red-300' : 'border-gray-200'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-gray-800">{snag.snag_location}</p>
+                  <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${snag.snag_severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {snag.snag_severity}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">{snag.snag_description}</p>
+                {snag.resolution_status === 'open' ? (
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={resolvingId === snag.id}
+                      onClick={() => handleResolve(snag.id, 'resolved')}
+                      className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-xl disabled:opacity-60"
+                    >
+                      Mark Resolved
+                    </button>
+                    {snag.snag_severity !== 'critical' && (
+                      <button
+                        type="button"
+                        disabled={resolvingId === snag.id}
+                        onClick={() => handleResolve(snag.id, 'client_accepted')}
+                        className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2 rounded-xl disabled:opacity-60"
+                      >
+                        Client Accepted
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs font-semibold text-green-600">
+                    ✓ {snag.resolution_status === 'resolved' ? 'Resolved' : 'Client Accepted'}
+                  </p>
+                )}
+                {snag.snag_severity === 'critical' && snag.resolution_status === 'open' && (
+                  <p className="text-xs text-red-600">Critical -- cannot be Client Accepted, must be Resolved. Handover is blocked until this is cleared.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="flex items-center justify-between mb-3">

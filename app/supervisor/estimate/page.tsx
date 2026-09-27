@@ -48,7 +48,7 @@ export default async function EstimatePage({
         .from('job_milestone_substages')
         .select(`id, substage_code, substage_name, milestone_code,
           trade_type, planned_day, planned_hours, is_critical_path,
-          evidence_checklist, supervisor_checklist`)
+          site_evidence_checklist, site_checklist`)
         .eq('booking_ref', selectedJob.booking_ref)
         .order('milestone_code', { ascending: true })
         .order('planned_day', { ascending: true })
@@ -217,8 +217,8 @@ export default async function EstimatePage({
                       </div>
                       <div className="divide-y divide-gray-100">
                         {group.map(s => {
-                          const evidence = (s.evidence_checklist as any[]) ?? []
-                          const checklist = (s.supervisor_checklist as any[]) ?? []
+                          const evidence = (s.site_evidence_checklist as any[]) ?? []
+                          const checklist = (s.site_checklist as any[]) ?? []
                           return (
                             <div key={s.id} className="px-5 py-3">
                               <div className="flex items-start justify-between gap-3 mb-2">

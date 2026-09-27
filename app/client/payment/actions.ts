@@ -122,17 +122,17 @@ export async function verifyPayment(
       .from('payment_confirmations')
       .update({ status: 'verified', coordinator_verified_at: now, coordinator_verified_by: coordinatorId })
       .eq('id', paymentConfirmationId),
-    // coordinator_approved_at is also written by Supervisor's
-    // coordinatorApproveMilestone (app/supervisor/milestone/[bookingRef]/
-    // actions.ts) for a completely different event -- "coordinator approved
-    // milestone evidence" -- sharing one column for two distinct facts
-    // (Duplicate/Conflict #2). token_payment_verified_at is the correctly-
-    // scoped new column for THIS event; coordinator_approved_at is kept in
-    // sync for out-of-scope readers not yet migrated to the new name.
+    // coordinator_approved_at is the correct, canonical name for a
+    // different event -- Supervisor's coordinatorApproveMilestone
+    // ("coordinator approved milestone evidence"), confirmed by
+    // PaymentCard.tsx's own "Days Waiting"/"Coordinator Approved" logic.
+    // This M0 token-payment verification is a distinct fact and now writes
+    // ONLY the correctly-scoped token_payment_verified_at column, resolved
+    // canonically, no dual-write (Duplicate/Conflict #2).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('milestone_payment_schedule')
-      .update({ status: 'paid', coordinator_approved_at: now, token_payment_verified_at: now })
+      .update({ status: 'paid', token_payment_verified_at: now })
       .eq('booking_ref', bookingRef)
       .eq('milestone_code', 'M0'),
     supabase

@@ -68,25 +68,41 @@ export async function assignWorkerToSubstage(
 
   if (updateErr) return { error: updateErr.message }
 
-  // current_job_id has a confirmed dual-meaning bug: this path writes a
+  // current_job_id had a confirmed dual-meaning bug: this path wrote a
   // job_milestone_substages id into it, while Sub-Coordinator's own
   // assignWorkerToJob writes a guest_enquiries id into the SAME column --
-  // two different entity types sharing one column. Add the correctly-typed
-  // current_substage_id alongside (Amendment 3: an addition to the frozen
-  // workers table, not a re-opening of it) rather than fixing this one side
-  // in a way that could break an out-of-scope reader relying on
-  // current_job_id's existing truthiness. See 20260927_workers_current_job_split.sql.
+  // two different entity types sharing one column. current_substage_id is
+  // the correctly-typed column added alongside it (Amendment 3: an addition
+  // to the frozen workers table, not a re-opening of it) -- see
+  // 20260927_workers_current_job_split.sql. Resolved canonically, not
+  // dual-written: this path now writes ONLY current_substage_id, the
+  // correctly-typed field for what it actually knows (a substage id).
+  // current_job_id is left untouched for Sub-Coordinator's separate
+  // enquiry-id path, which this action never touches.
   const { error: workerErr } = await (supabase as AnyRecord)
     .from('workers')
-    .update({ current_job_booking_ref: substage.booking_ref, current_job_id: substageId, current_substage_id: substageId })
+    .update({ current_job_booking_ref: substage.booking_ref, current_substage_id: substageId })
     .eq('id', workerId)
 
   if (workerErr) return { error: workerErr.message }
 
-  // worker_day_slots is a confirmed dead-end write -- inserted here on every
-  // assignment but never read anywhere in the repo (job_milestone_substages
-  // .labour_assignments, updated above, is the actual source every UI reads).
-  // Retired per Duplicate/Conflict #12 -- see 20260927_retire_dead_sink_tables.sql.
+  // worker_day_slots: restored per the project owner's explicit rejection of
+  // dropping it -- this table traces to R24 in docs/ENTITY_RELATIONSHIP_FREEZE.md,
+  // one of three overlapping worker-routing attempts whose proposed single
+  // replacement (R27 worker_route_legs) explicitly needs the project owner's
+  // own go-ahead before any redesign work starts, per that document's own
+  // words ("it's a redesign, not a drip-fix"). Restoring the existing write
+  // as-is rather than inventing that redesign here.
+  const { error: slotErr } = await supabase.from('worker_day_slots').insert({
+    worker_id: workerId,
+    slot_date: plannedDate,
+    booking_ref: substage.booking_ref,
+    substage_code: substage.substage_code,
+    assigned_by: supervisorId,
+    status: 'assigned',
+  })
+
+  if (slotErr) return { error: slotErr.message }
 
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }
@@ -119,10 +135,16 @@ export async function removeWorkerFromSubstage(
 
   const { error: workerErr } = await (supabase as AnyRecord)
     .from('workers')
-    .update({ current_job_booking_ref: null, current_job_id: null, current_substage_id: null })
+    .update({ current_job_booking_ref: null, current_substage_id: null })
     .eq('id', workerId)
 
   if (workerErr) return { error: workerErr.message }
+
+  await supabase
+    .from('worker_day_slots')
+    .delete()
+    .eq('worker_id', workerId)
+    .eq('substage_code', substage.substage_code)
 
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }

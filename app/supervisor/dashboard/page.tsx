@@ -146,7 +146,7 @@ export default async function SupervisorDashboardPage() {
   const { data: pendingSubstages } = bookingRefs.length > 0
     ? await supabase
         .from('job_milestone_substages')
-        .select('id, substage_code, substage_name, milestone_code, trade_type, booking_ref, status, completion_pct, supervisor_checklist, evidence_checklist, evidence_submitted, supervisor_submitted_at, is_critical_path')
+        .select('id, substage_code, substage_name, milestone_code, trade_type, booking_ref, status, completion_pct, site_checklist, site_evidence_checklist, site_evidence_submitted, supervisor_submitted_at, is_critical_path')
         .in('booking_ref', bookingRefs)
         .in('status', ['in_progress', 'pending'])
         .order('supervisor_submitted_at', { ascending: true })
@@ -726,9 +726,9 @@ export default async function SupervisorDashboardPage() {
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
             {(pendingSubstages ?? []).filter(s => s.supervisor_submitted_at).slice(0, 3).map(s => {
-              const checklist = (s.supervisor_checklist as any[]) ?? []
-              const evidence = (s.evidence_checklist as any[]) ?? []
-              const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
+              const checklist = (s.site_checklist as any[]) ?? []
+              const evidence = (s.site_evidence_checklist as any[]) ?? []
+              const evidenceSubmitted = (s.site_evidence_submitted as any[]) ?? []
               const checkedCount = checklist.filter((c: any) => c.checked).length
               const evidenceCount = evidenceSubmitted.filter(Boolean).length
               return (

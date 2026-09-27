@@ -53,13 +53,13 @@ export default async function CoordinatorPaymentsPage() {
         .from('job_milestone_substages')
         .select(`id, substage_code, substage_name, milestone_code,
           booking_ref, trade_type, status, completion_pct,
-          supervisor_checklist, evidence_checklist, evidence_submitted,
+          site_checklist, site_evidence_checklist, site_evidence_submitted,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, is_critical_path, float_days,
+          substage_approved_at, is_critical_path, float_days,
           planned_day, planned_hours`)
         .in('booking_ref', bookingRefs)
         .not('subcoordinator_reviewed_at', 'is', null)
-        .is('coordinator_approved_at', null)
+        .is('substage_approved_at', null)
         .order('subcoordinator_reviewed_at', { ascending: true })
     : { data: [] }
 
@@ -67,10 +67,10 @@ export default async function CoordinatorPaymentsPage() {
     ? await supabase
         .from('job_milestone_substages')
         .select(`id, substage_code, substage_name, milestone_code,
-          booking_ref, trade_type, coordinator_approved_at, status`)
+          booking_ref, trade_type, substage_approved_at, status`)
         .in('booking_ref', bookingRefs)
-        .not('coordinator_approved_at', 'is', null)
-        .order('coordinator_approved_at', { ascending: false })
+        .not('substage_approved_at', 'is', null)
+        .order('substage_approved_at', { ascending: false })
         .limit(10)
     : { data: [] }
 
@@ -149,9 +149,9 @@ export default async function CoordinatorPaymentsPage() {
             <div className="space-y-3">
               {overdue.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
-                const evidence = (s.evidence_checklist as any[]) ?? []
-                const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
+                const evidence = (s.site_evidence_checklist as any[]) ?? []
+                const evidenceSubmitted = (s.site_evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
                 return (
@@ -227,9 +227,9 @@ export default async function CoordinatorPaymentsPage() {
             <div className="space-y-3">
               {pending.map(s => {
                 const job = jobMap[s.booking_ref]
-                const checklist = (s.supervisor_checklist as any[]) ?? []
-                const evidence = (s.evidence_checklist as any[]) ?? []
-                const evidenceSubmitted = (s.evidence_submitted as any[]) ?? []
+                const checklist = (s.site_checklist as any[]) ?? []
+                const evidence = (s.site_evidence_checklist as any[]) ?? []
+                const evidenceSubmitted = (s.site_evidence_submitted as any[]) ?? []
                 const checked = checklist.filter((c: any) => c.checked).length
                 const evidenceDone = evidenceSubmitted.filter(Boolean).length
                 return (
@@ -332,8 +332,8 @@ export default async function CoordinatorPaymentsPage() {
                     <p className="text-xs text-gray-400">{s.substage_code} · {s.booking_ref}</p>
                     <p className="text-sm font-semibold text-gray-700">{s.substage_name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {s.coordinator_approved_at
-                        ? new Date(s.coordinator_approved_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                      {s.substage_approved_at
+                        ? new Date(s.substage_approved_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                         : '—'}
                     </p>
                   </div>
