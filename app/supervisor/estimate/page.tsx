@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import EstimateReviewPanel from './EstimateReviewPanel'
 
 export default async function EstimatePage({
   searchParams,
@@ -42,6 +43,15 @@ export default async function EstimatePage({
     ? (activeJobs ?? []).find(j => j.booking_ref === ref)
     : null
 
+  const { data: boqs } = (activeJobs ?? []).length > 0
+    ? await supabase
+        .from('boq_generated')
+        .select('booking_ref, id, total_amount, status, supervisor_review_action, supervisor_review_reason, supervisor_review_amount')
+        .in('booking_ref', (activeJobs ?? []).map(j => j.booking_ref))
+    : { data: [] }
+  const boqMap = Object.fromEntries((boqs ?? []).map(b => [b.booking_ref, b]))
+  const selectedBoq = selectedJob ? (boqMap[selectedJob.booking_ref] ?? null) : null
+
   // Get substages for selected job — for quality/inspection requirements
   const { data: substages } = selectedJob
     ? await supabase
@@ -62,15 +72,6 @@ export default async function EstimatePage({
     M3: 'Second Fix — Finishing & Tiling — 25%',
     M4: 'Handover & DLP Start — 10%',
   }
-
-  const verificationItems = [
-    'Quantities verified against site measurement',
-    'Specifications verified — material grade correct',
-    'Method of working verified — trade sequence correct',
-    'Material requirements verified — all items accounted',
-    'BOQ line items checked against scope list',
-    'All documents reviewed and signed off',
-  ]
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -100,7 +101,9 @@ export default async function EstimatePage({
             </p>
             {(activeJobs ?? []).length > 0 ? (
               <div className="space-y-3">
-                {(activeJobs ?? []).map(job => (
+                {(activeJobs ?? []).map(job => {
+                  const boq = boqMap[job.booking_ref]
+                  return (
                   <Link
                     key={job.booking_ref}
                     href={`/supervisor/estimate?ref=${job.booking_ref}`}
@@ -109,8 +112,12 @@ export default async function EstimatePage({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 border border-yellow-200 px-2 py-0.5 rounded-full">
-                            Draft
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                            !boq ? 'text-gray-500 bg-gray-50 border-gray-200'
+                            : boq.supervisor_review_action ? 'text-green-600 bg-green-50 border-green-200'
+                            : 'text-yellow-600 bg-yellow-50 border-yellow-200'
+                          }`}>
+                            {!boq ? 'No Estimate Yet' : boq.supervisor_review_action ? 'Reviewed' : 'Draft'}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 font-medium">{job.booking_ref}</p>
@@ -127,7 +134,8 @@ export default async function EstimatePage({
                       </svg>
                     </div>
                   </Link>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-5 py-8 text-center">
@@ -149,55 +157,13 @@ export default async function EstimatePage({
               </p>
             </div>
 
-            {/* HQ Estimate vs Supervisor */}
+            {/* HQ Estimate vs Supervisor -- real generate/review actions,
+                not a dead mockup form (PENDING #18/#26) */}
             <section>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
                 HQ Estimate Review
               </p>
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 space-y-4">
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <p className="text-sm font-semibold text-gray-600">HQ Estimate</p>
-                  <p className="text-xl font-bold text-[#1F3864]">
-                    {selectedJob.estimate_total
-                      ? `₹${Number(selectedJob.estimate_total).toLocaleString('en-IN')}`
-                      : '₹ —'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-2">Supervisor Action</p>
-                  <div className="space-y-2">
-                    {[
-                      { value: 'confirm', label: '✓ Confirms — No change needed' },
-                      { value: 'revise', label: '↑↓ Revises — Overall amount changed' },
-                      { value: 'modify', label: '✎ Modifies — Specific line items changed' },
-                    ].map(opt => (
-                      <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="estimate_action" value={opt.value} className="w-4 h-4" />
-                        <span className="text-sm font-medium text-gray-700">{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Revision Reason</p>
-                  <textarea
-                    rows={2}
-                    placeholder="Explain why estimate needs revision..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Revised Amount</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-500">₹</span>
-                    <input
-                      type="number"
-                      placeholder="Enter revised amount..."
-                      className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                    />
-                  </div>
-                </div>
-              </div>
+              <EstimateReviewPanel bookingRef={selectedJob.booking_ref} boq={selectedBoq} supervisorUserId={user.id} />
             </section>
 
             {/* Milestone & Substage Breakdown */}
@@ -252,21 +218,6 @@ export default async function EstimatePage({
               </div>
             </section>
 
-            {/* Document Verification */}
-            <section>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-                Document & Quantity Verification
-              </p>
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
-                {verificationItems.map((item, idx) => (
-                  <label key={idx} className="flex items-start gap-4 px-5 py-4 cursor-pointer active:bg-gray-50">
-                    <input type="checkbox" className="w-4 h-4 mt-0.5 shrink-0 rounded" />
-                    <p className="text-sm font-medium text-gray-700 leading-snug">{item}</p>
-                  </label>
-                ))}
-              </div>
-            </section>
-
             {/* Scope Description */}
             {selectedJob.scope_description && (
               <section>
@@ -279,40 +230,6 @@ export default async function EstimatePage({
               </section>
             )}
 
-            {/* Supervisor Notes */}
-            <section>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-                Supervisor Notes
-              </p>
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 space-y-4">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Technical Observations</p>
-                  <textarea
-                    rows={3}
-                    placeholder="Note any technical observations or recommendations..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Method of Execution Notes</p>
-                  <textarea
-                    rows={2}
-                    placeholder="Note any special execution requirements or sequence changes..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Actions */}
-            <div className="space-y-3">
-              <button className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
-                Save Estimate Draft
-              </button>
-              <button className="w-full bg-green-600 text-white font-bold py-4 rounded-2xl text-sm">
-                Submit to Coordinator →
-              </button>
-            </div>
           </>
         )}
 
