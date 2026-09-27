@@ -18,6 +18,14 @@ export default async function ReportsPage() {
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 
+  const { data: myReports } = await supabase
+    .from('site_instructions')
+    .select('id, instruction_type, priority, instruction_text, booking_ref, issued_at, status')
+    .eq('issued_by', user.id)
+    .in('instruction_type', ['method_improvement', 'payment_policy', 'execution', 'methodology', 'special_site', 'safety_critical'])
+    .order('issued_at', { ascending: false })
+    .limit(20)
+
   const reportTypes = [
     {
       type: 'method',
@@ -141,15 +149,45 @@ export default async function ReportsPage() {
           </div>
         </section>
 
-        {/* ACTIVE REPORTS */}
+        {/* ACTIVE REPORTS -- real query on site_instructions, deduplicated
+            since a fan-out (e.g. safety_critical -> every Coordinator +
+            Admin) writes one row per recipient for the same report */}
         <section>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
             Active Reports
           </p>
-          <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-5 py-8 text-center">
-            <p className="text-gray-400 text-sm">No reports submitted yet</p>
-            <p className="text-gray-400 text-xs mt-1">Reports you submit will appear here with their approval status</p>
-          </div>
+          {(() => {
+            const seen = new Set<string>()
+            const unique = (myReports ?? []).filter(r => {
+              const key = `${r.instruction_type}|${r.instruction_text}|${r.issued_at}`
+              if (seen.has(key)) return false
+              seen.add(key)
+              return true
+            })
+            return unique.length > 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+                {unique.map(r => (
+                  <div key={r.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-400 font-medium capitalize">{r.instruction_type.replace(/_/g, ' ')}{r.booking_ref ? ` · ${r.booking_ref}` : ''}</p>
+                        <p className="text-sm text-gray-700 mt-0.5 leading-snug line-clamp-2">{r.instruction_text}</p>
+                        <p className="text-xs text-gray-400 mt-1">{new Date(r.issued_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                      </div>
+                      <span className={`shrink-0 text-xs font-semibold px-2 py-1 rounded-full border ${r.status === 'acknowledged' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-orange-100 text-orange-700 border-orange-300'}`}>
+                        {r.status === 'acknowledged' ? '✓ Seen' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-5 py-8 text-center">
+                <p className="text-gray-400 text-sm">No reports submitted yet</p>
+                <p className="text-gray-400 text-xs mt-1">Reports you submit will appear here with their approval status</p>
+              </div>
+            )
+          })()}
         </section>
 
       </main>
