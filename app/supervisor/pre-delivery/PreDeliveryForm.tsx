@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { submitPreDeliveryAssessment, uploadSnagPhoto, getSnagsForJob, resolveSnagItem, type SnagItem, type OpenSnag } from './actions'
+import { submitPreDeliveryAssessment, uploadSnagPhoto, getSnagsForJob, resolveSnagItem, getAssessmentForJob, type SnagItem, type OpenSnag, type AssessmentSummary } from './actions'
+import ClientHandoverFlow from './ClientHandoverFlow'
 
 type Job = {
   booking_ref: string
@@ -43,6 +44,7 @@ export default function PreDeliveryForm({ supervisorId, jobs }: Props) {
   const [existingSnags, setExistingSnags] = useState<OpenSnag[]>([])
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [resolveError, setResolveError] = useState<string | null>(null)
+  const [assessment, setAssessment] = useState<AssessmentSummary | null>(null)
 
   const loadExistingSnags = useCallback(async (ref: string) => {
     if (!ref) { setExistingSnags([]); return }
@@ -50,9 +52,15 @@ export default function PreDeliveryForm({ supervisorId, jobs }: Props) {
     setExistingSnags(snags)
   }, [])
 
+  const loadAssessment = useCallback(async (ref: string) => {
+    if (!ref) { setAssessment(null); return }
+    setAssessment(await getAssessmentForJob(ref))
+  }, [])
+
   useEffect(() => {
     loadExistingSnags(bookingRef)
-  }, [bookingRef, loadExistingSnags])
+    loadAssessment(bookingRef)
+  }, [bookingRef, loadExistingSnags, loadAssessment])
 
   async function handleResolve(snagId: string, resolution: 'resolved' | 'client_accepted') {
     setResolvingId(snagId)
@@ -119,6 +127,7 @@ export default function PreDeliveryForm({ supervisorId, jobs }: Props) {
       })
       if (result.error) throw new Error(result.error)
       setSuccess(true)
+      loadAssessment(bookingRef)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
@@ -239,6 +248,23 @@ export default function PreDeliveryForm({ supervisorId, jobs }: Props) {
             ))}
           </div>
         </section>
+      )}
+
+      {/* SA-13 Client Handover -- gated exactly as the text above claims:
+          only once cleared AND no open snags remain (critical or otherwise),
+          matching SA-12's own "Milestone locked until Resolved/Client
+          accepted" rule, which the UI previously stated but never enforced. */}
+      {assessment?.supervisor_clearance === 'cleared' &&
+        !existingSnags.some(s => s.resolution_status === 'open') &&
+        !assessment.client_handover_at && (
+          <ClientHandoverFlow assessmentId={assessment.id} bookingRef={bookingRef} />
+        )}
+      {assessment?.client_handover_at && (
+        <div className="bg-green-50 border border-green-300 rounded-2xl px-5 py-4 text-center">
+          <p className="text-green-700 font-bold text-sm">
+            ✓ Client Handover Complete {assessment.client_handover_satisfied === false && '(with dissatisfaction noted)'}
+          </p>
+        </div>
       )}
 
       <section>

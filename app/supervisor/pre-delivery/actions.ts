@@ -114,6 +114,100 @@ export async function submitPreDeliveryAssessment(
   return { success: true }
 }
 
+// SA-13 Client Handover Sign-Off (June log line 11224-11228, final 4-screen
+// redesign). The original 12-point/6-group category LABELS are never
+// enumerated anywhere in any of the 4 design logs (confirmed by full-text
+// search) -- these 6 are a reasonable placeholder set, not sourced content,
+// and are flagged as such rather than presented as spec fact.
+export const DISSATISFACTION_CATEGORIES = [
+  'Workmanship quality',
+  'Cleanliness / site left untidy',
+  'Snags not resolved',
+  'Timeline delay',
+  'Behaviour / conduct of crew',
+  'Other',
+] as const
+
+export async function uploadHandoverPhoto(
+  bookingRef: string,
+  formData: FormData,
+): Promise<{ success?: true; url?: string; error?: string }> {
+  const supabase = await createClient()
+  const file = formData.get('file') as File | null
+  if (!file) return { error: 'No file provided' }
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `pre-delivery/${bookingRef}/handover/${Date.now()}.${ext}`
+  const { error: uploadError } = await supabase.storage.from('site-photos').upload(path, file, { upsert: true })
+  if (uploadError) return { error: uploadError.message }
+  const { data: urlData } = supabase.storage.from('site-photos').getPublicUrl(path)
+  return { success: true, url: urlData.publicUrl }
+}
+
+export type SubmitClientHandoverInput = {
+  assessmentId: string
+  bookingRef: string
+  satisfied: boolean
+  dissatisfactionCategories: string[]
+  signatureDataUrl: string | null
+  handoverPhotoUrls: string[]
+}
+
+export async function submitClientHandover(
+  input: SubmitClientHandoverInput,
+): Promise<{ success?: true; error?: string }> {
+  const supabase = await createClient()
+
+  let signatureUrl: string | null = null
+  if (input.signatureDataUrl) {
+    const base64 = input.signatureDataUrl.split(',')[1]
+    const bytes = Buffer.from(base64, 'base64')
+    const path = `pre-delivery/${input.bookingRef}/signature-${Date.now()}.png`
+    const { error: uploadError } = await supabase.storage
+      .from('site-photos')
+      .upload(path, bytes, { contentType: 'image/png', upsert: true })
+    if (uploadError) return { error: uploadError.message }
+    const { data: urlData } = supabase.storage.from('site-photos').getPublicUrl(path)
+    signatureUrl = urlData.publicUrl
+  }
+
+  const { error } = await supabase
+    .from('pre_delivery_assessment')
+    .update({
+      client_handover_satisfied: input.satisfied,
+      client_dissatisfaction_categories: input.satisfied ? null : input.dissatisfactionCategories,
+      client_signature_url: signatureUrl,
+      client_handover_photo_urls: input.handoverPhotoUrls,
+      client_handover_at: new Date().toISOString(),
+    })
+    .eq('id', input.assessmentId)
+  if (error) return { error: error.message }
+
+  // Spec: "Dissatisfaction items routed to Sub-Coordinator attention queue."
+  // No dedicated "attention queue" surface exists for Sub-Coordinator
+  // (confirmed by grep) -- reuses the same site_instructions fan-out
+  // pattern already frozen for the SOS/broadcast fixes this session.
+  if (!input.satisfied) {
+    const { data: subCoordinators } = await supabase.from('users').select('id').eq('platform_role', 'sub_coordinator')
+    if (subCoordinators && subCoordinators.length > 0) {
+      await supabase.from('site_instructions').insert(
+        subCoordinators.map(sc => ({
+          booking_ref: input.bookingRef,
+          instruction_type: 'client_handover_dissatisfaction',
+          priority: 'high',
+          instruction_text: `Client dissatisfied at handover (${input.bookingRef}): ${input.dissatisfactionCategories.join(', ')}`,
+          issued_to: sc.id,
+          issued_at: new Date().toISOString(),
+          status: 'pending',
+          is_active: true,
+        })),
+      )
+    }
+  }
+
+  revalidatePath('/supervisor/pre-delivery')
+  return { success: true }
+}
+
 export type OpenSnag = {
   id: string
   booking_ref: string
@@ -122,6 +216,23 @@ export type OpenSnag = {
   snag_severity: 'minor' | 'medium' | 'major' | 'critical'
   snag_photo_url: string | null
   resolution_status: 'open' | 'resolved' | 'client_accepted'
+}
+
+export type AssessmentSummary = {
+  id: string
+  supervisor_clearance: 'cleared' | 'not_cleared' | 'conditional' | null
+  client_handover_satisfied: boolean | null
+  client_handover_at: string | null
+}
+
+export async function getAssessmentForJob(bookingRef: string): Promise<AssessmentSummary | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('pre_delivery_assessment')
+    .select('id, supervisor_clearance, client_handover_satisfied, client_handover_at')
+    .eq('booking_ref', bookingRef)
+    .maybeSingle()
+  return (data as AssessmentSummary) ?? null
 }
 
 export async function getSnagsForJob(bookingRef: string): Promise<OpenSnag[]> {
