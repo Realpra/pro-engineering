@@ -1129,10 +1129,83 @@ and fixed live, on top of the three already fixed in Session 67 continued (`f568
   three test tables) -- no `TEST-*` rows left in production.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
 
+## SESSION 67 CONTINUED FURTHER — 27 Sep 2026 — FULL METHODOLOGY COMPLIANCE AUDIT FOR SUPERVISOR VISIT
+Ran Supervisor Visit's live-verified fixes back against every clause of
+`docs/SCHEMA_FREEZE_METHODOLOGY.md` -- core process steps, all 3 amendments, both supporting
+checks -- via an exhaustive (not sampled) grep-and-read of every reader/writer of all 7
+duplicate/conflict fields this process touched. Verdict: **not yet fully Frozen.**
+
+**Amendment 1 (functional-canonical tie-break) -- clean on 5 of 7, 2 flagged:**
+- Clean, sole live read/write path confirmed, no dual-writes: `job_milestone_substages.
+  substage_approved_at` (writers `app/admin/milestones/actions.ts:220,243`); `job_milestone_
+  substages` checklist fields (`site_checklist`/`site_evidence_checklist`/`site_evidence_
+  submitted`, writers `app/site-incharge/substage/[id]/actions.ts:69,136-137`); `milestone_
+  payment_schedule`'s coordinator-approval/token-payment split (`app/supervisor/milestone/
+  [bookingRef]/actions.ts:77` vs `app/client/payment/actions.ts:135`); `scope_change_requests`
+  (confirmed genuinely two different concepts sharing one table by design, not a duplicate --
+  correctly left as two write paths per step 4); `site_instructions.issued_to` (confirmed no
+  literal sentinel ever inserted -- `resolveRecipients`, `app/sub-coordinator/actions.ts:16-27`,
+  always resolves to real recipient ids first).
+- **Flagged -- `workers.current_job_id`/`current_substage_id`**: the split itself is clean
+  (Supervisor's `assignWorkerToSubstage` path, `app/supervisor/milestone-tracker/actions.ts:84`,
+  confirmed no longer dual-writes `current_job_id`), but a **pre-existing, still-live defect**
+  survives untouched: `app/sub-coordinator/workers/page.tsx:226` builds its job-lookup map keyed
+  by `booking_ref` (line 36-38) but indexes it with `w.current_job_id`, which actually holds a
+  `guest_enquiries.id` UUID (set at `app/sub-coordinator/actions.ts:233`) -- a type mismatch
+  that makes `currentJob` always null for any worker assigned via `assignWorkerToJob`, so
+  Sub-Coordinator's "Deployed Workers" location line never renders. First documented Session 63;
+  never in scope of this freeze's fix; still open now.
+- **Flagged -- `guest_enquiries.site_incharge_id` vs `supervisor_id`**: implemented as a
+  deliberate transitional dual-READ (`app/site-incharge/dashboard/page.tsx:62-78` tries
+  `site_incharge_id` first, falls back to `supervisor_id`), not a hard cutover -- correct per
+  step 4 (genuinely different concepts, both kept), but means the code path isn't fully "fixed"
+  yet in the methodology's strict sense; see Amendment 2 below for why this matters in practice.
+
+**Amendment 2 (data-integrity check) -- confirmed clean where exercised, but 2 columns are
+untested against real data:** all 4 canonical-cutover gap counts `0/0/0/0`, `token_payment_
+verified_at_gap=0`, `status_values_outside_widened_check=0` -- all real, all clean. But
+`site_incharge_id_populated=0` and `current_substage_id_populated=0` are zero not because
+they're proven correct, but because **no coordinator has made a single real assignment through
+either new column yet** -- meaning items 4 and 7 above are structurally correct in code but
+functionally unexercised by any live row.
+
+**Amendment 3 (addition vs. contradiction)** -- not triggered. Nothing this process touched was
+a field already frozen under Worker Onboarding (the only other frozen process so far); `workers.
+is_active`/`approval_status` were only read, unchanged, for worker-pool scoping. No
+classification event to log.
+
+**Two supporting checks:**
+- Coverage check -- partially done. The dead-route list (`/supervisor/approval/[id]`,
+  `/supervisor/reports/new`, `/supervisor/instruction`, `/supervisor/milestone-tracker/propose`,
+  the static estimate/scope-verification mockups) is fully identified and flagged, but per the
+  methodology's own wording that's not sufficient -- it "must force an explicit decision (wire it
+  up or discard)," which has not yet been made. Check not fully closed.
+- Search-before-create-fresh -- done correctly at least once, visibly: the SA-12 build queried
+  `information_schema.columns` before adding anything and found `scope_snag_items` already had
+  the real columns needed, avoiding a duplicate build. The worker-routing triplication (PENDING
+  #20) was correctly left untouched pending the project owner's own go-ahead, not silently
+  "resolved" with a fresh field.
+
+**Overall verdict: Supervisor Visit is live-verified on 6 of 7 branches but not yet Frozen.**
+Three concrete gates remain: (1) live-test item #6, the broadcast UI click-through; (2) make the
+actual wire-up-or-discard call on the dead Supervisor routes the coverage check surfaced; (3) get
+one real `site_incharge_id` assignment and one real `current_substage_id` assignment live, then
+re-run Amendment 2 to confirm those columns hold correct data in practice, not just in theory.
+All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
 ## NEXT SESSION — START HERE (Updated 27 Sep 2026, Session 67 continued further)
-- **Only PENDING item left to close Supervisor Visit's live-verification**: #6 above -- the
-  Sub-Coordinator "All Supervisors" broadcast UI test. Everything else (migrations, Amendment 2,
-  pg_constraint, Flow i/ii, Evening->LTF, SA-12) is now confirmed live, not just coded.
+- **Three gates remain before Supervisor Visit can be called Frozen** (see the methodology audit
+  above for full detail): (1) live-test the Sub-Coordinator "All Supervisors" broadcast UI path;
+  (2) decide wire-up-or-retire on the confirmed-dead Supervisor routes
+  (`/supervisor/approval/[id]`, `/supervisor/reports/new`, `/supervisor/instruction`,
+  `/supervisor/milestone-tracker/propose`, the static estimate/scope-verification mockups); (3)
+  make one real `site_incharge_id` and one real `current_substage_id` assignment live, then
+  re-run Amendment 2's data-integrity check on both.
+- **New/reconfirmed open defect, not fixed by this freeze**: `app/sub-coordinator/workers/
+  page.tsx:226` looks up `current_job_id` (a `guest_enquiries.id` UUID) in a map keyed by
+  `booking_ref` -- always misses, so the "Deployed Workers" location line never renders. First
+  found Session 63; still live; needs its own fix pass (rekey the map by id, or store
+  `current_job_id`'s booking_ref alongside it).
 - Not built this pass, explicitly flagged (not silently skipped): Site Incharge's outbound
   "request more resources" channel (PENDING #17) is a net-new feature, not a data-correctness fix.
   The R27 `worker_route_legs` redesign (docs/ENTITY_RELATIONSHIP_FREEZE.md) still explicitly
@@ -1140,12 +1213,10 @@ and fixed live, on top of the three already fixed in Session 67 continued (`f568
   restored as-is this session, not redesigned.
 - Deferred, low-priority, explicitly recorded: `decision_5_raised_by` still stores a role string
   instead of an actor id; Screen15_Labour vs Screen16_Timeline's "which is canonical" question is
-  documented but not decided; the confirmed-dead Supervisor UI list
-  (`/supervisor/approval/[id]`, `/supervisor/reports/new`, `/supervisor/instruction`,
-  `/supervisor/milestone-tracker/propose`, the fully-static estimate/scope-verification mockups)
-  still needs individual build-it-or-retire-it calls, same discipline as PENDING #21.
+  documented but not decided.
 - Full field inventory, duplicate/conflict list, and methodology-status table delivered as
-  `Supervisor_Visit_SCHEMA_FREEZE.xlsx` (5 sheets) directly to the project owner this session --
-  not committed to the repo, per the established pattern for these working audit workbooks.
+  `Supervisor_Visit_SCHEMA_FREEZE.xlsx` (5 sheets) directly to the project owner earlier this
+  session -- not committed to the repo, per the established pattern for these working audit
+  workbooks.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
