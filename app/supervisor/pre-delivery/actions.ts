@@ -62,11 +62,20 @@ export async function submitPreDeliveryAssessment(
     .eq('booking_ref', data.booking_ref)
     .maybeSingle()
 
-  const { error } = existing
-    ? await supabase.from('pre_delivery_assessment').update(payload).eq('id', existing.id)
-    : await supabase.from('pre_delivery_assessment').insert(payload)
-
-  if (error) return { error: error.message }
+  let assessmentId: string
+  if (existing) {
+    const { error } = await supabase.from('pre_delivery_assessment').update(payload).eq('id', existing.id)
+    if (error) return { error: error.message }
+    assessmentId = existing.id
+  } else {
+    const { data: inserted, error } = await supabase
+      .from('pre_delivery_assessment')
+      .insert(payload)
+      .select('id')
+      .single()
+    if (error) return { error: error.message }
+    assessmentId = inserted.id
+  }
 
   // scope_snag_items: this is the real SA-12 Snag List (june.md 10515-10522)
   // -- a per-item, individually resolvable record, distinct in purpose from
@@ -74,10 +83,22 @@ export async function submitPreDeliveryAssessment(
   // during THIS inspection). Each item starts 'open' and is tracked/resolved
   // independently across however many follow-up visits it takes, which the
   // JSONB blob on pre_delivery_assessment cannot represent on its own.
+  //
+  // A live test insert against the real database failed with a NOT NULL
+  // violation on raised_by_role -- a column (along with raised_by,
+  // pre_delivery_assessment_id, snag_trade, resolution_required) that
+  // already existed live before this session touched the table, invisible
+  // to every grep-based inventory since no app code referenced them. Fixed
+  // to actually populate the columns that exist, including a real FK
+  // (pre_delivery_assessment_id) instead of only the loose booking_ref
+  // TEXT-match every other table in this schema relies on.
   if (data.snag_items.length > 0) {
     const { error: snagErr } = await supabase.from('scope_snag_items').insert(
       data.snag_items.map(item => ({
+        pre_delivery_assessment_id: assessmentId,
         booking_ref: data.booking_ref,
+        raised_by_role: 'supervisor',
+        raised_by: supervisorId,
         snag_location: item.location,
         snag_description: item.description,
         snag_severity: item.severity,
