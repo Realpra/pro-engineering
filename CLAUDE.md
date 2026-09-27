@@ -1076,3 +1076,39 @@ bugs the live run itself caught, each confirmed and fixed in turn rather than gu
   update it from Supabase Settings -> API, not from any value recorded in this file or git.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 27 Sep 2026, Session 67)
+- **Supervisor Visit's schema+code fixes are pushed (commit d9bbb63) but NOT yet live-verified.**
+  This session had no Supabase DB access. Before calling Supervisor Visit frozen (Step 3 + Amendment
+  2 of docs/SCHEMA_FREEZE_METHODOLOGY.md), on a session with DB access:
+  1. Run the 7 new migrations (`20260927_site_visit_reports_flow_discriminator`,
+     `20260927_job_milestone_substages_site_columns`,
+     `20260927_milestone_payment_schedule_freeze_fixes`,
+     `20260927_daily_site_logs_weather_condition`, `20260927_guest_enquiries_site_incharge_id`,
+     `20260927_workers_current_job_split`, `20260927_retire_dead_sink_tables`).
+  2. FIRST query `pg_constraint` to check whether `site_visit_reports`' original
+     `UNIQUE(supervisor_id,booking_ref)` and `milestone_payment_schedule`'s original status `CHECK`
+     were already silently altered/dropped live before these migrations ran (both are written
+     defensively with `IF EXISTS`, but confirm what was actually live).
+  3. Live-run both Flow (i) Site Survey and Flow (ii) Daily Execution Visit end to end on a real
+     booking; confirm `report_type` is set correctly on both; confirm a Flow (ii) visit no longer
+     corrupts `generateBOQ`'s read of a Flow (i) survey.
+  4. Test the daily-log Evening->LTF flow end to end and confirm Evening Report data survives past
+     LTF submission (this was a real, confirmed data-loss bug before this session's fix).
+  5. Test Sub-Coordinator sending an instruction to "All Supervisors" and confirm it now reaches
+     every real supervisor's directives page.
+  6. Run Amendment 2's data-integrity check on the new `site_incharge_id`/`current_substage_id`
+     columns once real assignments exist.
+- Not built this pass, explicitly flagged (not silently skipped): Site Incharge's outbound
+  "request more resources" channel (PENDING #17) is a net-new feature, not a data-correctness fix.
+- Deferred, low-priority, explicitly recorded: `decision_5_raised_by` still stores a role string
+  instead of an actor id; Screen15_Labour vs Screen16_Timeline's "which is canonical" question is
+  documented but not decided; the confirmed-dead Supervisor UI list
+  (`/supervisor/approval/[id]`, `/supervisor/reports/new`, `/supervisor/instruction`,
+  `/supervisor/milestone-tracker/propose`, the fully-static estimate/scope-verification mockups)
+  still needs individual build-it-or-retire-it calls, same discipline as PENDING #21.
+- Full field inventory, duplicate/conflict list, and methodology-status table delivered as
+  `Supervisor_Visit_SCHEMA_FREEZE.xlsx` (5 sheets) directly to the project owner this session --
+  not committed to the repo, per the established pattern for these working audit workbooks.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3

@@ -797,16 +797,189 @@ decision, not guessed at; project owner chose to leave them as a deliberate data
 Worker Onboarding is now genuinely frozen -- step 3 and Amendment 2 both actually satisfied and
 verified by re-query, not just written and assumed.
 
-## NEXT SESSION — START HERE (Updated 26 Sep 2026, Session 66)
-- Worker Onboarding is frozen. Take up Worker Allotment & Skill next per
-  docs/SCHEMA_FREEZE_METHODOLOGY.md's recommended sequence, or the project owner's priority.
-- Small loose ends, not blocking: PENDING #42 (duplicate-phone-check live test, Worker2026 login
-  actually signing in, a fresh Track-2 acceptance reaching admin's queue), PENDING #39 (surface
-  new fields in Sub-Coordinator/Coordinator/Admin review UIs), PENDING #40 (extend to other 8
-  trades), PENDING #36/#37 (two dead-filter decisions), PENDING #35 (orphaned duplicate file).
-- Provision the mktg_agent login in Supabase (PENDING #12).
-- Security note: Supabase secret key was rotated this session; if anything errors with an
-  API-key failure, get the current value from Supabase Settings -> API, not from any old record.
+## SESSION 67 — 27 Sep 2026 — SUPERVISOR VISIT: FULL EXPAND->CONTRACT SCHEMA FREEZE + CODE BUILD
+Second process run through docs/SCHEMA_FREEZE_METHODOLOGY.md, at the project owner's explicit
+direction after two narrative flow-string rebuild attempts (v2: 32 rows, v3: 29 rows with
+IN-FEED/ACT/OUT-FEED restructuring) kept needing manual cell-by-cell correction that wasn't
+converging (Site Head/Supervisor/Site Visit Manager relationship, corrected 3 times). The
+project owner's own words: "I AM NOT CORRECTING IT FURTHER. WE SHALL FOLLOW THE METHODOLOGY
+STEPS AND 3 AMENDMENTS" -- pick every data point used in the entire Supervisor codebase, check
+each for conceptual/contextual/data-type correctness against the already-frozen Worker
+Onboarding boundary, list every duplicate/conflict with a keep-or-drop recommendation, and only
+then move to coding -- explicitly rejecting a request/decision-gathering posture ("THESE ARE NOT
+RESOLVED DECISIONS... NOW CORRECT THE DATA POINTS AND FREEZE AND MIGRATION WITH CODING").
+
+**Step 2 (EXPAND)**: 3 parallel research agents did an exhaustive, full-file read (not sampled)
+of all 57 files under app/supervisor + app/site-survey, cross-checked against every
+supabase/migrations/*.sql file, covering all 16 tables the process touches: site_visit_reports,
+supervisor_daily_routes, job_milestone_substages, milestone_payment_schedule, daily_site_logs,
+scope_change_requests, pre_delivery_assessment, scope_snag_items, site_instructions,
+worker_day_slots, trade_config, labour_rate_config, plus the Supervisor-scoped columns of
+guest_enquiries, users, and workers (the last one frozen -- verify-only, per Amendment 3).
+Produced a 212-row field inventory (delivered as Supervisor_Visit_SCHEMA_FREEZE.xlsx, 5 sheets:
+field inventory, 21-item duplicate/conflict resolution list, 18-item bugs/gaps list, frozen-field
+verification, methodology-status table -- not committed, per the established pattern that these
+working audit workbooks are delivered directly, not checked into the repo).
+
+**Step 4 (Amendment 1 -- functional-canonical tie-break) + Step 6 (Amendment 3 -- addition vs.
+contradiction) + coding, all done together this session, commit d9bbb63**:
+- **site_visit_reports Flow (i)/(ii) collision (the single highest-consequence finding)**: both
+  flows wrote to the same table and collided on 3 column names (screen02_scope_intent,
+  screen17_risk_decisions, screen19_materials) with completely unrelated content, and
+  generateBOQ / the estimate page / the site-survey page's own existing-report check all queried
+  by booking_ref+status alone with no way to tell the two flows apart -- a Flow (ii) row could
+  silently be read as if it were a Flow (i) survey, corrupting a live BOQ with no error. Fixed:
+  added a `report_type` discriminator column (backfilled from the existing slot_id-IS-NULL
+  convention), enforced everywhere the table is queried by booking_ref. Also fixed, in the same
+  pass: a real FK-violation risk in SiteVisitManager's slotId fallback (was falling back to a
+  job_milestone_substages id, a different table's id, when opened via ?substage= with no ?slot=
+  -- now surfaces a real error banner instead of silently never saving); replaced the original
+  overly-broad UNIQUE(supervisor_id, booking_ref) constraint (which could have been blocking the
+  Session 58 slot-scoping fix from actually working) with one matching the slot-scoped design;
+  wired the previously-dead risk_flag_count and screen_progress columns; fixed a 16/18 screen-
+  label swap in Screen20_Submit's own review list.
+- **daily_site_logs "Evening Data Wipe" (new finding, real data loss)**: LTFForm and EveningForm
+  shared one server action (submitEveningLog) with no per-stage field scoping -- every LTF
+  submission silently blanked scope_completed/deviation_*/issue_*/evening_photo_url back to
+  empty/false a few seconds after the real Evening Report was saved. Split into submitEveningLog
+  (evening-only fields) and a new submitLTFLog (LTF-only fields). Also wired the dead
+  escalate_to_admin gate (Admin's whole escalation queue/metric was permanently empty by
+  construction -- now set true on a reported issue or a real deviation), added a real
+  weather_condition column + capture field (Admin's ReportTabs.tsx displayed a "Weather" field
+  with no backing column at all), and fixed ReportTabs.tsx reading 3 more nonexistent column
+  names (workers_present/workers_planned/deviation_found -> derived from crew_attendance,
+  renamed to deviation_from_plan).
+- **milestone_payment_schedule.evidence_submitted written in 3 incompatible shapes** (a plain
+  object from Supervisor's submitMilestoneEvidence, a JSON.stringify()'d string from Client's
+  confirmTokenPayment, read as an array by Admin's PaymentCard.tsx) -- Admin's evidence count
+  silently read 0 for the large majority of real submissions. Standardized all 3 sites on one
+  JSONB-array shape, matching the sibling table's (job_milestone_substages) existing convention.
+- **coordinator_approved_at overloaded across 2 unrelated events** on milestone_payment_schedule
+  (Supervisor's "approved milestone evidence" vs. Client-payment's "verified M0 token payment UTR")
+  -- split into milestone_evidence_approved_at / token_payment_verified_at, dual-written alongside
+  the old column so out-of-scope readers (PaymentCard.tsx, admin/dashboard, MilestoneTabs.tsx)
+  keep working unchanged. Same overload existed on job_milestone_substages between Admin's own
+  substage_approved_at (already correctly named, pre-existing) and the coordinator_approved_at
+  compat column every other role's page reads -- Supervisor's own SubstageCard.tsx switched to
+  prefer the correct column.
+- **3 confirmed-dead columns dropped** from milestone_payment_schedule (payment_pct,
+  trigger_event, released_at -- the same undocumented-rename-drift pattern as contingency_policy,
+  Session 63), replaced everywhere by the columns the live app actually writes/reads
+  (payment_percent, trigger_condition, payment_released_at).
+- **milestone_payment_schedule's original status CHECK constraint** (`IN ('pending','released',
+  'paid')`, never widened since the 20260629 migration) defensively widened to the full set of
+  values the live app actually writes -- if the narrow constraint was still live, most of the
+  real payment-flow writes this whole audit describes would have been silently failing outright.
+  NEEDS LIVE VERIFICATION -- flagged, not assumed fixed.
+- **job_milestone_substages.supervisor_checklist/evidence_checklist/evidence_submitted misnomer**:
+  Site Incharge is the only real writer anywhere in the repo, despite the "supervisor_" prefix.
+  Added correctly-named site_checklist/site_evidence_checklist/site_evidence_submitted, dual-
+  written for compatibility, with Supervisor's own SubstageCard.tsx/SiteVisitManager.tsx switched
+  to prefer them.
+- **guest_enquiries.supervisor_id shared by Supervisor AND Site Incharge** (PENDING #16,
+  confirmed still live) despite the project owner's own explicit correction this session ("SITE
+  HEAD IS ALWAYS AT THE SITE. SUPERVISOR ONLY VISITS FOR HIS DUE SCHEDULES... WHAT IF... SITE
+  HEAD IS SICK" -- the two roles' presence is not coupled). Added a separate site_incharge_id FK;
+  Coordinator's jobs page gained a Site Incharge assignment picker (candidates resolved via
+  users.platform_role='site_incharge' -> matching workers row, since Site Incharge has no
+  dedicated workers.trade value the way Supervisor does); Site Incharge's own dashboard now reads
+  site_incharge_id with a fallback to supervisor_id so existing jobs don't disappear.
+- **workers.current_job_id dual-meaning** (a job_milestone_substages id from Supervisor's
+  assignWorkerToSubstage vs. a guest_enquiries id from Sub-Coordinator's assignWorkerToJob)
+  resolved as an ADDITION per Amendment 3 (not a re-opening of the frozen Worker Onboarding
+  table): added current_substage_id, the new correctly-typed column, alongside the unchanged
+  legacy column.
+- **2 confirmed dead-sink tables retired**: worker_day_slots and scope_snag_items were both
+  written on every relevant Supervisor action but never read anywhere else in the repo (grep-
+  confirmed by 3 independent research passes) -- the real, actually-consumed data already lives
+  in job_milestone_substages.labour_assignments and pre_delivery_assessment.supervisor_snag_items
+  respectively. App-side writes removed, tables dropped.
+- **syncMilestonePaymentStatus exact-duplicate function** (identical in
+  app/supervisor/milestone-tracker/actions.ts and app/site-incharge/substage/[id]/actions.ts)
+  extracted to lib/milestones.ts, both call sites now import the one copy.
+- **site_instructions.status mismatch**: all 4 writers (sendInstruction, chaseSiteHead,
+  notifyCoordinator, adminIssueDirective) inserted 'active'; every reader (Supervisor's
+  directives page, Site Incharge's dashboard) filtered for 'pending'/'acknowledged' -- nothing
+  ever transitioned a row between them, so new instructions may never have reached their
+  recipients at all in production. Fixed the 3 Sub-Coordinator writers to insert 'pending'
+  (Admin's own directive mechanism doesn't set issued_to at all, so it doesn't hit this reader
+  path -- left as-is), and wired the previously-dead "Acknowledge Directive" button
+  (app/supervisor/directives/actions.ts + AcknowledgeButton.tsx, new files) to actually set
+  'acknowledged'.
+- **site_instructions.issued_to broadcast bug**: the "Issue To" dropdown could insert the literal
+  sentinel strings 'all_supervisors'/'site_incharge'/'site_head' verbatim, but every reader does
+  an exact UUID match -- those 3 broadcast options were permanently unreachable dead ends. Fixed
+  by fanning out into one real row per actual recipient (queried by platform_role) at write time.
+  'site_head' is treated as 'site_incharge' -- this codebase has no separate site_head
+  platform_role; the original design logs and CLAUDE.md itself use "Site Head" as the real-world
+  name for the site_incharge role throughout.
+- **site_instructions.instruction_type value-set mismatch**: Coordinator's reports inbox only
+  matched Admin's directive-type values, so it could never show anything Sub-Coordinator actually
+  sends (hold/expedite/revised/resource/alert/chase/notification) -- widened the filter to cover
+  both value sets.
+- **scope_change_requests dual-queue bug**: both the server-side query in
+  app/admin/milestones/page.tsx (`.not('cost_impact_net','eq',0)`, which in Postgrest also
+  excludes NULL) and the client-side filters in MilestoneTabs.tsx required cost_impact_net != 0
+  -- a field Supervisor's own submitExtraWork never populates -- meaning a Supervisor-raised
+  scope change could NEVER appear in this admin queue at all, only in the separate admin/scope
+  queue (which filters on admin_decision==null alone). Matched to that broader, correct filter in
+  both places. Also wired the previously dead-write-only supervisor_submitted_at into the card.
+- **PENDING #31 (confirmed regression, reconfirmed live this session)**: route slot links
+  hard-coded to Flow (ii) Daily Execution Visit regardless of slot_type -- now branch correctly
+  (client_visit/scope_survey/estimate_visit -> Flow (i) Site Survey; hq -> no link at all) in
+  both app/supervisor/dashboard/page.tsx and app/supervisor/route/plan/page.tsx.
+- **PENDING #33 (confirmed live this session)**: Supervisor's milestone-tracker worker pool had
+  zero scoping to the requesting supervisor's own active jobs -- now scoped via
+  workers.current_job_booking_ref IN (this supervisor's own booking_refs), per the project
+  owner's Session 63 resolution ("Supervisor MAY move workers between HIS OWN controlled jobs").
+- **3 disagreeing "available crew" approval-status thresholds** across Supervisor's own pages
+  (SubstageCard.tsx: admin_approved+is_available; daily-log's crew query: an earlier
+  coordinator_approved stage; milestone-tracker's pool: unscoped) standardized on the final-stage
+  admin_approved+is_available gate everywhere, plus fixed a workers.district-vs-zone column
+  mismatch in the same daily-log query (now correctly checks the zones array).
+- Verified with a real `npm install && npm run build` (all 66 routes compiled), not just
+  `tsc --noEmit`, per the standing discipline from Session 66 that the lighter check alone has
+  missed real errors before (it did not this time, but the full build was still run to confirm).
+
+**Still open, explicitly not guessed at or deferred silently**: the 2 defensively-applied
+constraint widenings (site_visit_reports' UNIQUE, milestone_payment_schedule's status CHECK)
+need live verification against the actual Supabase schema before being called settled fact;
+Pre-Delivery's Site-Head-mirror fields (site_head_inspection_date etc.) still have no writer at
+all -- Site Incharge's outbound-request gap (PENDING #17) is a net-new feature to build, not a
+data-correctness fix, and was not built this pass; decision_5_raised_by still stores a role
+string instead of an actor id (flagged, low-priority, not fixed); Screen15_Labour vs. Screen16
+Timeline's overlapping labour-day capture was documented as a "which is canonical" question for
+the project owner, not resolved; the confirmed-dead/inert UI list (/supervisor/approval/[id],
+/supervisor/reports/new, /supervisor/instruction, /supervisor/milestone-tracker/propose, the
+fully-static estimate/scope-verification mockups) still needs individual build-it-or-retire-it
+calls, same discipline as PENDING #21.
+
+All work on PR #1, branch claude/gracious-knuth-vxwkc3, commit d9bbb63.
+
+## NEXT SESSION — START HERE (Updated 27 Sep 2026, Session 67)
+- Supervisor Visit's schema+code fixes are pushed but NOT yet live-verified (this session had no
+  Supabase DB access, same constraint as prior sandboxed sessions). Before calling this process
+  frozen (Step 3 + Amendment 2), on a session with DB access: run all 7 new migrations
+  (20260927_site_visit_reports_flow_discriminator, 20260927_job_milestone_substages_site_columns,
+  20260927_milestone_payment_schedule_freeze_fixes, 20260927_daily_site_logs_weather_condition,
+  20260927_guest_enquiries_site_incharge_id, 20260927_workers_current_job_split,
+  20260927_retire_dead_sink_tables); FIRST query pg_constraint to check whether
+  site_visit_reports' original UNIQUE(supervisor_id,booking_ref) and milestone_payment_schedule's
+  original status CHECK were already silently altered/dropped live before applying the
+  replacements in these migrations (both migrations are written defensively with IF EXISTS, but
+  confirm what's actually live before treating the fix as necessary or complete); then live-run
+  both Flow (i) Site Survey and Flow (ii) Daily Execution Visit end to end on a real booking,
+  confirm report_type is set correctly on both, confirm a Flow (ii) visit no longer corrupts
+  generateBOQ's read of a Flow (i) survey; test the daily-log Evening->LTF flow end to end and
+  confirm Evening Report data survives past LTF submission; test Sub-Coordinator sending an
+  instruction to "All Supervisors" and confirm it now reaches every real supervisor's directives
+  page; run Amendment 2's data-integrity check on the new site_incharge_id/current_substage_id
+  columns once real assignments exist.
+- Not built this pass, explicitly flagged: Site Incharge's outbound "request more resources"
+  channel (PENDING #17) -- this is a net-new feature, not a data-correctness fix.
+- Deferred, low-priority: decision_5_raised_by normalization (role string -> actor id);
+  Screen15_Labour vs Screen16_Timeline "which is canonical" decision; the confirmed-dead Supervisor
+  UI list's individual build-or-retire calls.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
