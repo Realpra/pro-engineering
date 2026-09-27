@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from './SignOutButton'
+import SiteHeadNotReadyButton from './SiteHeadNotReadyButton'
+import SOSButton from './SOSButton'
 
 function greeting(hour: number) {
   if (hour < 12) return 'Good morning'
@@ -228,8 +230,49 @@ export default async function SupervisorDashboardPage() {
   const totalDistance = (todayRoute ?? []).reduce((sum, s) => sum + (s.travel_minutes ?? 0), 0)
   const pendingReports = (todayRoute ?? []).filter(s => s.report_status === 'pending').length
 
+  // SA-1 spec: "today's task list auto-generated from the job timeline...
+  // tasks carry forward if incomplete -- amber yesterday, red if overdue two
+  // days." The live page previously showed 4 hardcoded generic strings with
+  // no backing data at all. Rebuilt here as a real list derived from data
+  // already queried on this page (daily-log submission state, pending
+  // substage approvals, critical-path items) -- no new table, per the
+  // methodology's search-before-create-fresh check; a fully persisted
+  // multi-day carry-forward/aging model would need one, and is deferred
+  // rather than built on a guess.
+  const pendingApprovalsForToday = (pendingSubstages ?? []).filter(s => s.supervisor_submitted_at)
+  type TaskAge = 'ok' | 'amber' | 'red'
+  const dailyTasks: { label: string; age: TaskAge }[] = [
+    {
+      label: 'Submit morning daily log',
+      age: todayLog?.morning_submitted_at ? 'ok' : istHour >= 9.5 ? 'red' : 'amber',
+    },
+    {
+      label: 'Submit evening daily log',
+      age: todayLog?.evening_submitted_at ? 'ok' : istHour >= 19 ? 'red' : 'amber',
+    },
+    ...(pendingReports > 0
+      ? [{ label: `Submit ${pendingReports} inspection report${pendingReports > 1 ? 's' : ''}`, age: 'red' as TaskAge }]
+      : []),
+    ...(pendingApprovalsForToday.length > 0
+      ? [{
+          label: `Review ${pendingApprovalsForToday.length} pending approval${pendingApprovalsForToday.length > 1 ? 's' : ''}`,
+          age: (pendingApprovalsForToday.some(s => slaUrgent(s.supervisor_submitted_at)) ? 'red' : 'amber') as TaskAge,
+        }]
+      : []),
+    ...(criticalSubstages.length > 0
+      ? [{ label: `${criticalSubstages.length} critical-path item${criticalSubstages.length > 1 ? 's' : ''} need instruction`, age: 'red' as TaskAge }]
+      : []),
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {workerRecord && (
+        <SOSButton
+          supervisorId={workerRecord.id}
+          supervisorUserId={user.id}
+          bookingRef={(activeJobs ?? [])[0]?.booking_ref ?? null}
+        />
+      )}
 
       {/* HEADER */}
       <header className="bg-[#1F3864] sticky top-0 z-10 shadow-md">
@@ -610,9 +653,7 @@ export default async function SupervisorDashboardPage() {
 
                       {/* ACTIONS */}
                       <div className="flex gap-2 pt-1">
-                        <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl active:bg-gray-50">
-                          Site Head Not Ready
-                        </button>
+                        <SiteHeadNotReadyButton slotId={slot.id} />
                         {visitHref(slot, siteIdToBookingRef) && (
                           <Link
                             href={visitHref(slot, siteIdToBookingRef)!}
@@ -937,23 +978,45 @@ export default async function SupervisorDashboardPage() {
           </div>
         </section>
 
-        {/* DAILY TASKS */}
+        {/* DAILY TASKS -- real, derived from today's actual data, not decorative */}
         <section>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Daily Tasks</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Today's Tasks</p>
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
-            {[
-              'Morning safety briefing with team',
-              'Verify attendance and headcount',
-              'Review today\'s scope of work',
-              'Submit daily progress report',
-            ].map((task, i) => (
+            {dailyTasks.map((task, i) => (
               <div key={i} className="flex items-center gap-4 px-5 py-4">
-                <div className="w-6 h-6 rounded-full border-2 border-[#2E74B5]/40 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-[#2E74B5]">{i + 1}</span>
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  task.age === 'ok' ? 'border-green-500 bg-green-50' : task.age === 'red' ? 'border-red-500 bg-red-50' : 'border-orange-400 bg-orange-50'
+                }`}>
+                  <span className={`text-xs font-bold ${task.age === 'ok' ? 'text-green-600' : task.age === 'red' ? 'text-red-600' : 'text-orange-500'}`}>
+                    {task.age === 'ok' ? '✓' : i + 1}
+                  </span>
                 </div>
-                <p className="text-sm font-medium text-gray-800 leading-snug">{task}</p>
+                <p className={`text-sm font-medium leading-snug ${task.age === 'ok' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                  {task.label}
+                </p>
               </div>
             ))}
+            {dailyTasks.every(t => t.age === 'ok') && (
+              <div className="px-5 py-6 text-center">
+                <p className="text-gray-400 text-sm">All caught up for today</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* EARNINGS SUMMARY -- SA-14 spec widget. Flagged, not fabricated:
+            no pay-rate/formula for Supervisor exists anywhere in this schema
+            or codebase (SA-14 Earnings was never built at all), so this
+            cannot show a real number without inventing a policy that was
+            never specified. */}
+        <section>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Earnings Summary</p>
+          <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-5 py-6 text-center">
+            <p className="text-gray-500 text-sm font-semibold">Not available yet</p>
+            <p className="text-gray-400 text-xs mt-1">
+              No Supervisor pay-rate or earnings-calculation policy exists in the system yet (SA-14) --
+              needs that decision before real numbers can show here.
+            </p>
           </div>
         </section>
 
