@@ -228,17 +228,12 @@ export default async function ApprovalsPage() {
                             : '—'}
                         </p>
                       </div>
-                      <div className="flex gap-2">
-                        <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                          Send Back
-                        </button>
-                        <Link
-                          href={`/supervisor/approval/${s.id}`}
-                          className="flex-1 bg-red-600 text-white text-xs font-bold py-2.5 rounded-xl text-center"
-                        >
-                          Review & Approve →
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/supervisor/approval/${s.id}`}
+                        className="block w-full bg-red-600 text-white text-xs font-bold py-2.5 rounded-xl text-center"
+                      >
+                        Review, Approve or Send Back →
+                      </Link>
                     </div>
                   </div>
                 )
@@ -288,17 +283,12 @@ export default async function ApprovalsPage() {
                           Site Head ✓ → <span className="font-bold text-[#1F3864]">[Supervisor ←YOU]</span> → Sub-Coord → Finance
                         </p>
                       </div>
-                      <div className="flex gap-2">
-                        <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                          Send Back
-                        </button>
-                        <Link
-                          href={`/supervisor/approval/${s.id}`}
-                          className="flex-1 bg-orange-600 text-white text-xs font-bold py-2.5 rounded-xl text-center"
-                        >
-                          Review & Approve →
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/supervisor/approval/${s.id}`}
+                        className="block w-full bg-orange-600 text-white text-xs font-bold py-2.5 rounded-xl text-center"
+                      >
+                        Review, Approve or Send Back →
+                      </Link>
                     </div>
                   </div>
                 )
@@ -356,17 +346,12 @@ export default async function ApprovalsPage() {
                       <div className="bg-[#2E74B5] h-1.5 rounded-full" style={{ width: `${s.completion_pct ?? 0}%` }} />
                     </div>
 
-                    <div className="flex gap-2">
-                      <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl">
-                        Send Back
-                      </button>
-                      <Link
-                        href={`/supervisor/approval/${s.id}`}
-                        className="flex-1 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl text-center"
-                      >
-                        Approve → Sub-Coord
-                      </Link>
-                    </div>
+                    <Link
+                      href={`/supervisor/approval/${s.id}`}
+                      className="block w-full bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl text-center"
+                    >
+                      Review, Approve or Send Back →
+                    </Link>
                   </div>
                 )
               })}

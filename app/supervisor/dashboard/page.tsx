@@ -810,17 +810,12 @@ export default async function SupervisorDashboardPage() {
                     <div>Progress: <span className="font-semibold">{s.completion_pct ?? 0}%</span></div>
                     <div>Status: <span className="font-semibold capitalize">{s.status?.replace('_', ' ')}</span></div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2 rounded-xl">
-                      Send Back
-                    </button>
-                    <Link
-                      href={`/supervisor/approval/${s.id}`}
-                      className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-xl text-center"
-                    >
-                      Approve → Sub-Coord
-                    </Link>
-                  </div>
+                  <Link
+                    href={`/supervisor/approval/${s.id}`}
+                    className="block w-full bg-green-600 text-white text-xs font-bold py-2 rounded-xl text-center"
+                  >
+                    Review, Approve or Send Back →
+                  </Link>
                 </div>
               )
             })}
