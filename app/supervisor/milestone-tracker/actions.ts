@@ -1,34 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { syncMilestonePaymentStatus } from '@/lib/milestones'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
-
-async function syncMilestonePaymentStatus(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  bookingRef: string,
-  milestoneCode: string,
-) {
-  const { data: siblings } = await supabase
-    .from('job_milestone_substages')
-    .select('status')
-    .eq('booking_ref', bookingRef)
-    .eq('milestone_code', milestoneCode)
-
-  const rows: AnyRecord[] = siblings ?? []
-  const allDone = rows.length > 0 && rows.every(s => s.status === 'supervisor_submitted' || s.status === 'completed')
-
-  if (allDone) {
-    await supabase
-      .from('milestone_payment_schedule')
-      .update({ status: 'supervisor_submitted', supervisor_submitted_at: new Date().toISOString() })
-      .eq('booking_ref', bookingRef)
-      .eq('milestone_code', milestoneCode)
-  }
-}
 
 export async function markSubstageComplete(
   substageId: string,
@@ -91,23 +68,25 @@ export async function assignWorkerToSubstage(
 
   if (updateErr) return { error: updateErr.message }
 
-  const { error: workerErr } = await supabase
+  // current_job_id has a confirmed dual-meaning bug: this path writes a
+  // job_milestone_substages id into it, while Sub-Coordinator's own
+  // assignWorkerToJob writes a guest_enquiries id into the SAME column --
+  // two different entity types sharing one column. Add the correctly-typed
+  // current_substage_id alongside (Amendment 3: an addition to the frozen
+  // workers table, not a re-opening of it) rather than fixing this one side
+  // in a way that could break an out-of-scope reader relying on
+  // current_job_id's existing truthiness. See 20260927_workers_current_job_split.sql.
+  const { error: workerErr } = await (supabase as AnyRecord)
     .from('workers')
-    .update({ current_job_booking_ref: substage.booking_ref, current_job_id: substageId })
+    .update({ current_job_booking_ref: substage.booking_ref, current_job_id: substageId, current_substage_id: substageId })
     .eq('id', workerId)
 
   if (workerErr) return { error: workerErr.message }
 
-  const { error: slotErr } = await supabase.from('worker_day_slots').insert({
-    worker_id: workerId,
-    slot_date: plannedDate,
-    booking_ref: substage.booking_ref,
-    substage_code: substage.substage_code,
-    assigned_by: supervisorId,
-    status: 'assigned',
-  })
-
-  if (slotErr) return { error: slotErr.message }
+  // worker_day_slots is a confirmed dead-end write -- inserted here on every
+  // assignment but never read anywhere in the repo (job_milestone_substages
+  // .labour_assignments, updated above, is the actual source every UI reads).
+  // Retired per Duplicate/Conflict #12 -- see 20260927_retire_dead_sink_tables.sql.
 
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }
@@ -138,18 +117,12 @@ export async function removeWorkerFromSubstage(
 
   if (updateErr) return { error: updateErr.message }
 
-  const { error: workerErr } = await supabase
+  const { error: workerErr } = await (supabase as AnyRecord)
     .from('workers')
-    .update({ current_job_booking_ref: null, current_job_id: null })
+    .update({ current_job_booking_ref: null, current_job_id: null, current_substage_id: null })
     .eq('id', workerId)
 
   if (workerErr) return { error: workerErr.message }
-
-  await supabase
-    .from('worker_day_slots')
-    .delete()
-    .eq('worker_id', workerId)
-    .eq('substage_code', substage.substage_code)
 
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }

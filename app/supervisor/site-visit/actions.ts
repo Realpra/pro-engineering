@@ -37,7 +37,13 @@ export async function initReport(
       supervisor_id: supervisorId,
       booking_ref: bookingRef,
       slot_id: slotId ?? null,
+      // Discriminates Flow (i) Site Survey from Flow (ii) Daily Execution --
+      // see 20260927_site_visit_reports_flow_discriminator.sql. Every
+      // downstream consumer (generateBOQ, the estimate page, the site-survey
+      // page's own existing-report check) must filter on this explicitly.
+      report_type: slotId ? 'daily_execution' : 'site_survey',
       status: 'in_progress',
+      screen_progress: 0,
       screen01_job_details: { jobTitle },
     })
     .select('id')
@@ -55,9 +61,24 @@ export async function saveScreen(
 ): Promise<{ error?: string }> {
   const supabase = await createClient()
 
+  // screen_progress was declared (20260628) and displayed to Admin
+  // (app/admin/scope-report/[id]/page.tsx) but never written -- always showed
+  // "0/20". Every saveScreen call now records the caller's own screen number.
+  const update: SupabaseAny = { [columnName]: data, screen_progress: screenNumber }
+
+  // risk_flag_count was declared (20260628) and read by Admin
+  // (app/admin/scope-report/[id]/page.tsx, ScopeReportView.tsx) but never
+  // written -- Screen17_RiskDecisions only ever aggregated flagCount inside
+  // its own JSONB blob (screen17_risk_decisions.flagCount). Copy it up to the
+  // scalar column whenever that screen saves (PENDING #32 / Bug #1).
+  const flagCount = (data as { flagCount?: unknown }).flagCount
+  if (columnName === 'screen17_risk_decisions' && typeof flagCount === 'number') {
+    update.risk_flag_count = flagCount
+  }
+
   const { error } = await (supabase as SupabaseAny)
     .from('site_visit_reports')
-    .update({ [columnName]: data })
+    .update(update)
     .eq('id', reportId)
 
   if (error) return { error: error.message }
@@ -69,15 +90,17 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
 
   const { data: report, error: fetchErr } = await supabase
     .from('site_visit_reports')
-    .select('booking_ref')
+    .select('booking_ref, slot_id')
     .eq('id', reportId)
     .single()
 
   if (fetchErr) return { error: fetchErr.message }
 
+  const submittedAt = new Date().toISOString()
+
   const { error: updateErr } = await supabase
     .from('site_visit_reports')
-    .update({ status: 'submitted', submitted_at: new Date().toISOString() })
+    .update({ status: 'submitted', submitted_at: submittedAt })
     .eq('id', reportId)
 
   if (updateErr) return { error: updateErr.message }
@@ -88,6 +111,20 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
     .eq('booking_ref', report.booking_ref)
 
   if (enquiryErr) return { error: enquiryErr.message }
+
+  // supervisor_daily_routes.report_status/report_submitted_at are read by 5
+  // files across Supervisor/Coordinator/Sub-Coordinator (dashboard, route
+  // planning) to show a per-slot "report submitted" badge, but nothing ever
+  // wrote them -- the badge was permanently stale even after this report's
+  // own slot-scoping fix (Session 58). Write them back here, best-effort:
+  // a failure here must not fail the visit submission itself.
+  const slotId = (report as SupabaseAny).slot_id as string | null
+  if (slotId) {
+    await (supabase as SupabaseAny)
+      .from('supervisor_daily_routes')
+      .update({ report_status: 'submitted', report_submitted_at: submittedAt })
+      .eq('id', slotId)
+  }
 
   return {}
 }

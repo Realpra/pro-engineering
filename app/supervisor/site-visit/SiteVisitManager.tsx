@@ -31,6 +31,9 @@ interface SubstageData {
   supervisor_checklist: any
   evidence_checklist: any
   evidence_submitted: any
+  site_checklist: any
+  site_evidence_checklist: any
+  site_evidence_submitted: any
   is_critical_path: boolean
   planned_day: number | null
   planned_hours: number | null
@@ -143,6 +146,7 @@ export default function SiteVisitManager({
 }: Props) {
   const [screen, setScreen] = useState(1)
   const [reportId, setReportId] = useState<string | null>(null)
+  const [initError, setInitError] = useState<string | null>(null)
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
   const [uploadErrors, setUploadErrors] = useState<Record<number, string>>({})
   const [form, setForm] = useState({
@@ -256,9 +260,12 @@ export default function SiteVisitManager({
   const ltfNote = slotData?.ltf_note ?? ''
   const bookingRef = bookingRefProp || substageData?.booking_ref || slotData?.site_id || 'unknown-site'
   const jobTitle = activeJobs.find(j => j.booking_ref === bookingRef)?.job_title ?? site
-  // One supervisor_daily_routes slot (or, lacking that, the substage) = one visit.
-  // Without this, every visit to the same booking collapsed into one shared row.
-  const visitSlotId = slotData?.id ?? substageData?.id ?? null
+  // One supervisor_daily_routes slot = one visit. site_visit_reports.slot_id
+  // has a real FK to supervisor_daily_routes(id) -- it must never be a
+  // job_milestone_substages id (a structurally different table), or the
+  // insert violates that FK and the whole visit silently fails to save
+  // (initReport()'s caller below had no error handling to catch this).
+  const visitSlotId = slotData?.id ?? null
   // Screen 3's "Workers Planned" should come from the admin's deployment plan,
   // not be typed by hand — see docs/SITE_VISIT_REBUILD_SPEC.md Screen 3.
   const plannedFromDeployment = substageData && (substageData.skilled_workers_per_day != null || substageData.unskilled_workers_per_day != null)
@@ -269,6 +276,7 @@ export default function SiteVisitManager({
     if (!workerId || workerId === '' || !bookingRef || bookingRef === '' || bookingRef === 'unknown-site') return
     initReport(workerId, bookingRef, jobTitle, visitSlotId).then(({ reportId, error }) => {
       if (reportId) setReportId(reportId)
+      if (error) setInitError(error)
     })
   }, [workerId, bookingRef, jobTitle, visitSlotId])
 
@@ -312,9 +320,11 @@ export default function SiteVisitManager({
     }
   }
 
-  // Checklist from substage
-  const evidenceChecklist = (substageData?.evidence_checklist as any[]) ?? []
-  const supervisorChecklist = (substageData?.supervisor_checklist as any[]) ?? []
+  // Checklist from substage -- site_checklist/site_evidence_checklist are the
+  // correctly-named columns (Site Incharge is the real writer), falling back
+  // to the legacy supervisor_-prefixed names for any not-yet-migrated row.
+  const evidenceChecklist = (substageData?.site_evidence_checklist as any[]) ?? (substageData?.evidence_checklist as any[]) ?? []
+  const supervisorChecklist = (substageData?.site_checklist as any[]) ?? (substageData?.supervisor_checklist as any[]) ?? []
 
   const radioGroup = (name: string, value: string, options: string[], onChange: (v: string) => void) => (
     <div className="flex flex-wrap gap-3">
@@ -1144,6 +1154,12 @@ export default function SiteVisitManager({
 
       {/* SCREEN CONTENT */}
       <main className="flex-1 px-4 py-5 max-w-lg mx-auto w-full pb-32">
+        {initError && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-300">
+            <p className="text-red-700 text-sm font-bold">Could not start this visit's report</p>
+            <p className="text-red-600 text-xs mt-1">{initError} — nothing on this screen will be saved until this is resolved. Go back and try again, or contact your coordinator.</p>
+          </div>
+        )}
         {renderScreen()}
       </main>
 

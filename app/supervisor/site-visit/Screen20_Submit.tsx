@@ -28,9 +28,9 @@ const REVIEW_SCREENS = [
   { n: 13, name: 'Compliance' },
   { n: 14, name: 'Measurements' },
   { n: 15, name: 'Labour' },
-  { n: 16, name: 'Client Scope Confirmation' },
+  { n: 16, name: 'Timeline' },
   { n: 17, name: 'Risk Decisions' },
-  { n: 18, name: 'Timeline' },
+  { n: 18, name: 'Client Scope Confirmation' },
   { n: 19, name: 'Materials' },
 ]
 

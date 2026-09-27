@@ -45,17 +45,26 @@ export default async function DailyLogPage() {
   const activeJob = jobResult.data
   const existingLog = logResult.data
 
+  // Standardized on the same crew-eligibility gate SubstageCard.tsx (Supervisor's
+  // milestone tracker) already uses -- admin_approved + is_available is the
+  // final stage of the Worker Onboarding approval pipeline; this page
+  // previously checked the earlier coordinator_approved stage, one of 3
+  // disagreeing "who counts as available crew" definitions found across
+  // Supervisor's own pages (Duplicate/Conflict #14). Also fixed a
+  // district-vs-zone column mismatch: workers.zones is the array of zones a
+  // worker actually covers, not workers.district (a different concept).
   let crewQuery = supabase
     .from('workers')
     .select('id, full_name, trade')
     .eq('is_active', true)
-    .eq('approval_status', 'coordinator_approved')
+    .eq('approval_status', 'admin_approved')
+    .eq('is_available', true)
     .neq('trade', 'Supervisor')
     .order('full_name', { ascending: true })
     .limit(8)
 
   if (activeJob?.zone) {
-    crewQuery = crewQuery.eq('district', activeJob.zone)
+    crewQuery = crewQuery.contains('zones', [activeJob.zone])
   }
 
   const { data: crewData } = await crewQuery

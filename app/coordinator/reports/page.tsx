@@ -17,11 +17,21 @@ export default async function CoordinatorReportsPage() {
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Coordinator'
 
-  // Fetch site instructions sent TO coordinator (reports from supervisor/sub-coordinator)
+  // Fetch site instructions sent TO coordinator (reports from supervisor/sub-coordinator).
+  // Previously only matched Admin's adminIssueDirective value set
+  // (safety_critical/method_improvement/etc.) -- Sub-Coordinator's own
+  // sendInstruction/chaseSiteHead/notifyCoordinator write a completely
+  // disjoint set of instruction_type values (hold/expedite/revised/resource/
+  // alert/chase/notification), so this inbox could never show anything
+  // Sub-Coordinator actually sends (Duplicate/Conflict #21). Widened to cover
+  // both value sets.
   const { data: reports } = await supabase
     .from('site_instructions')
     .select('id, instruction_type, priority, instruction_text, booking_ref, issued_at, status, issued_by')
-    .in('instruction_type', ['safety_critical', 'method_improvement', 'payment_policy', 'methodology', 'special_site', 'execution'])
+    .in('instruction_type', [
+      'safety_critical', 'method_improvement', 'payment_policy', 'methodology', 'special_site', 'execution',
+      'hold', 'expedite', 'revised', 'resource', 'alert', 'chase', 'notification',
+    ])
     .order('issued_at', { ascending: false })
     .limit(50)
 

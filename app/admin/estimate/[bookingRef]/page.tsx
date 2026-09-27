@@ -70,6 +70,10 @@ export default async function EstimatePage({
         .from('site_visit_reports')
         .select('*')
         .eq('booking_ref', bookingRef)
+        // See 20260927_site_visit_reports_flow_discriminator.sql -- without
+        // this, a Flow (ii) Daily Execution Visit row could be picked up here
+        // instead of the real Flow (i) Site Survey this page needs.
+        .eq('report_type', 'site_survey')
         .in('status', ['submitted', 'admin_review'])
         .order('created_at', { ascending: false })
         .limit(1)

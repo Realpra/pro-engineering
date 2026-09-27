@@ -42,7 +42,11 @@ export default async function AdminMilestonesPage() {
     sb
       .from('scope_change_requests')
       .select('*')
-      .not('cost_impact_net', 'eq', 0)
+      // Previously excluded any row where cost_impact_net was 0 OR NULL
+      // (Postgrest's not.eq.0 excludes NULLs too) -- Supervisor's own
+      // submitExtraWork never populates cost_impact_net at all, so every
+      // Supervisor-raised scope change was filtered out before it even
+      // reached this page (Duplicate/Conflict #15).
       .order('created_at', { ascending: false }),
     sb.from('milestone_payment_schedule').select('*').order('created_at', { ascending: false }),
     sb

@@ -32,6 +32,7 @@ export default function MorningForm({ supervisorId, bookingRef, crew, onComplete
   const [attendance, setAttendance] = useState(initialAttendance)
   const [morningPhotoFile, setMorningPhotoFile] = useState<File | null>(null)
   const [sitePhotoPreview, setSitePhotoPreview] = useState<string | null>(null)
+  const [weatherCondition, setWeatherCondition] = useState('')
   const [plannedScope, setPlannedScope] = useState('')
   const [materialsDelivered, setMaterialsDelivered] = useState(false)
   const [materialsDescription, setMaterialsDescription] = useState('')
@@ -65,6 +66,7 @@ export default function MorningForm({ supervisorId, bookingRef, crew, onComplete
         crewAttendance,
         sitePhotoUrl,
         plannedScope,
+        weatherCondition: weatherCondition || null,
         materialsDelivered,
         materialsDescription: materialsDelivered ? materialsDescription : null,
         materialsPhotoUrl,
@@ -124,6 +126,20 @@ export default function MorningForm({ supervisorId, bookingRef, crew, onComplete
           📷 {morningPhotoFile ? morningPhotoFile.name : 'Take First-on-Site Photo'}
         </label>
         {morningPhotoFile && <p className="text-green-600 text-sm mt-1">✓ Photo selected</p>}
+      </div>
+
+      <h3 className="text-base font-bold text-[#1F3864] mb-2">Weather Condition</h3>
+      <div className="flex gap-2 mb-6">
+        {['Clear', 'Cloudy', 'Rain', 'Extreme Heat'].map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => setWeatherCondition(opt)}
+            className={`flex-1 py-3 rounded-lg text-xs font-bold border-2 ${weatherCondition === opt ? 'bg-[#1F3864] border-[#1F3864] text-white' : 'bg-white border-gray-200 text-gray-500'}`}
+          >
+            {opt}
+          </button>
+        ))}
       </div>
 
       <h3 className="text-base font-bold text-[#1F3864] mb-2">Today's Planned Scope</h3>

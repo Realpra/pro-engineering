@@ -69,6 +69,7 @@ export type ScopeChange = {
   revised_total_estimate: number | null
   requested_by: string | null
   requested_at: string | null
+  supervisor_submitted_at: string | null
   coordinator_recommendation: string | null
   coordinator_recommended_at: string | null
   admin_decision: string | null
@@ -1219,6 +1220,12 @@ function ScopeChangeCard({
               </Badge>
               <Badge cls="bg-white/10 text-white border-white/30">{c?.change_status ?? '—'}</Badge>
             </div>
+            {/* supervisor_submitted_at was written by every Extra Works
+                submission but never displayed anywhere -- a dead field
+                (Duplicate/Conflict #16). */}
+            {c?.supervisor_submitted_at && (
+              <p className="text-blue-200 text-xs mt-1">Submitted {fmtDate(c.supervisor_submitted_at)}</p>
+            )}
           </div>
           <p className={`text-lg font-bold shrink-0 ${netHeaderCls}`}>{money(c?.cost_impact_net)}</p>
         </div>
@@ -1405,9 +1412,12 @@ function ScopeContractChangesTab({
   clientMap: Record<string, string>
   adminUserId: string
 }) {
-  const pending = scopeChanges.filter(
-    (c) => num(c.cost_impact_net) !== 0 && c.admin_decision == null
-  )
+  // Previously required cost_impact_net !== 0, a field Supervisor's own
+  // submitExtraWork never populates -- meaning a Supervisor-raised scope
+  // change could never appear in this queue at all, only in admin/scope's
+  // separate queue (which filters on admin_decision == null alone). Matched
+  // to that same, broader canonical filter (Duplicate/Conflict #15).
+  const pending = scopeChanges.filter((c) => c.admin_decision == null)
 
   return (
     <div className="space-y-4">
@@ -2010,9 +2020,8 @@ export default function MilestoneTabs({
   const [tab, setTab] = useState<'stages' | 'contract' | 'evidence' | 'substages'>('stages')
 
   const activeTemplates = templates.filter((t) => t.is_active === true).length
-  const pendingContract = scopeChanges.filter(
-    (c) => num(c.cost_impact_net) !== 0 && c.admin_decision == null
-  ).length
+  // See the matching fix + comment in the pending-queue filter above.
+  const pendingContract = scopeChanges.filter((c) => c.admin_decision == null).length
   const overrides = payments.filter((p) => p.admin_override_type != null).length
   const pendingSubstages = substages.filter(
     (s) => (s.substage_approval_status ?? 'pending') === 'pending'

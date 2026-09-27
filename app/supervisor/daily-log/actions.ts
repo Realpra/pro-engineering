@@ -36,6 +36,7 @@ export async function submitMorningLog(params: {
   crewAttendance: CrewEntry[]
   sitePhotoUrl: string | null
   plannedScope: string
+  weatherCondition: string | null
   materialsDelivered: boolean
   materialsDescription: string | null
   materialsPhotoUrl: string | null
@@ -43,8 +44,6 @@ export async function submitMorningLog(params: {
   const supabase = await createClient()
 
   const today = new Date().toLocaleDateString('en-CA')
-
-  console.log('[submitMorningLog] log_date:', today)
 
   const { error } = await supabase
     .from('daily_site_logs')
@@ -58,6 +57,7 @@ export async function submitMorningLog(params: {
         crew_attendance:       params.crewAttendance,
         site_photo_url:        params.sitePhotoUrl,
         planned_scope:         params.plannedScope,
+        weather_condition:     params.weatherCondition,
         materials_delivered:   params.materialsDelivered,
         materials_description: params.materialsDescription,
         materials_photo_url:   params.materialsPhotoUrl,
@@ -69,6 +69,12 @@ export async function submitMorningLog(params: {
   return {}
 }
 
+// Evening-only fields. Previously LTFForm.tsx called this same function with
+// hardcoded blank/false values for all of these, and since both stages share
+// one row (matched by supervisor_id+log_date, no log_type discrimination)
+// every LTF submission silently wiped the real Evening Report a few seconds
+// after it was saved -- confirmed real data loss on every completed daily
+// log. Now a genuinely partial update, touching only its own fields.
 export async function submitEveningLog(params: {
   supervisorId: string
   scopeCompleted: string
@@ -78,16 +84,10 @@ export async function submitEveningLog(params: {
   eveningPhotoUrl: string | null
   issueReported: boolean
   issueDescription: string | null
-  ltfReadyTomorrow: boolean
-  ltfTargetSlot: string | null
-  ltfDelayReason: string | null
-  ltfNotes: string | null
 }): Promise<{ error?: string }> {
   const supabase = await createClient()
 
   const today = new Date().toLocaleDateString('en-CA')
-
-  console.log('[submitEveningLog] supervisorId:', params.supervisorId, '| log_date:', today)
 
   const { data, error } = await supabase
     .from('daily_site_logs')
@@ -100,20 +100,50 @@ export async function submitEveningLog(params: {
       evening_photo_url:     params.eveningPhotoUrl,
       issue_reported:        params.issueReported,
       issue_description:     params.issueDescription,
-      ltf_ready_tomorrow:    params.ltfReadyTomorrow,
-      ltf_target_slot:       params.ltfTargetSlot,
-      ltf_delay_reason:      params.ltfDelayReason,
-      ltf_notes:             params.ltfNotes,
+      // escalate_to_admin was declared and read by Admin's entire escalation
+      // queue/dashboard metric (app/admin/reports) but nothing ever wrote it
+      // -- the queue was permanently empty by construction. A reported issue
+      // or a real deviation is exactly what that queue exists to catch.
+      escalate_to_admin:     params.issueReported || params.deviationFromPlan,
     })
     .eq('supervisor_id', params.supervisorId)
     .eq('log_date', today)
     .select('id')
 
-  console.log('[submitEveningLog] query result — data:', JSON.stringify(data), '| error:', error)
-
   if (error) return { error: error.message }
   if (!data || data.length === 0) {
     return { error: 'No morning log found for today. Submit the morning log before submitting the evening log.' }
+  }
+  return {}
+}
+
+// LTF-only fields, split out from submitEveningLog -- see the comment above.
+export async function submitLTFLog(params: {
+  supervisorId: string
+  ltfReadyTomorrow: boolean
+  ltfTargetSlot: string | null
+  ltfDelayReason: string | null
+  ltfNotes: string | null
+}): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  const today = new Date().toLocaleDateString('en-CA')
+
+  const { data, error } = await supabase
+    .from('daily_site_logs')
+    .update({
+      ltf_ready_tomorrow: params.ltfReadyTomorrow,
+      ltf_target_slot:    params.ltfTargetSlot,
+      ltf_delay_reason:   params.ltfDelayReason,
+      ltf_notes:          params.ltfNotes,
+    })
+    .eq('supervisor_id', params.supervisorId)
+    .eq('log_date', today)
+    .select('id')
+
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) {
+    return { error: 'No morning log found for today. Submit the morning and evening logs before submitting LTF.' }
   }
   return {}
 }

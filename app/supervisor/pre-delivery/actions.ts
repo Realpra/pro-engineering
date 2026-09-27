@@ -68,24 +68,11 @@ export async function submitPreDeliveryAssessment(
 
   if (error) return { error: error.message }
 
-  if (data.supervisor_flagged_to_admin && data.snag_items.length > 0) {
-    // Secondary, non-critical fan-out — a failure here shouldn't fail the
-    // primary assessment submission that already succeeded above.
-    const { error: snagErr } = await supabase.from('scope_snag_items').insert(
-      data.snag_items.map(item => ({
-        booking_ref: data.booking_ref,
-        snag_location: item.location,
-        snag_description: item.description,
-        snag_severity: item.severity,
-        snag_photo_url: item.photo_url,
-        admin_flagged: true,
-      })),
-    )
-    if (snagErr) {
-      // eslint-disable-next-line no-console
-      console.error('[submitPreDeliveryAssessment] scope_snag_items insert failed:', snagErr.message)
-    }
-  }
+  // scope_snag_items (the fan-out this used to also write) is a confirmed
+  // dead-end table -- nothing anywhere in the repo reads it back.
+  // pre_delivery_assessment.supervisor_snag_items (written above) is the
+  // real, actually-read source. Retired per Duplicate/Conflict #11 -- see
+  // 20260927_retire_dead_sink_tables.sql.
 
   revalidatePath('/supervisor/pre-delivery')
   return { success: true }

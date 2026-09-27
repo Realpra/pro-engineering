@@ -676,6 +676,12 @@ export async function generateBOQ(
     .from('site_visit_reports')
     .select('id, screen02_scope_intent, screen14_measurements, screen07_electrical, screen12_logistics, screen16_timeline, screen17_risk_decisions')
     .eq('booking_ref', bookingRef)
+    // report_type discriminates Flow (i) Site Survey from Flow (ii) Daily
+    // Execution Visit -- both flows can reach status 'submitted'/'admin_review'
+    // on the same booking_ref, and the column names below only carry the
+    // structured scope/measurement/risk data this function expects when the
+    // row is a Site Survey (see 20260927_site_visit_reports_flow_discriminator.sql).
+    .eq('report_type', 'site_survey')
     .in('status', ['submitted', 'admin_review'])
     .order('created_at', { ascending: false })
     .limit(1)

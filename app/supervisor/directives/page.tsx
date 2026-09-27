@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import AcknowledgeButton from './AcknowledgeButton'
 
 export default async function DirectivesPage() {
   const supabase = await createClient()
@@ -143,9 +144,7 @@ export default async function DirectivesPage() {
                       )}
                     </div>
 
-                    <button className="w-full bg-[#1F3864] text-white text-xs font-bold py-3 rounded-xl">
-                      Acknowledge Directive
-                    </button>
+                    <AcknowledgeButton instructionId={d.id} />
                   </div>
                 </div>
               ))}

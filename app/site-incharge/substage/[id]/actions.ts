@@ -1,31 +1,10 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
+import { syncMilestonePaymentStatus } from '@/lib/milestones'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
-
-// If every substage in this milestone is now supervisor-submitted (or completed),
-// advance the milestone's payment schedule row so it enters the approval queue.
-async function syncMilestonePaymentStatus(supabase: SupabaseAny, bookingRef: string, milestoneCode: string) {
-  const { data: siblings } = await supabase
-    .from('job_milestone_substages')
-    .select('status')
-    .eq('booking_ref', bookingRef)
-    .eq('milestone_code', milestoneCode)
-
-  const rows = siblings ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allDone = rows.length > 0 && rows.every((s: any) => s.status === 'supervisor_submitted' || s.status === 'completed')
-
-  if (allDone) {
-    await supabase
-      .from('milestone_payment_schedule')
-      .update({ status: 'supervisor_submitted', supervisor_submitted_at: new Date().toISOString() })
-      .eq('booking_ref', bookingRef)
-      .eq('milestone_code', milestoneCode)
-  }
-}
 
 export async function updateSubstageStatus(
   substageId: string,
@@ -77,10 +56,18 @@ export async function updateSupervisorChecklist(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { error } = await supabase
+  // supervisor_checklist is a misnomer -- Site Incharge is the only writer of
+  // this column anywhere in the repo (Supervisor's own SubstageCard.tsx only
+  // ever reads a count). site_checklist is the correctly-named column added
+  // alongside it (20260927_job_milestone_substages_site_columns.sql);
+  // supervisor_checklist is kept in sync so out-of-scope readers (coordinator/
+  // payments, supervisor/estimate+approvals+inspections, sub-coordinator/
+  // approvals) keep working until they're migrated to the new name.
+  const { error } = await (supabase as SupabaseAny)
     .from('job_milestone_substages')
     .update({
       supervisor_checklist: checklist,
+      site_checklist: checklist,
       updated_at: new Date().toISOString(),
     })
     .eq('id', substageId)
@@ -141,11 +128,15 @@ export async function uploadEvidence(
     uploaded_at: new Date().toISOString(),
   }
 
-  const { error } = await supabase
+  // Same dual-write discipline as updateSupervisorChecklist above -- see
+  // 20260927_job_milestone_substages_site_columns.sql.
+  const { error } = await (supabase as SupabaseAny)
     .from('job_milestone_substages')
     .update({
       evidence_checklist: checklist,
       evidence_submitted: submitted,
+      site_evidence_checklist: checklist,
+      site_evidence_submitted: submitted,
       updated_at: new Date().toISOString(),
     })
     .eq('id', substageId)

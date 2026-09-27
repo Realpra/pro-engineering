@@ -48,15 +48,35 @@ export default async function SiteInchargeDashboardPage() {
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
+  // site_incharge_id is the correctly-scoped FK (Duplicate/Conflict #17):
+  // Site Incharge is permanently on-site for a job, Supervisor only visits
+  // periodically -- the two are not the same relationship and previously
+  // shared one column (supervisor_id), so Site Incharge's own dashboard could
+  // only ever see a job if it happened to also be assigned as its Supervisor.
+  // Falls back to supervisor_id for any job not yet re-assigned via the new
+  // column, so existing jobs don't disappear from Site Incharge's dashboard
+  // the moment this ships.
   const { data: activeJob } = workerRecord
-    ? await supabase
-        .from('guest_enquiries')
-        .select('id, booking_ref, job_title, job_type, zone, district, service_model, preferred_start_date, status')
-        .eq('supervisor_id', workerRecord.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+    ? await (async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bySiteIncharge = await (supabase as any)
+          .from('guest_enquiries')
+          .select('id, booking_ref, job_title, job_type, zone, district, service_model, preferred_start_date, status')
+          .eq('site_incharge_id', workerRecord.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (bySiteIncharge.data) return bySiteIncharge
+        return supabase
+          .from('guest_enquiries')
+          .select('id, booking_ref, job_title, job_type, zone, district, service_model, preferred_start_date, status')
+          .eq('supervisor_id', workerRecord.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      })()
     : { data: null }
 
   const { data: substages } = activeJob

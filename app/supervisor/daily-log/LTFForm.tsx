@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { submitEveningLog } from './actions'
+import { submitLTFLog } from './actions'
 
 type Props = {
   supervisorId: string
@@ -21,15 +21,8 @@ export default function LTFForm({ supervisorId, onComplete }: Props) {
     setSubmitting(true)
     setError(null)
     try {
-      const result = await submitEveningLog({
+      const result = await submitLTFLog({
         supervisorId,
-        scopeCompleted: '',
-        deviationFromPlan: false,
-        deviationDescription: null,
-        deviationReason: null,
-        eveningPhotoUrl: null,
-        issueReported: false,
-        issueDescription: null,
         ltfReadyTomorrow: ltfReady,
         ltfTargetSlot: ltfReady ? ltfTargetSlot || null : null,
         ltfDelayReason: !ltfReady ? ltfDelayReason || null : null,

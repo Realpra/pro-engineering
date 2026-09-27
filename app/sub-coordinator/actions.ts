@@ -2,6 +2,30 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// issued_to previously accepted literal sentinel strings ('all_supervisors',
+// 'site_incharge', 'site_head') verbatim -- but every reader (Supervisor's
+// directives page, Site Incharge's dashboard) does an exact
+// .eq('issued_to', <that specific user's id>) match, so a broadcast sent to
+// one of those 3 options was inserted into the table but permanently
+// unreachable by any recipient's UI. Fan out into one real row per actual
+// recipient instead. 'site_head' is treated as 'site_incharge' -- this
+// codebase has no separate site_head platform_role; CLAUDE.md and the
+// original design logs use "Site Head" as the real-world name for the
+// site_incharge role throughout (e.g. Screen 2's "Site Head Name" field).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveRecipients(supabase: any, issuedTo: string | null): Promise<string[]> {
+  if (!issuedTo) return []
+  if (issuedTo === 'all_supervisors') {
+    const { data } = await supabase.from('users').select('id').eq('platform_role', 'supervisor')
+    return (data ?? []).map((u: { id: string }) => u.id)
+  }
+  if (issuedTo === 'site_incharge' || issuedTo === 'site_head') {
+    const { data } = await supabase.from('users').select('id').eq('platform_role', 'site_incharge')
+    return (data ?? []).map((u: { id: string }) => u.id)
+  }
+  return [issuedTo]
+}
+
 export async function sendInstruction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -15,20 +39,31 @@ export async function sendInstruction(formData: FormData) {
   const instruction_text = formData.get('instruction_text') as string
   const issued_to = formData.get('issued_to') as string | null
   const { data: enquiry } = await supabase.from('guest_enquiries').select('id').eq('booking_ref', booking_ref).single()
-  const { error } = await supabase.from('site_instructions').insert({
-    enquiry_id: enquiry?.id ?? null,
-    booking_ref,
-    substage_code: substage_code || null,
-    instruction_type,
-    priority,
-    subject: subject || null,
-    instruction_text,
-    issued_by: userData?.id ?? null,
-    issued_to: issued_to || null,
-    issued_at: new Date().toISOString(),
-    status: 'active',
-    is_active: true,
-  })
+
+  const recipients = await resolveRecipients(supabase, issued_to)
+  if (recipients.length === 0) return { error: 'No matching recipients found for the selected audience.' }
+
+  const { error } = await supabase.from('site_instructions').insert(
+    recipients.map((recipientId) => ({
+      enquiry_id: enquiry?.id ?? null,
+      booking_ref,
+      substage_code: substage_code || null,
+      instruction_type,
+      priority,
+      subject: subject || null,
+      instruction_text,
+      issued_by: userData?.id ?? null,
+      issued_to: recipientId,
+      issued_at: new Date().toISOString(),
+      // Every reader (Supervisor/Site Incharge) filters status='pending' for
+      // new, unactioned instructions -- every writer here previously
+      // inserted 'active', a value nothing ever transitions out of, so new
+      // instructions satisfied neither the pending nor acknowledged filter
+      // and never appeared to their recipients.
+      status: 'pending',
+      is_active: true,
+    })),
+  )
   if (error) return { error: error.message }
   revalidatePath('/sub-coordinator/dashboard')
   revalidatePath('/sub-coordinator/instructions')
@@ -111,7 +146,7 @@ export async function chaseSiteHead(formData: FormData) {
     issued_by: userData?.id ?? null,
     issued_to,
     issued_at: new Date().toISOString(),
-    status: 'active',
+    status: 'pending',
     is_active: true,
   })
   if (error) return { error: error.message }
@@ -135,7 +170,7 @@ export async function notifyCoordinator(formData: FormData) {
     issued_by: userData?.id ?? null,
     issued_to: coordinator_id,
     issued_at: new Date().toISOString(),
-    status: 'active',
+    status: 'pending',
     is_active: true,
     target_audience: 'coordinator',
   })

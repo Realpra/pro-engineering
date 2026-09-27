@@ -36,11 +36,14 @@ function statusDot(s: string) {
 export default function SubstageCard({ substage: s, supervisorId, workersPool, zones, trades, jobZone }: Props) {
   const router = useRouter()
 
-  const checklist: AnyRecord[] = Array.isArray(s.supervisor_checklist) ? s.supervisor_checklist : []
+  // site_checklist/site_evidence_* are the correctly-named columns (Site
+  // Incharge is the only real writer) -- prefer them, falling back to the
+  // legacy supervisor_-prefixed names for any row/query not yet migrated.
+  const checklist: AnyRecord[] = Array.isArray(s.site_checklist) ? s.site_checklist : (Array.isArray(s.supervisor_checklist) ? s.supervisor_checklist : [])
   const checkedCount = checklist.filter(c => c.checked).length
   const checklistComplete = checklist.length === 0 || checkedCount === checklist.length
-  const evidence: AnyRecord[] = Array.isArray(s.evidence_checklist) ? s.evidence_checklist : []
-  const evidenceSubmitted: AnyRecord[] = Array.isArray(s.evidence_submitted) ? s.evidence_submitted : []
+  const evidence: AnyRecord[] = Array.isArray(s.site_evidence_checklist) ? s.site_evidence_checklist : (Array.isArray(s.evidence_checklist) ? s.evidence_checklist : [])
+  const evidenceSubmitted: AnyRecord[] = Array.isArray(s.site_evidence_submitted) ? s.site_evidence_submitted : (Array.isArray(s.evidence_submitted) ? s.evidence_submitted : [])
   const assignments: AnyRecord[] = Array.isArray(s.labour_assignments) ? s.labour_assignments : []
   const alreadyDone = s.status === 'supervisor_submitted' || s.status === 'completed'
 
@@ -153,7 +156,13 @@ export default function SubstageCard({ substage: s, supervisorId, workersPool, z
             <div className="flex items-center gap-2 text-xs text-gray-400">
               {s.early_start_date && <span>{formatDate(s.early_start_date)}</span>}
               {s.supervisor_submitted_at && <span className="text-orange-500 font-semibold">Submitted</span>}
-              {s.coordinator_approved_at && <span className="text-green-600 font-semibold">✓ Approved</span>}
+              {/* substage_approved_at is Admin's own correctly-named approval
+                  timestamp (app/admin/milestones/actions.ts adminApproveSubstage).
+                  coordinator_approved_at is a compat duplicate Admin's action
+                  also writes, kept only because many other roles' pages still
+                  read it -- prefer the real name here, falling back for any
+                  older row saved before that column existed. */}
+              {(s.substage_approved_at || s.coordinator_approved_at) && <span className="text-green-600 font-semibold">✓ Approved</span>}
             </div>
           </div>
 

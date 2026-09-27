@@ -87,6 +87,16 @@ export default async function RoutePlanPage() {
     return '⚙️ System'
   }
 
+  // PENDING #31 (confirmed regression, Session 58): see the identical helper
+  // in app/supervisor/dashboard/page.tsx for the full rationale.
+  const visitHref = (slot: { id: string; slot_type: string | null; site_id: string | null }): string | null => {
+    if (slot.slot_type === 'hq') return null
+    if (slot.slot_type === 'client_visit' || slot.slot_type === 'scope_survey' || slot.slot_type === 'estimate_visit') {
+      return slot.site_id ? `/site-survey/${slot.site_id}` : null
+    }
+    return `/supervisor/site-visit?slot=${slot.id}`
+  }
+
   const reportBadge = (status: string | null) => {
     if (status === 'submitted') return 'bg-green-100 text-green-700 border-green-300'
     if (status === 'pending') return 'bg-orange-100 text-orange-700 border-orange-300'
@@ -305,9 +315,9 @@ export default async function RoutePlanPage() {
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${reportBadge(slot.report_status)}`}>
                         {reportLabel(slot.report_status)}
                       </span>
-                      {slot.report_status !== 'submitted' && (
+                      {slot.report_status !== 'submitted' && visitHref(slot) && (
                         <Link
-                          href={`/supervisor/site-visit?slot=${slot.id}`}
+                          href={visitHref(slot)!}
                           className="text-xs text-[#2E74B5] font-semibold underline"
                         >
                           Submit Report →

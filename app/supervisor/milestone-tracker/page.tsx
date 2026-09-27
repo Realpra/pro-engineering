@@ -49,17 +49,27 @@ export default async function MilestoneTrackerPage() {
           is_critical_path, planned_day, float_days,
           early_start_date, early_finish_date, planned_hours,
           supervisor_submitted_at, subcoordinator_reviewed_at,
-          coordinator_approved_at, supervisor_checklist,
-          evidence_checklist, evidence_submitted, labour_assignments`)
+          coordinator_approved_at, substage_approved_at, supervisor_checklist,
+          evidence_checklist, evidence_submitted, site_checklist,
+          site_evidence_checklist, site_evidence_submitted, labour_assignments`)
         .in('booking_ref', bookingRefs)
         .order('milestone_code', { ascending: true })
         .order('planned_day', { ascending: true })
     : { data: [] }
 
+  // PENDING #33 (project owner, Session 63): Supervisor may move workers
+  // unilaterally between HIS OWN controlled/active jobs (deliberate
+  // flexibility) -- but this pool previously had NO scoping at all and
+  // offered every active worker on the entire platform for assignment. Scope
+  // it to workers already on one of this supervisor's own active jobs, so
+  // "assign" here means "reassign within my own jobs," not "recruit anyone."
   const [{ data: workersPool }, { data: zonesData }, { data: tradesData }] = await Promise.all([
-    supabase
-      .from('workers')
-      .select('id, full_name, trade, skill_level, zones, is_available, approval_status, current_job_booking_ref'),
+    bookingRefs.length > 0
+      ? supabase
+          .from('workers')
+          .select('id, full_name, trade, skill_level, zones, is_available, approval_status, current_job_booking_ref')
+          .in('current_job_booking_ref', bookingRefs)
+      : Promise.resolve({ data: [] as never[] }),
     supabase.from('geo_hierarchy').select('id, name, level'),
     supabase.from('trade_config').select('trade_name'),
   ])

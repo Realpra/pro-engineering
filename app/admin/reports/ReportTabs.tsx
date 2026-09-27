@@ -89,10 +89,9 @@ export type SiteLog = {
   materials_delivered: boolean | null
   materials_description: string | null
   scope_completed: string | null
-  workers_present: number | string | null
-  workers_planned: number | string | null
+  crew_attendance: { worker_id: string; name: string; trade: string; status: 'present' | 'absent' | 'late' }[] | null
   weather_condition: string | null
-  deviation_found: boolean | null
+  deviation_from_plan: boolean | null
   deviation_description: string | null
   deviation_reason: string | null
   issue_reported: boolean | null
@@ -908,6 +907,13 @@ function SiteLogCard({ log, adminUserId }: { log: SiteLog; adminUserId: string }
   }
 
   const canDecide = !log.decision_on_log && log.escalate_to_admin === true
+  // workers_present/workers_planned/deviation_found don't exist under those
+  // names anywhere in daily_site_logs -- real data sits in crew_attendance
+  // (a per-worker JSONB array) and deviation_from_plan. Previously this whole
+  // block always read undefined and silently showed "— / —" / never rendered.
+  const crew = Array.isArray(log.crew_attendance) ? log.crew_attendance : []
+  const workersPresent = crew.filter(c => c.status === 'present' || c.status === 'late').length
+  const workersPlanned = crew.length
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -924,16 +930,18 @@ function SiteLogCard({ log, adminUserId }: { log: SiteLog; adminUserId: string }
           {log.booking_ref && <Cell label="Booking Ref" value={log.booking_ref} />}
           {log.trade && <Cell label="Trade" value={log.trade} />}
           {log.skill_level && <Cell label="Skill Level" value={log.skill_level} />}
-          <Cell
-            label="Workers Present / Planned"
-            value={`${log.workers_present != null ? num(log.workers_present) : '—'} / ${log.workers_planned != null ? num(log.workers_planned) : '—'}`}
-          />
+          {crew.length > 0 && (
+            <Cell
+              label="Workers Present / Planned"
+              value={`${workersPresent} / ${workersPlanned}`}
+            />
+          )}
           {log.weather_condition && <Cell label="Weather" value={log.weather_condition} />}
         </div>
 
         {log.planned_scope && <Cell label="Planned Scope" value={log.planned_scope} />}
         {log.scope_completed && <Cell label="Scope Completed" value={log.scope_completed} />}
-        {log.deviation_found && (
+        {log.deviation_from_plan && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-0.5">Deviation</p>
             <p className="text-sm text-amber-900">{log.deviation_description ?? '—'}</p>

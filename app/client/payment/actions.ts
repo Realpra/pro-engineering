@@ -72,13 +72,14 @@ export async function confirmTokenPayment(
 
   if (insertErr) return { success: false, error: insertErr.message }
 
-  const evidenceJson = JSON.stringify({ utr_number: utrNumber, submitted_at: now })
-
+  // Standardized on the same JSONB-array shape as Supervisor's
+  // submitMilestoneEvidence -- was previously a JSON.stringify()'d string,
+  // one of the 3 incompatible shapes behind Duplicate/Conflict #8.
   const [milestoneUpdate, enquiryUpdate] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('milestone_payment_schedule')
-      .update({ status: 'verification_pending', evidence_submitted: evidenceJson })
+      .update({ status: 'verification_pending', evidence_submitted: [{ item: 'M0 token payment', utr_number: utrNumber, uploaded_at: now }] })
       .eq('booking_ref', bookingRef)
       .eq('milestone_code', 'M0'),
     supabase
@@ -121,10 +122,17 @@ export async function verifyPayment(
       .from('payment_confirmations')
       .update({ status: 'verified', coordinator_verified_at: now, coordinator_verified_by: coordinatorId })
       .eq('id', paymentConfirmationId),
+    // coordinator_approved_at is also written by Supervisor's
+    // coordinatorApproveMilestone (app/supervisor/milestone/[bookingRef]/
+    // actions.ts) for a completely different event -- "coordinator approved
+    // milestone evidence" -- sharing one column for two distinct facts
+    // (Duplicate/Conflict #2). token_payment_verified_at is the correctly-
+    // scoped new column for THIS event; coordinator_approved_at is kept in
+    // sync for out-of-scope readers not yet migrated to the new name.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('milestone_payment_schedule')
-      .update({ status: 'paid', coordinator_approved_at: now })
+      .update({ status: 'paid', coordinator_approved_at: now, token_payment_verified_at: now })
       .eq('booking_ref', bookingRef)
       .eq('milestone_code', 'M0'),
     supabase

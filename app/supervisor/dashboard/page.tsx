@@ -90,6 +90,19 @@ function slotTypeLabel(type: string | null) {
   return { label: '🟢 QIP INSPECTION', cls: 'text-green-600' }
 }
 
+// PENDING #31 (confirmed regression, Session 58): slot_type is fully modeled
+// but every route slot linked to the same Flow (ii) Daily Execution Visit
+// regardless of stated purpose. A client_visit/scope_survey/estimate_visit
+// slot should open the pre-confirm Flow (i) Site Survey instead; an 'hq'
+// slot has no site visit to report at all.
+function visitHref(slot: { id: string; slot_type: string | null; site_id: string | null }): string | null {
+  if (slot.slot_type === 'hq') return null
+  if (slot.slot_type === 'client_visit' || slot.slot_type === 'scope_survey' || slot.slot_type === 'estimate_visit') {
+    return slot.site_id ? `/site-survey/${slot.site_id}` : null
+  }
+  return `/supervisor/site-visit?slot=${slot.id}`
+}
+
 function borderColor(type: string | null, reportStatus: string | null) {
   if (type === 'overhang') return 'border-l-red-500'
   if (reportStatus === 'pending') return 'border-l-orange-400'
@@ -570,9 +583,9 @@ export default async function SupervisorDashboardPage() {
                             </span>
                           )}
                         </div>
-                        {slot.report_status !== 'submitted' && (
+                        {slot.report_status !== 'submitted' && visitHref(slot) && (
                           <Link
-                            href={`/supervisor/site-visit?slot=${slot.id}`}
+                            href={visitHref(slot)!}
                             className="text-xs text-[#2E74B5] font-semibold underline"
                           >
                             Submit Report →
@@ -585,12 +598,14 @@ export default async function SupervisorDashboardPage() {
                         <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl active:bg-gray-50">
                           Site Head Not Ready
                         </button>
-                        <Link
-                          href={`/supervisor/site-visit?slot=${slot.id}`}
-                          className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl text-center"
-                        >
-                          Begin Inspection →
-                        </Link>
+                        {visitHref(slot) && (
+                          <Link
+                            href={visitHref(slot)!}
+                            className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl text-center"
+                          >
+                            Begin Inspection →
+                          </Link>
+                        )}
                       </div>
 
                     </div>

@@ -21,7 +21,7 @@ export default async function CoordinatorJobsPage() {
   const { data: allJobs } = await supabase
     .from('guest_enquiries')
     .select(`id, booking_ref, job_title, job_type, zone, district,
-      status, is_active, estimate_total, supervisor_id,
+      status, is_active, estimate_total, supervisor_id, site_incharge_id,
       contact_name, contact_phone, preferred_start_date,
       scope_description, created_at`)
     .order('created_at', { ascending: false })
@@ -35,6 +35,26 @@ export default async function CoordinatorJobsPage() {
 
   const supervisorMap = Object.fromEntries(
     (supervisors ?? []).map(s => [s.id, s.full_name])
+  )
+
+  // Site Incharge has no dedicated workers.trade value the way Supervisor
+  // does -- it's a users.platform_role, so candidates are found by that role
+  // and matched back to their workers row via auth_user_id.
+  const { data: siteInchargeUsers } = await supabase
+    .from('users')
+    .select('id')
+    .eq('platform_role', 'site_incharge')
+  const siteInchargeAuthIds = (siteInchargeUsers ?? []).map(u => u.id)
+  const { data: siteIncharges } = siteInchargeAuthIds.length > 0
+    ? await supabase
+        .from('workers')
+        .select('id, full_name')
+        .in('auth_user_id', siteInchargeAuthIds)
+        .order('full_name')
+    : { data: [] as { id: string; full_name: string }[] }
+
+  const siteInchargeMap = Object.fromEntries(
+    (siteIncharges ?? []).map(s => [s.id, s.full_name])
   )
 
   const { data: substages } = await supabase
@@ -152,6 +172,12 @@ export default async function CoordinatorJobsPage() {
                               <p className="font-semibold text-gray-700">{supervisorMap[job.supervisor_id]}</p>
                             </div>
                           )}
+                          {siteInchargeMap[job.site_incharge_id] && (
+                            <div>
+                              <p className="text-gray-400">Site Incharge</p>
+                              <p className="font-semibold text-gray-700">{siteInchargeMap[job.site_incharge_id]}</p>
+                            </div>
+                          )}
                           {job.contact_name && (
                             <div>
                               <p className="text-gray-400">Client</p>
@@ -223,6 +249,15 @@ export default async function CoordinatorJobsPage() {
                             <select name="supervisor_id" defaultValue={job.supervisor_id ?? ''} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
                               <option value="">— Select —</option>
                               {(supervisors ?? []).map(s => (
+                                <option key={s.id} value={s.id}>{s.full_name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="mb-2">
+                            <label className="text-xs text-gray-500 mb-1 block">Site Incharge</label>
+                            <select name="site_incharge_id" defaultValue={job.site_incharge_id ?? ''} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+                              <option value="">— Select —</option>
+                              {(siteIncharges ?? []).map(s => (
                                 <option key={s.id} value={s.id}>{s.full_name}</option>
                               ))}
                             </select>

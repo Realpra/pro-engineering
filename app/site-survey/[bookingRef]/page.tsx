@@ -76,6 +76,12 @@ export default async function SiteSurveyPage({
     .from('site_visit_reports')
     .select('id, status, submitted_at')
     .eq('booking_ref', bookingRef)
+    // Without this, a Flow (ii) Daily Execution Visit row for this booking
+    // could make this page wrongly report "already submitted" for a Site
+    // Survey that was never done, or throw a multiple-rows error once both a
+    // survey row and a visit row exist for the same booking_ref (see
+    // 20260927_site_visit_reports_flow_discriminator.sql).
+    .eq('report_type', 'site_survey')
     .maybeSingle()
 
   if (existingReport?.status === 'submitted') {

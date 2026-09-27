@@ -55,10 +55,6 @@ export default function EveningForm({ supervisorId, onComplete }: Props) {
         eveningPhotoUrl,
         issueReported,
         issueDescription: issueReported ? issueDescription || null : null,
-        ltfReadyTomorrow: false,
-        ltfTargetSlot: null,
-        ltfDelayReason: null,
-        ltfNotes: null,
       })
 
       if (result.error) throw new Error(result.error)
