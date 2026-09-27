@@ -46,6 +46,7 @@ export default function ExtraWorksForm({ supervisorId, jobs }: Props) {
   const [bookingRef, setBookingRef] = useState('')
   const [description, setDescription] = useState('')
   const [justification, setJustification] = useState('')
+  const [timelineImpactDays, setTimelineImpactDays] = useState('')
   const [roughItems, setRoughItems] = useState<{ description: string; qty: string; unit: string; amount: string }[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -72,6 +73,10 @@ export default function ExtraWorksForm({ supervisorId, jobs }: Props) {
       setError('Please select a site, and fill in the description and justification.')
       return
     }
+    if (description.trim().length < 50) {
+      setError('Description must be at least 50 characters.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -91,6 +96,7 @@ export default function ExtraWorksForm({ supervisorId, jobs }: Props) {
         description,
         justification,
         rough_items: items,
+        timeline_impact_days: Number(timelineImpactDays) || 0,
       })
 
       if (result.error) throw new Error(result.error)
@@ -177,9 +183,24 @@ export default function ExtraWorksForm({ supervisorId, jobs }: Props) {
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={4}
-              placeholder="Describe what was found or requested — be specific about location, extent, and nature of the work required..."
+              placeholder="Describe what was found or requested — be specific about location, extent, and nature of the work required (minimum 50 characters)..."
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
             />
+            <p className={`text-xs mt-1 ${description.trim().length < 50 ? 'text-orange-500' : 'text-green-600'}`}>
+              {description.trim().length}/50 characters minimum
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Timeline Impact (days)</p>
+            <input
+              type="number"
+              min="0"
+              value={timelineImpactDays}
+              onChange={e => setTimelineImpactDays(e.target.value)}
+              placeholder="e.g. 1"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
+            />
+            <p className="text-xs text-gray-400 mt-1">Above 5,000 cost or 2 days delay auto-notifies Coordinator alongside Sub-Coordinator.</p>
           </div>
         </div>
       </section>
