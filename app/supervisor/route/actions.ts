@@ -1,0 +1,101 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+
+// SA-ROUTE spec (June log line 40012-40016): "Confirm day plan button locks
+// route." route_confirmed/route_locked_at already existed live (migration
+// 20260628_supervisor_schedule.sql) but were only ever written as `false`/
+// null by Sub-Coordinator's manual-add path -- no Supervisor-side action
+// ever set them true. This is that missing action.
+export async function confirmDayPlan(supervisorId: string, date: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('supervisor_daily_routes')
+    .update({ route_confirmed: true, route_locked_at: new Date().toISOString() })
+    .eq('supervisor_id', supervisorId)
+    .eq('scheduled_date', date)
+  if (error) return { error: error.message }
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  revalidatePath('/supervisor/dashboard')
+  return {}
+}
+
+export type ManualSlotInput = {
+  supervisorId: string
+  scheduledDate: string
+  slotType: string
+  bookingRef: string | null
+  siteAddress: string | null
+  slotStart: string
+  slotEnd: string
+  departFrom: string | null
+  departTime: string | null
+  travelMinutes: number | null
+  workDurationMinutes: number | null
+  nextBookingRef: string | null
+  travelToNextMinutes: number | null
+  lunchBreak: boolean
+  ltfNote: string | null
+}
+
+// "+ Add Slot to Route" (app/supervisor/route/plan) previously had no
+// onClick/actions.ts at all (PENDING #26) -- every field was collected and
+// discarded. Mirrors the shape of app/sub-coordinator/actions.ts's
+// addRouteSlotManually, but scoped to the requesting supervisor's own id
+// and marked planned_by='supervisor' (self-planned) rather than
+// sub-coordinator-planned.
+export async function addSlotManually(input: ManualSlotInput): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  let siteId: string | null = null
+  if (input.bookingRef) {
+    const { data: enquiry } = await supabase
+      .from('guest_enquiries')
+      .select('id')
+      .eq('booking_ref', input.bookingRef)
+      .maybeSingle()
+    siteId = enquiry?.id ?? null
+  }
+
+  // next_site_id is the same UUID-referencing-guest_enquiries.id column as
+  // site_id (confirmed by the real test insert failure fixed in f568b68) --
+  // resolve it the same way, not the booking_ref string the form collects.
+  let nextSiteId: string | null = null
+  if (input.nextBookingRef) {
+    const { data: nextEnquiry } = await supabase
+      .from('guest_enquiries')
+      .select('id')
+      .eq('booking_ref', input.nextBookingRef)
+      .maybeSingle()
+    nextSiteId = nextEnquiry?.id ?? null
+  }
+
+  const { error } = await supabase.from('supervisor_daily_routes').insert({
+    supervisor_id: input.supervisorId,
+    scheduled_date: input.scheduledDate,
+    slot_type: input.slotType,
+    site_id: siteId,
+    site_address: input.siteAddress,
+    slot_start: input.slotStart,
+    slot_end: input.slotEnd,
+    depart_from: input.departFrom,
+    depart_time: input.departTime,
+    travel_minutes: input.travelMinutes,
+    work_duration_minutes: input.workDurationMinutes,
+    next_site_id: nextSiteId,
+    travel_to_next_minutes: input.travelToNextMinutes,
+    lunch_break: input.lunchBreak,
+    ltf_note: input.ltfNote,
+    visit_status: 'scheduled',
+    route_confirmed: false,
+    planned_by: 'supervisor',
+    report_status: 'pending',
+  })
+  if (error) return { error: error.message }
+  revalidatePath('/supervisor/route/plan')
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/dashboard')
+  return {}
+}

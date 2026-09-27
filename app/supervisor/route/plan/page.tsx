@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../../dashboard/SignOutButton'
+import AddSlotForm from './AddSlotForm'
 
 function formatTime(t: string | null | undefined) {
   if (!t) return '—'
@@ -75,15 +76,6 @@ export default async function RoutePlanPage() {
 
   const todaySlots = (todayRoute ?? []).filter(s => s.scheduled_date === today)
   const tomorrowSlots = (todayRoute ?? []).filter(s => s.scheduled_date === tomorrow)
-
-  const slotTypes = [
-    { value: 'inspection', label: '🟢 QIP Inspection' },
-    { value: 'overhang', label: '🔴 Overhang' },
-    { value: 'client_visit', label: '🔵 Client Visit' },
-    { value: 'scope_survey', label: '🔵 Scope Survey' },
-    { value: 'estimate_visit', label: '💰 Estimate Visit' },
-    { value: 'hq', label: '🟡 HQ Briefing' },
-  ]
 
   const defaultSlots = [
     { time: '08:30', label: 'Overhang / Morning' },
@@ -405,150 +397,12 @@ export default async function RoutePlanPage() {
               <p className="text-white font-bold text-sm">New Slot</p>
               <p className="text-blue-300 text-xs mt-0.5">Self-planned · Can be overridden by Sub-Coordinator or Coordinator</p>
             </div>
-            <div className="px-5 py-4 space-y-4">
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Scheduled Date</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  <option value={today}>Today — {today}</option>
-                  <option value={tomorrow}>Tomorrow — {tomorrow}</option>
-                </select>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Slot Type</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  {slotTypes.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Site / Booking</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  <option value="">Select site...</option>
-                  {(activeJobs ?? []).map(job => (
-                    <option key={job.booking_ref} value={job.booking_ref}>
-                      {job.booking_ref} — {job.job_title ?? job.job_type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Site Address</p>
-                <input
-                  type="text"
-                  placeholder="Enter site address..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Slot Start</p>
-                  <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                    <option value="08:30">08:30 AM</option>
-                    <option value="09:00">09:00 AM</option>
-                    <option value="11:30">11:30 AM</option>
-                    <option value="14:30">02:30 PM</option>
-                    <option value="16:30">04:30 PM</option>
-                  </select>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Slot End</p>
-                  <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                    <option value="10:30">10:30 AM</option>
-                    <option value="11:00">11:00 AM</option>
-                    <option value="13:30">01:30 PM</option>
-                    <option value="16:30">04:30 PM</option>
-                    <option value="18:30">06:30 PM</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Depart From</p>
-                  <input
-                    type="text"
-                    placeholder="Home / Prev site..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Depart Time</p>
-                  <input
-                    type="time"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Travel Time (min)</p>
-                  <input
-                    type="number"
-                    placeholder="e.g. 30"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                  />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Work Duration (min)</p>
-                  <input
-                    type="number"
-                    placeholder="e.g. 120"
-                    defaultValue="120"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Next Site (if applicable)</p>
-                <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  <option value="">None — last site today</option>
-                  {(activeJobs ?? []).map(job => (
-                    <option key={job.booking_ref} value={job.booking_ref}>
-                      {job.booking_ref} — {job.job_title ?? job.job_type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Travel to Next (min)</p>
-                  <input
-                    type="number"
-                    placeholder="e.g. 20"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50"
-                  />
-                </div>
-                <div className="flex items-end pb-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded" />
-                    <span className="text-xs font-semibold text-gray-600">🍽 Lunch Break</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">LTF Note (from Site Head)</p>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Ready by 11:00 AM — waterproofing coat 2 complete"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
-                />
-              </div>
-
-              <button className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
-                + Add Slot to Route
-              </button>
-
-            </div>
+            <AddSlotForm
+              supervisorId={workerRecord?.id ?? ''}
+              today={today}
+              tomorrow={tomorrow}
+              activeJobs={activeJobs ?? []}
+            />
           </div>
         </section>
 
