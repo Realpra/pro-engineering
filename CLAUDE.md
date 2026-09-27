@@ -1077,30 +1077,42 @@ bugs the live run itself caught, each confirmed and fixed in turn rather than gu
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
 
-## NEXT SESSION — START HERE (Updated 27 Sep 2026, Session 67)
-- **Supervisor Visit's schema+code fixes are pushed (commit d9bbb63) but NOT yet live-verified.**
-  This session had no Supabase DB access. Before calling Supervisor Visit frozen (Step 3 + Amendment
-  2 of docs/SCHEMA_FREEZE_METHODOLOGY.md), on a session with DB access:
-  1. Run the 7 new migrations (`20260927_site_visit_reports_flow_discriminator`,
+## NEXT SESSION — START HERE (Updated 27 Sep 2026, Session 67 continued)
+- **Supervisor Visit's schema+code fixes are pushed (commit 59ef5dc) but NOT yet live-verified.**
+  This sandbox's network policy hard-blocks the Supabase host outright (confirmed via a direct
+  proxy-status check -- a policy denial, not a credentials problem). Before calling Supervisor
+  Visit frozen (Step 3 + Amendment 2 of docs/SCHEMA_FREEZE_METHODOLOGY.md), on a session/machine
+  with real Supabase access:
+  1. Run `RUN_IN_SUPABASE_migrations.sql` (delivered directly to the project owner, comment-free
+     for paste-safety) -- covers all 8 migrations in dependency order:
+     `20260927_site_visit_reports_flow_discriminator`,
      `20260927_job_milestone_substages_site_columns`,
+     `20260927_job_milestone_substages_canonical_approval`,
      `20260927_milestone_payment_schedule_freeze_fixes`,
      `20260927_daily_site_logs_weather_condition`, `20260927_guest_enquiries_site_incharge_id`,
-     `20260927_workers_current_job_split`, `20260927_retire_dead_sink_tables`).
-  2. FIRST query `pg_constraint` to check whether `site_visit_reports`' original
-     `UNIQUE(supervisor_id,booking_ref)` and `milestone_payment_schedule`'s original status `CHECK`
-     were already silently altered/dropped live before these migrations ran (both are written
-     defensively with `IF EXISTS`, but confirm what was actually live).
-  3. Live-run both Flow (i) Site Survey and Flow (ii) Daily Execution Visit end to end on a real
+     `20260927_workers_current_job_split`, `20260927_scope_snag_items_sa12_snag_list`.
+     (`20260927_retire_dead_sink_tables.sql` is now a no-op -- both tables it originally dropped
+     were restored after the project owner rejected that drop; see Session 67 continued.)
+  2. Run `AMENDMENT_2_VERIFICATION_queries.sql` and report the real row counts back -- Amendment 2
+     is not satisfied by the migration existing, only by this coming back with actual numbers.
+  3. Separately query `pg_constraint` for `site_visit_reports`' `uq_site_visit_supervisor_booking`
+     and `milestone_payment_schedule`'s status CHECK to confirm what was actually live before
+     these migrations ran (both are written defensively with `IF EXISTS`, but confirm, don't assume).
+  4. Live-run both Flow (i) Site Survey and Flow (ii) Daily Execution Visit end to end on a real
      booking; confirm `report_type` is set correctly on both; confirm a Flow (ii) visit no longer
      corrupts `generateBOQ`'s read of a Flow (i) survey.
-  4. Test the daily-log Evening->LTF flow end to end and confirm Evening Report data survives past
+  5. Test the daily-log Evening->LTF flow end to end and confirm Evening Report data survives past
      LTF submission (this was a real, confirmed data-loss bug before this session's fix).
-  5. Test Sub-Coordinator sending an instruction to "All Supervisors" and confirm it now reaches
+  6. Test Sub-Coordinator sending an instruction to "All Supervisors" and confirm it now reaches
      every real supervisor's directives page.
-  6. Run Amendment 2's data-integrity check on the new `site_incharge_id`/`current_substage_id`
-     columns once real assignments exist.
+  7. Test the new SA-12 Snag List: log a critical snag on a pre-delivery inspection, confirm
+     `adminApproveHandover` blocks with the snag stated as open, resolve it, confirm approval
+     then succeeds.
 - Not built this pass, explicitly flagged (not silently skipped): Site Incharge's outbound
   "request more resources" channel (PENDING #17) is a net-new feature, not a data-correctness fix.
+  The R27 `worker_route_legs` redesign (docs/ENTITY_RELATIONSHIP_FREEZE.md) still explicitly
+  needs the project owner's own go-ahead before any work starts on it -- `worker_day_slots` was
+  restored as-is this session, not redesigned.
 - Deferred, low-priority, explicitly recorded: `decision_5_raised_by` still stores a role string
   instead of an actor id; Screen15_Labour vs Screen16_Timeline's "which is canonical" question is
   documented but not decided; the confirmed-dead Supervisor UI list
