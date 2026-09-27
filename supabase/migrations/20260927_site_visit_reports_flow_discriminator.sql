@@ -20,18 +20,24 @@ UPDATE site_visit_reports
 SET report_type = CASE WHEN slot_id IS NULL THEN 'site_survey' ELSE 'daily_execution' END
 WHERE report_type IS DISTINCT FROM (CASE WHEN slot_id IS NULL THEN 'site_survey' ELSE 'daily_execution' END);
 
--- Supervisor Visit schema freeze, Bug #5:
--- The original UNIQUE(supervisor_id, booking_ref) constraint (20260627) is
--- never dropped by the 20260924 slot-scoping migration. If still live, it
--- would block a supervisor from ever having more than one site_visit_reports
--- row per booking at all, regardless of slot_id -- meaning the "one slot = one
--- row" fix could be non-functional at the database level. Replace it with a
--- constraint that actually matches the slot-scoped design: one row per
--- (supervisor, booking, slot). Flow (i) survey rows (slot_id IS NULL) are
--- de-duplicated by initReport()'s own select-before-insert check, since
--- Postgres treats NULLs as distinct under a UNIQUE constraint.
+-- Supervisor Visit schema freeze, Bug #5 -- CONFIRMED LIVE by a real test
+-- insert (not hypothetical): the original UNIQUE(supervisor_id, booking_ref)
+-- constraint is still blocking a second row per booking right now. The first
+-- pass of this migration guessed its name as `uq_site_visit_supervisor_booking`
+-- and dropped that -- but the constraint live in production has Postgres's
+-- own auto-generated name instead (confirmed by the actual error message a
+-- live test insert produced: "violates unique constraint
+-- site_visit_reports_supervisor_id_booking_ref_key"), so the first pass's
+-- DROP CONSTRAINT was a silent no-op against a constraint that was never
+-- there under that name. Dropping the REAL name now, plus keeping the
+-- original guess for safety. Replace it with a constraint that actually
+-- matches the slot-scoped design: one row per (supervisor, booking, slot).
+-- Flow (i) survey rows (slot_id IS NULL) are de-duplicated by initReport()'s
+-- own select-before-insert check, since Postgres treats NULLs as distinct
+-- under a UNIQUE constraint.
 ALTER TABLE site_visit_reports
-  DROP CONSTRAINT IF EXISTS uq_site_visit_supervisor_booking;
+  DROP CONSTRAINT IF EXISTS uq_site_visit_supervisor_booking,
+  DROP CONSTRAINT IF EXISTS site_visit_reports_supervisor_id_booking_ref_key;
 
 DROP INDEX IF EXISTS uq_site_visit_supervisor_booking_slot;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_site_visit_supervisor_booking_slot
