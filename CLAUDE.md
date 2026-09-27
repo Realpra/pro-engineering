@@ -1193,30 +1193,118 @@ one real `site_incharge_id` assignment and one real `current_substage_id` assign
 re-run Amendment 2 to confirm those columns hold correct data in practice, not just in theory.
 All work on PR #1, branch claude/gracious-knuth-vxwkc3
 
-## NEXT SESSION — START HERE (Updated 27 Sep 2026, Session 67 continued further)
-- **Three gates remain before Supervisor Visit can be called Frozen** (see the methodology audit
-  above for full detail): (1) live-test the Sub-Coordinator "All Supervisors" broadcast UI path;
-  (2) decide wire-up-or-retire on the confirmed-dead Supervisor routes
-  (`/supervisor/approval/[id]`, `/supervisor/reports/new`, `/supervisor/instruction`,
-  `/supervisor/milestone-tracker/propose`, the static estimate/scope-verification mockups); (3)
-  make one real `site_incharge_id` and one real `current_substage_id` assignment live, then
-  re-run Amendment 2's data-integrity check on both.
-- **New/reconfirmed open defect, not fixed by this freeze**: `app/sub-coordinator/workers/
-  page.tsx:226` looks up `current_job_id` (a `guest_enquiries.id` UUID) in a map keyed by
-  `booking_ref` -- always misses, so the "Deployed Workers" location line never renders. First
-  found Session 63; still live; needs its own fix pass (rekey the map by id, or store
-  `current_job_id`'s booking_ref alongside it).
-- Not built this pass, explicitly flagged (not silently skipped): Site Incharge's outbound
-  "request more resources" channel (PENDING #17) is a net-new feature, not a data-correctness fix.
-  The R27 `worker_route_legs` redesign (docs/ENTITY_RELATIONSHIP_FREEZE.md) still explicitly
-  needs the project owner's own go-ahead before any work starts on it -- `worker_day_slots` was
-  restored as-is this session, not redesigned.
-- Deferred, low-priority, explicitly recorded: `decision_5_raised_by` still stores a role string
-  instead of an actor id; Screen15_Labour vs Screen16_Timeline's "which is canonical" question is
-  documented but not decided.
-- Full field inventory, duplicate/conflict list, and methodology-status table delivered as
-  `Supervisor_Visit_SCHEMA_FREEZE.xlsx` (5 sheets) directly to the project owner earlier this
-  session -- not committed to the repo, per the established pattern for these working audit
-  workbooks.
+## SESSION 67 CONTINUED FURTHER — 27-28 Sep 2026 — ALL 12 SUPERVISOR TABS RUN THROUGH THE METHODOLOGY
+Per the project owner's explicit direction ("run the same process as Site Visit for every other
+Supervisor tab, one by one, no SQL/no stopping until all 12 are done for data and coding"): ran
+the schema-freeze methodology's data-point audit against every tab in the live Supervisor nav
+(Dashboard, Route, Milestones, Daily Log, Pre-Delivery, Scope, Estimates, Extra Works, Directives,
+Reports, Certificate, + New Job -- Site Visit already frozen earlier this session, excluded per
+instruction), then did the actual coding fix for each real gap found, one tab at a time, each
+committed and pushed separately with its own `npx tsc --noEmit` pass (all clean). No SQL was run
+and no SQL was asked of the project owner anywhere in this pass, per the explicit instruction.
+
+**Dashboard (SA-1, commit 329c1f2)**: dead "Site Head Not Ready" button wired to a real
+`supervisor_daily_routes.visit_status` write; SOS button (spec: "always visible, cannot be
+disabled") built from scratch -- raises a real critical `site_instructions` alert to every Admin;
+"Daily Tasks" (4 hardcoded generic strings) rebuilt as a real list derived from data already on
+the page; orphaned, non-functional `CheckInButton.tsx` removed (duplicated the already-frozen
+`daily_site_logs.crew_attendance` mechanism); Earnings Summary honestly flagged as blocked (no
+Supervisor pay-rate policy exists anywhere) rather than faked.
+
+**Route (SA-ROUTE, commit 4c6c104)**: `/supervisor/route` -- the primary nav tab present on
+*every* Supervisor page -- was a 404 with no page at all; built the real screen (fixed obligations,
+overdue visits, LTF-driven visits, free slots, Confirm Day Plan lock) per spec. Along the way found
+`supervisor_schedule` (the spec's own "fixed obligations" table, fully migrated with real RLS)
+completely orphaned -- zero reads/writes anywhere -- now wired in. `route_confirmed`/
+`route_locked_at` existed but nothing ever set them true; built `confirmDayPlan()`. "+ Add Slot to
+Route" had zero backing; built `addSlotManually()`, catching the same site_id/next_site_id
+UUID-vs-booking_ref bug already fixed once this session before it shipped a second time.
+
+**Milestones (SA-6, commit 4099edd)**: `/supervisor/approval/[id]` (PENDING #25, HIGH PRIORITY,
+open since Session 62) never existed -- the entire Site Head -> Supervisor -> Sub-Coordinator ->
+Finance approval chain was dead. Built the real page, writing the same already-frozen canonical
+gate columns (`substage_approval_status`/`substage_approved_by`/`substage_approved_at`) Admin's
+own approve/reject action already uses. "Propose New Sub-Stage" explicitly left dead, not guessed:
+confirmed by repo-wide grep that nothing anywhere has ever inserted into `job_milestone_substages`,
+so its real constraints are unknown without a live schema check this pass could not do.
+
+**Daily Log (SA-5, commit 1ba6f29)**: the wipe bug and `escalate_to_admin` were already fixed
+earlier this session. Built the one remaining real gap -- spec-mandated 09:30/19:00 deadline
+alerts -- as this repo's first Vercel Cron job (needs `CRON_SECRET` set in Vercel to actually run;
+flagged, not assumed working).
+
+**Pre-Delivery (SA-13, commit 01ac222)**: SA-12 Snag List already frozen. Built SA-13 Client
+Handover Sign-Off (4-screen flow: satisfaction, dissatisfaction categories, canvas signature, 6
+photos) from scratch, gated exactly as the pre-existing UI text already claimed but never
+enforced (no open snags). The 6 dissatisfaction category *labels* are not in any of the 4 design
+logs (confirmed by full-text search) -- used as a flagged placeholder, not sourced content.
+
+**Scope (commit e2cb97c)**: confirmed via full read + grep that `/supervisor/scope-verification`
+was a 100%-dead mockup with no backing table anywhere, whose actual content duplicated the
+already-frozen Flow (i) Site Survey and generateBOQ. Per the methodology's step 4, rebuilt as a
+real status/entry page into that one flow instead of a second competing persistence layer.
+
+**Estimates (PENDING #18, commit b635230)**: `generateBOQ` was confirmed callable only from
+Admin's page despite having no role check beyond authentication -- opened it to Supervisor
+directly. Built a scoped real Confirm/Revise/Modify review action (new `boq_generated.
+supervisor_review_*` columns) rather than porting Admin's full line-item editor.
+
+**Extra Works (SA-10, commit d3c2734)**: the core insert was already real. Added the spec's
+50-character description minimum and the ₹5,000/2-day Coordinator auto-notification thresholds,
+neither of which existed anywhere (new `cost_impact_amount`/`timeline_impact_days` columns on
+`scope_change_requests`). Flagged, not chased: the spec's "work blocked until approved" has no
+enforcement in Milestones/SubstageCard.
+
+**Directives (commit 85a6def)**: inbound Acknowledge flow was already real. Built the outbound
+counterpart, `/supervisor/instruction` (PENDING #26), linked from two pages but never built --
+resolves the job's real Site Incharge via the new `site_incharge_id` column, or any
+Sub-Coordinator.
+
+**Reports (commit 4c540b1)**: `/supervisor/reports/new` was dead for all 6 types, but
+Coordinator's own reports page had *already* been widened to read exactly these 6
+`instruction_type` values -- nothing had ever written them. Built the missing write side only.
+"Active Reports" made real (was hardcoded empty), deduplicated across its own multi-recipient
+fan-out.
+
+**Certificate (commit 9ecbf8f)**: certificate history was already real. "Download PDF" had no
+onClick and no PDF library exists anywhere in this repo -- used `window.print()` (every browser's
+native "Save as PDF") instead of adding a new dependency on a guess.
+
+**+ New Job**: no code needed -- a plain link to the already-functional `/book` flow. The one
+related open item, PENDING #13 (no `created_by` on `guest_enquiries`), is a deliberately recorded
+open decision from an earlier session, correctly left alone rather than guessed into existence.
+
+All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
+- **All 12 Supervisor tabs are now code-complete under the schema-freeze methodology, but NONE of
+  this pass's new code has been live-verified** -- this session had no Supabase access and was
+  explicitly told not to ask for any SQL until all 12 tabs were done. Before calling any of this
+  frozen, on a session with live DB + deployment access:
+  1. Run the 3 new migrations: `20260928_pre_delivery_client_handover_sa13.sql`,
+     `20260928_boq_generated_supervisor_review.sql`,
+     `20260928_scope_change_requests_cost_timeline_impact.sql` (all written defensively with
+     `ADD COLUMN IF NOT EXISTS`, but this session could not confirm any of the 3 tables' full real
+     column sets -- `pre_delivery_assessment` and `scope_snag_items` have both already surprised
+     this project once each with hidden live-only columns).
+  2. Set `CRON_SECRET` as a real env var in Vercel and redeploy so the new daily-log-deadline cron
+     (`vercel.json`) actually registers and authenticates.
+  3. Live-click through each of the 8 newly-built flows at least once: Dashboard's SOS button and
+     new task list; Route's `/supervisor/route` screen + Confirm Day Plan + manual slot add;
+     Milestones' `/supervisor/approval/[id]` approve/send-back; Pre-Delivery's Client Handover
+     4-screen flow; Estimates' generate + review actions; Extra Works' new threshold fields;
+     Directives' `/supervisor/instruction`; Reports' 6 report types.
+  4. Confirm the `site_instructions` fan-outs this pass added (SOS, daily-log deadline, client
+     handover dissatisfaction, scope-change threshold breach, supervisor estimate review, outbound
+     instruction, all 6 report types) actually land where each destination role's page expects --
+     each was checked against the destination's real read query before writing, but none has run
+     against real data yet.
+- Deliberately left dead, not guessed at (each needs its own real decision, same discipline as
+  the rest of this pass): `/supervisor/milestone-tracker/propose` (no live schema to build the
+  insert against); the "work blocked until scope-change approved" enforcement gap in
+  Milestones/SubstageCard; PENDING #13 (job creator attribution).
+- Still open from the earlier Supervisor Visit freeze this session, untouched by this pass:
+  `app/sub-coordinator/workers/page.tsx:226`'s lookup bug; the R27 `worker_route_legs` redesign
+  awaiting the project owner's go-ahead; `decision_5_raised_by` storing a role string.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
