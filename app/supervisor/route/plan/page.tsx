@@ -62,6 +62,17 @@ export default async function RoutePlanPage() {
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
+  // supervisor_daily_routes.site_id is a UUID referencing guest_enquiries.id
+  // (confirmed live -- a real test insert failed with "site_id is of type
+  // uuid but expression is of type text"), NOT a booking_ref string as
+  // PENDING #31's fix first assumed. Resolve it before building any
+  // /site-survey/[bookingRef] link.
+  const routeSiteIds = Array.from(new Set((todayRoute ?? []).map(s => s.site_id).filter((v): v is string => Boolean(v))))
+  const { data: routeSiteJobs } = routeSiteIds.length > 0
+    ? await supabase.from('guest_enquiries').select('id, booking_ref').in('id', routeSiteIds)
+    : { data: [] }
+  const siteIdToBookingRef = Object.fromEntries((routeSiteJobs ?? []).map(j => [j.id, j.booking_ref]))
+
   const todaySlots = (todayRoute ?? []).filter(s => s.scheduled_date === today)
   const tomorrowSlots = (todayRoute ?? []).filter(s => s.scheduled_date === tomorrow)
 
@@ -88,11 +99,13 @@ export default async function RoutePlanPage() {
   }
 
   // PENDING #31 (confirmed regression, Session 58): see the identical helper
-  // in app/supervisor/dashboard/page.tsx for the full rationale.
+  // in app/supervisor/dashboard/page.tsx for the full rationale. site_id is
+  // a UUID (guest_enquiries.id), resolved via siteIdToBookingRef above.
   const visitHref = (slot: { id: string; slot_type: string | null; site_id: string | null }): string | null => {
     if (slot.slot_type === 'hq') return null
     if (slot.slot_type === 'client_visit' || slot.slot_type === 'scope_survey' || slot.slot_type === 'estimate_visit') {
-      return slot.site_id ? `/site-survey/${slot.site_id}` : null
+      const bookingRef = slot.site_id ? siteIdToBookingRef[slot.site_id] : null
+      return bookingRef ? `/site-survey/${bookingRef}` : null
     }
     return `/supervisor/site-visit?slot=${slot.id}`
   }
@@ -206,7 +219,7 @@ export default async function RoutePlanPage() {
                       <span className="text-base shrink-0 mt-0.5">🏗</span>
                       <div className="flex-1">
                         <p className="text-xs text-gray-400 font-medium">Site</p>
-                        <p className="text-sm font-semibold text-gray-800">{slot.site_id ?? '—'}</p>
+                        <p className="text-sm font-semibold text-gray-800">{(slot.site_id && siteIdToBookingRef[slot.site_id]) ?? '—'}</p>
                         {slot.site_address && (
                           <p className="text-xs text-gray-500 mt-0.5">📍 {slot.site_address}</p>
                         )}
@@ -361,7 +374,7 @@ export default async function RoutePlanPage() {
                     <span className="text-xs text-gray-500">{plannedByLabel(slot.planned_by)}</span>
                   </div>
                   <div className="px-5 py-4">
-                    <p className="text-sm font-semibold text-gray-800">{slot.site_id ?? '—'}</p>
+                    <p className="text-sm font-semibold text-gray-800">{(slot.site_id && siteIdToBookingRef[slot.site_id]) ?? '—'}</p>
                     {slot.site_address && (
                       <p className="text-xs text-gray-500 mt-0.5">📍 {slot.site_address}</p>
                     )}

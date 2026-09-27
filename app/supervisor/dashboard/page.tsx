@@ -95,10 +95,14 @@ function slotTypeLabel(type: string | null) {
 // regardless of stated purpose. A client_visit/scope_survey/estimate_visit
 // slot should open the pre-confirm Flow (i) Site Survey instead; an 'hq'
 // slot has no site visit to report at all.
-function visitHref(slot: { id: string; slot_type: string | null; site_id: string | null }): string | null {
+function visitHref(
+  slot: { id: string; slot_type: string | null; site_id: string | null },
+  siteIdToBookingRef: Record<string, string>,
+): string | null {
   if (slot.slot_type === 'hq') return null
   if (slot.slot_type === 'client_visit' || slot.slot_type === 'scope_survey' || slot.slot_type === 'estimate_visit') {
-    return slot.site_id ? `/site-survey/${slot.site_id}` : null
+    const bookingRef = slot.site_id ? siteIdToBookingRef[slot.site_id] : null
+    return bookingRef ? `/site-survey/${bookingRef}` : null
   }
   return `/supervisor/site-visit?slot=${slot.id}`
 }
@@ -183,6 +187,17 @@ export default async function SupervisorDashboardPage() {
     .eq('supervisor_id', workerRecord?.id ?? '')
     .eq('scheduled_date', today)
     .order('slot_start', { ascending: true })
+
+  // supervisor_daily_routes.site_id is a UUID referencing guest_enquiries.id
+  // (confirmed live -- caught by a real test insert failing with "site_id is
+  // of type uuid but expression is of type text"), NOT a booking_ref string
+  // as PENDING #31's fix first assumed. Resolve it to the real booking_ref
+  // guest_enquiries expects before building any /site-survey/[bookingRef] link.
+  const routeSiteIds = Array.from(new Set((todayRoute ?? []).map(s => s.site_id).filter((v): v is string => Boolean(v))))
+  const { data: routeSiteJobs } = routeSiteIds.length > 0
+    ? await supabase.from('guest_enquiries').select('id, booking_ref').in('id', routeSiteIds)
+    : { data: [] }
+  const siteIdToBookingRef = Object.fromEntries((routeSiteJobs ?? []).map(j => [j.id, j.booking_ref]))
 
   const { data: directives } = await supabase
     .from('site_instructions')
@@ -475,7 +490,7 @@ export default async function SupervisorDashboardPage() {
                         </div>
                         <div className="flex-1">
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">At Site</p>
-                          <p className="text-sm font-bold text-gray-800 mt-1">{slot.site_id ?? 'Site TBC'}</p>
+                          <p className="text-sm font-bold text-gray-800 mt-1">{(slot.site_id && siteIdToBookingRef[slot.site_id]) ?? 'Site TBC'}</p>
                           {slot.site_address && (
                             <p className="text-xs text-gray-500 mt-0.5">📍 {slot.site_address}</p>
                           )}
@@ -583,9 +598,9 @@ export default async function SupervisorDashboardPage() {
                             </span>
                           )}
                         </div>
-                        {slot.report_status !== 'submitted' && visitHref(slot) && (
+                        {slot.report_status !== 'submitted' && visitHref(slot, siteIdToBookingRef) && (
                           <Link
-                            href={visitHref(slot)!}
+                            href={visitHref(slot, siteIdToBookingRef)!}
                             className="text-xs text-[#2E74B5] font-semibold underline"
                           >
                             Submit Report →
@@ -598,9 +613,9 @@ export default async function SupervisorDashboardPage() {
                         <button className="flex-1 border border-gray-300 text-gray-600 text-xs font-semibold py-2.5 rounded-xl active:bg-gray-50">
                           Site Head Not Ready
                         </button>
-                        {visitHref(slot) && (
+                        {visitHref(slot, siteIdToBookingRef) && (
                           <Link
-                            href={visitHref(slot)!}
+                            href={visitHref(slot, siteIdToBookingRef)!}
                             className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl text-center"
                           >
                             Begin Inspection →
