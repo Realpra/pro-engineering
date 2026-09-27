@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import PrintCertificateButton from './PrintCertificateButton'
 
 function formatDate(d: string | null) {
   if (!d) return '—'
@@ -196,7 +197,7 @@ export default async function CertificatePage() {
                 const job = jobMap[s.booking_ref]
                 const certNumber = `CERT-${String(idx + 1).padStart(4, '0')}`
                 return (
-                  <div key={s.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div key={s.id} id={`cert-${s.id}`} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     {/* Cert header */}
                     <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                       <div>
@@ -250,9 +251,7 @@ export default async function CertificatePage() {
                         <p className="text-xs text-gray-400 mt-2">Supervisor: {displayName} · {formatDateTime(s.supervisor_submitted_at)}</p>
                       </div>
 
-                      <button className="w-full border border-[#1F3864] text-[#1F3864] text-xs font-bold py-2.5 rounded-xl">
-                        Download PDF Certificate
-                      </button>
+                      <PrintCertificateButton targetId={`cert-${s.id}`} />
                     </div>
                   </div>
                 )

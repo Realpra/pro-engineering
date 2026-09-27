@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Supervisor Certificate "Print / Save as PDF" -- window.print() with no
+   new PDF dependency (see app/supervisor/certificate/PrintCertificateButton.tsx).
+   Classic visibility-based "print only this element" pattern: when a
+   [data-print-target] element is marked, only it becomes visible on print. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  [data-print-target],
+  [data-print-target] * {
+    visibility: visible;
+  }
+  [data-print-target] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
