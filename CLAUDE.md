@@ -1276,11 +1276,78 @@ open decision from an earlier session, correctly left alone rather than guessed 
 
 All work on PR #1, branch claude/gracious-knuth-vxwkc3
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — REAL LIVE CHECK-CONSTRAINT VIOLATION FOUND: instruction_type (SESSION PAUSED HERE, mid-fix)
+While live-simulating the 12-tab Supervisor pass on a session with real Supabase SQL Editor
+access (project owner pasting real query output back per the established pattern, same as
+Session 67's earlier "Supervisor Visit" live-verification), the project owner ran:
+```sql
+SELECT conname, pg_get_constraintdef(oid) AS definition
+FROM pg_constraint WHERE conrelid = 'site_instructions'::regclass AND contype = 'c';
+```
+and got back the REAL, live allowed values -- confirmed genuine, not assumed:
+- `instruction_type` CHECK: only `'pre_instruction' | 'revised' | 'hold' | 'expedite' | 'resource' | 'alert'`
+- `priority` CHECK: `'low' | 'medium' | 'high' | 'critical'`
+- `status` CHECK: `'pending' | 'acknowledged' | 'actioned' | 'resolved'`
+
+**Every new `instruction_type` value this session's 12-tab Supervisor pass wrote is INVALID
+against the real constraint** -- confirmed by grep across all 19 files referencing
+`site_instructions`, not sampled:
+- `app/supervisor/dashboard/actions.ts:43` -- `'sos'` -- INVALID (Dashboard SOS button, commit 329c1f2)
+- `app/api/cron/daily-log-deadline-check/route.ts:63` -- `'daily_log_deadline_missed'` -- INVALID (commit 1ba6f29)
+- `app/supervisor/extra-works/actions.ts:100` -- `'scope_change_threshold_breach'` -- INVALID (commit d3c2734)
+- `app/supervisor/pre-delivery/actions.ts:195` -- `'client_handover_dissatisfaction'` -- INVALID (commit 01ac222)
+- `app/supervisor/estimate/actions.ts:71` -- `'supervisor_estimate_review'` -- INVALID (commit b635230)
+- `app/supervisor/reports/actions.ts` `TYPE_MAP` -- ALL 6 values (`method_improvement`,
+  `payment_policy`, `execution`, `methodology`, `special_site`, `safety_critical`) -- ALL INVALID
+  (commit 4c540b1). Worse than the others: `app/coordinator/reports/page.tsx:31-34` already reads
+  these exact same invalid values, meaning the read side and write side agree with EACH OTHER but
+  neither matches the live DB -- this whole feature (both sides) was designed against a vocabulary
+  that was never in the real schema, not a one-sided miss.
+- Pre-existing, NOT from this session's pass, but confirmed broken by the same query:
+  `app/sub-coordinator/actions.ts:143` (`'chase'`) and `:167` (`'notification'`) -- both also
+  invalid. Older bug, separate from this session's work, flagging so it isn't lost.
+
+**Confirmed NOT broken**: `app/supervisor/instruction/actions.ts` (Directives outbound,
+commit 85a6def) -- its `instructionType` param is already typed to exactly
+`'hold' | 'expedite' | 'revised' | 'resource' | 'alert'`, all real values. `priority`/`status`
+values used everywhere this session (`'high'`, `'critical'`, `'pending'`) all match the real
+constraints too -- only `instruction_type` is the problem, and it's pervasive, not isolated to SOS.
+
+**ROOT CAUSE, not yet fixed**: `instruction_type` is a real, coarse, pre-existing 6-value
+classification (looks like it categorizes the NATURE of an instruction -- hold work, expedite,
+revise, request a resource, or a generic alert -- not WHICH FEATURE raised it). This session's
+12-tab pass repeatedly invented fine-grained, feature-specific strings (one per new alert/report
+concept) assuming `instruction_type` was free text. It never was. This needs a real design
+decision, not a guess-mapping, per this project's own "search before create fresh" /
+"one field one concept" discipline:
+- Option A: map each new concept down to the closest real value (e.g. `'sos'`->`'alert'`,
+  `'scope_change_threshold_breach'`->`'alert'`, outbound resource-request concepts->`'resource'`)
+  and carry the specific meaning in `instruction_text`/`priority` only.
+- Option B: add a new column (e.g. `event_subtype` or similar) so the real, narrower
+  classification can still be filtered on without violating `instruction_type`'s real constraint
+  -- but this needs the actual, full live column list of `site_instructions` first (it has NO
+  migration file at all, live-only schema per PENDING #20 -- do not guess its shape).
+- Whichever is chosen, `app/supervisor/reports/actions.ts` + `app/coordinator/reports/page.tsx`
+  must be fixed TOGETHER (same TYPE_MAP vocabulary on both ends) since they currently agree with
+  each other but not with the database.
+
+**SESSION PAUSED HERE at the project owner's request** (resuming on a Mac laptop) before any fix
+was written -- per session rules, no code changes without explicit permission, and the real
+column list / actual fix approach should be confirmed against live `site_instructions` schema
+(`\d site_instructions` or an information_schema query) before picking Option A vs B, not decided
+blind. No commits made this entry.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **All 12 Supervisor tabs are now code-complete under the schema-freeze methodology, but NONE of
-  this pass's new code has been live-verified** -- this session had no Supabase access and was
-  explicitly told not to ask for any SQL until all 12 tabs were done. Before calling any of this
-  frozen, on a session with live DB + deployment access:
+- **PICK UP HERE FIRST**: the `instruction_type` CHECK-constraint violation above. Recommend
+  running `SELECT column_name, data_type FROM information_schema.columns WHERE table_name =
+  'site_instructions' ORDER BY ordinal_position;` first to see the REAL full column list (never
+  captured anywhere, table has no migration file) before deciding Option A vs B, then fix all 8
+  broken write sites (7 new + the 2 pre-existing `chase`/`notification` ones) plus
+  `app/coordinator/reports/page.tsx`'s matching read-side vocabulary in the same pass so read and
+  write agree with the real DB, not just each other. Re-run `npx tsc --noEmit`, commit, push.
+- **All 12 Supervisor tabs are otherwise code-complete under the schema-freeze methodology, but
+  NONE of this pass's new code has been live-verified beyond the constraint check above.** Before
+  calling any of it frozen, on a session with live DB + deployment access:
   1. Run the 3 new migrations: `20260928_pre_delivery_client_handover_sa13.sql`,
      `20260928_boq_generated_supervisor_review.sql`,
      `20260928_scope_change_requests_cost_timeline_impact.sql` (all written defensively with
@@ -1297,8 +1364,8 @@ All work on PR #1, branch claude/gracious-knuth-vxwkc3
   4. Confirm the `site_instructions` fan-outs this pass added (SOS, daily-log deadline, client
      handover dissatisfaction, scope-change threshold breach, supervisor estimate review, outbound
      instruction, all 6 report types) actually land where each destination role's page expects --
-     each was checked against the destination's real read query before writing, but none has run
-     against real data yet.
+     each was checked against the destination's real read query before writing, but the
+     `instruction_type` bug above means none of these inserts would even succeed yet.
 - Deliberately left dead, not guessed at (each needs its own real decision, same discipline as
   the rest of this pass): `/supervisor/milestone-tracker/propose` (no live schema to build the
   insert against); the "work blocked until scope-change approved" enforcement gap in
