@@ -31,6 +31,17 @@ export default async function CoordinatorReportsPage() {
     .in('instruction_type', [
       'safety_critical', 'method_improvement', 'payment_policy', 'methodology', 'special_site', 'execution',
       'hold', 'expedite', 'revised', 'resource', 'alert', 'chase', 'notification',
+      // 28 Sep 2026: these 3 write correctly to site_instructions with
+      // issued_to = a real coordinator, but were never added here, so they
+      // were invisible in this inbox despite reaching the right recipient.
+      'daily_log_deadline_missed', 'scope_change_threshold_breach', 'supervisor_estimate_review',
+      // Stopgap (28 Sep 2026): Sub-Coordinator has no inbox page at all
+      // (confirmed by grep -- every site_instructions read under
+      // app/sub-coordinator/ filters by issued_by, never issued_to), so
+      // client_handover_dissatisfaction now also notifies Coordinator
+      // alongside Sub-Coordinator until a real Sub-Coordinator inbox is
+      // built (PENDING).
+      'client_handover_dissatisfaction',
     ])
     .order('issued_at', { ascending: false })
     .limit(50)
@@ -101,6 +112,45 @@ export default async function CoordinatorReportsPage() {
       desc: 'Methodology documentation — coordinator reviews then Admin',
       color: 'bg-gray-100 text-gray-600 border-gray-300',
       headerColor: 'bg-gray-600',
+      urgent: false,
+    },
+    {
+      type: 'daily_log_deadline_missed',
+      icon: '⏰',
+      label: 'Daily Log Deadline Missed',
+      desc: 'Supervisor missed the 09:30/19:00 daily log submission deadline',
+      color: 'bg-orange-100 text-orange-700 border-orange-300',
+      headerColor: 'bg-orange-500',
+      urgent: false,
+    },
+    {
+      type: 'scope_change_threshold_breach',
+      icon: '📈',
+      label: 'Scope Change Threshold Breach',
+      desc: 'Extra work exceeds ₹5,000 cost or 2-day timeline threshold',
+      color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      headerColor: 'bg-yellow-600',
+      urgent: false,
+    },
+    {
+      type: 'supervisor_estimate_review',
+      icon: '📐',
+      label: 'Estimate Review',
+      desc: 'Supervisor revised or modified an estimate — needs Coordinator review',
+      color: 'bg-teal-100 text-teal-700 border-teal-300',
+      headerColor: 'bg-teal-600',
+      urgent: false,
+    },
+    {
+      type: 'client_handover_dissatisfaction',
+      icon: '😟',
+      label: 'Client Handover Dissatisfaction',
+      desc: 'Client not satisfied at handover — CC\'d here since Sub-Coordinator has no inbox yet',
+      color: 'bg-red-100 text-red-700 border-red-300',
+      headerColor: 'bg-red-600',
+      // NOT auto-CC'd to Admin (this file's own `urgent` flag = the "Auto CC
+      // Admin" badge specifically, confirmed by its single usage below) --
+      // this one only reaches Coordinator + Sub-Coordinator.
       urgent: false,
     },
   ]

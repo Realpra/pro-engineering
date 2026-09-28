@@ -504,10 +504,15 @@ const INBOX_TYPES = [
   'quality',
   'general',
   'admin',
+  // Supervisor Dashboard's SOS button (28 Sep 2026) -- confirmed via a real
+  // live insert that this row reached issued_to correctly but was invisible
+  // in this inbox since 'sos' was never added to this filter.
+  'sos',
 ]
 
 const INBOX_FILTERS: { key: string; label: string; types: string[] | null }[] = [
   { key: 'all', label: 'All', types: null },
+  { key: 'sos', label: 'SOS', types: ['sos'] },
   { key: 'safety', label: 'Safety Critical', types: ['safety_critical'] },
   { key: 'method', label: 'Method Improvement', types: ['method_improvement'] },
   { key: 'policy', label: 'Policy', types: ['payment_policy', 'general_policy', 'business_policy'] },

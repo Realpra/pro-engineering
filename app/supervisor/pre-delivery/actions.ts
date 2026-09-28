@@ -200,17 +200,25 @@ export async function submitClientHandover(
   // No dedicated "attention queue" surface exists for Sub-Coordinator
   // (confirmed by grep) -- reuses the same site_instructions fan-out
   // pattern already frozen for the SOS/broadcast fixes this session.
+  //
+  // Stopgap (28 Sep 2026, project owner's explicit decision): Sub-Coordinator
+  // has no inbox page at all -- every site_instructions read under
+  // app/sub-coordinator/ filters by issued_by, never issued_to -- so this
+  // row would otherwise sit invisible forever. Also notifying Coordinator
+  // (who has a working inbox, app/coordinator/reports/page.tsx) until a real
+  // Sub-Coordinator inbox is built (PENDING). Sub-Coordinator still gets its
+  // own row too, so nothing regresses once that inbox exists.
   if (!input.satisfied) {
-    const { data: subCoordinators } = await adminClient().from('users').select('id').eq('platform_role', 'sub_coordinator')
-    if (subCoordinators && subCoordinators.length > 0) {
+    const { data: recipients } = await adminClient().from('users').select('id').in('platform_role', ['sub_coordinator', 'coordinator'])
+    if (recipients && recipients.length > 0) {
       await supabase.from('site_instructions').insert(
-        subCoordinators.map(sc => ({
+        recipients.map(r => ({
           booking_ref: input.bookingRef,
           instruction_type: 'client_handover_dissatisfaction',
           instruction_category: 'system_alert',
           priority: 'high',
           instruction_text: `Client dissatisfied at handover (${input.bookingRef}): ${input.dissatisfactionCategories.join(', ')}`,
-          issued_to: sc.id,
+          issued_to: r.id,
           issued_at: new Date().toISOString(),
           status: 'pending',
           is_active: true,
