@@ -1469,16 +1469,39 @@ Vercel Production Branch (its own deployment aliases include `pro-engineering-gi
   the actual `pro-engineering.vercel.app` domain (deployment was just triggered, needs ~1-2 min to
   build) -- do that check first thing next.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — SUPERVISOR DECLARED FROZEN; MOVING TO CLIENT
+Project owner's explicit decision, closing out the Supervisor pass: Supervisor's data-field
+contract and code are frozen as of this session (12-tab pass + Site Visit, all real gaps found
+fixed and pushed, all migrations run live, the stale-master bug fixed a second time). The
+remaining role-by-role UI click-through (supervisor62 tabs 1-11, admin directive issue,
+coordinator Reports inbox display, Sub-Coordinator's 3 actions once its login is fixed) is
+**deferred to the project owner's own free time, not skipped and not blocking the freeze** --
+same standing as Worker Onboarding's own "not yet clicked through every path" caveat (Session
+65/66). Supervisor joins Worker Onboarding as the second process frozen under
+docs/SCHEMA_FREEZE_METHODOLOGY.md.
+- Per docs/SCHEMA_FREEZE_METHODOLOGY.md's recommended sequence and the project owner's explicit
+  direction, the next process to run through the methodology is **Client** (full lifecycle: job
+  request/`/book` through Client Dashboard, negotiation, payment, milestones, handover) --
+  MASTER_FLOW_STRINGS.xlsx's "Client Interaction" sheet is the starting evidence base, same
+  discipline as Supervisor: read every `app/client/*` file in full (not sampled), cross-check
+  every write/read against the design logs, find real gaps, fix them one at a time, push each
+  with its own `npx tsc --noEmit` pass, flag anything needing a live SQL check rather than
+  guessing at live-only schema.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **PICK UP HERE FIRST**: confirm the new master-triggered Vercel deployment is Ready and
-  `pro-engineering.vercel.app` now shows current code (SOS button, "Today's Tasks"), then resume
-  the role-by-role live-test checklist for the 12-tab Supervisor build (see conversation for the
-  exact step list) -- supervisor62 tabs 1-11, admin's directive issue, coordinator's Reports inbox
-  display. Sub-Coordinator's own 3 write actions stay blocked until its login is fixed. Once
-  Supervisor is fully tested, move to testing other roles' builds before freezing (project owner's
-  explicit instruction -- not scoped to Supervisor alone).
-- Remember the standing rule above: push to `master` too (or flag it) whenever real fixes land on
-  the working branch, not just to `claude/gracious-knuth-vxwkc3` -- this stale-master bug has now
+- **Supervisor is FROZEN.** Do not reopen it without a new real finding. Its remaining live
+  click-through is the project owner's own deferred task, not this session's blocker.
+- **START HERE: Client process audit**, per docs/SCHEMA_FREEZE_METHODOLOGY.md. Read every file
+  under `app/client/` in full, cross-reference against MASTER_FLOW_STRINGS.xlsx's Client
+  Interaction sheet and the original design logs, and the already-confirmed Session 63 findings
+  that still apply: the `/book` wizard's Scope Report/Cost Estimate steps are 100% static/mocked
+  (only the final insert is real); magic-link/OTP client login generates a token but never
+  dispatches it via any channel; no handover/takeover/documents-vault/rating screen exists
+  anywhere in `app/client/*` despite `/book/confirmation`'s milestone labels implying them. Also
+  relevant: `pre_delivery_assessment.client_handover_*` (SA-13, built this session) is the real
+  handover-adjacent write today -- confirm whether/how it should surface on the Client side too.
+- Remember the standing rule: push to `master` too (or flag it) whenever real fixes land on the
+  working branch, not just to `claude/gracious-knuth-vxwkc3` -- this stale-master bug has now
   happened twice.
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
