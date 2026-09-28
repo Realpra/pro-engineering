@@ -202,6 +202,23 @@ Screen 6: declared, agreed (review + declaration only)
 39. [Session 65 continued] Propagate the new full-spec worker fields — especially health/physical-restriction data (height/dust/other + the 7 new capability fields) — into the Sub-Coordinator/Coordinator/Admin review UIs (`app/admin/workers/WorkerCard.tsx`, `WorkerTabs.tsx`, `app/coordinator/zone-registry/WorkerAssessmentPanel.tsx`, sub-coordinator's workers page). Per the explicit instruction that this is "a matter of record... moved with the onboarding request to all levels in process of approval" — captured on the worker row now, but not yet surfaced anywhere reviewers actually look. Not started.
 40. [Session 65 continued] Extend the full-spec Worker Onboarding build (currently Mason-only) to the other 8 trades — Plumber, Electrician, Waterproofer, Painter, Carpenter, False Ceiling Installer, Helper, Supervisor. The 14-screen form and actions are already trade-parametrized (`getOnboardingReferenceData(trade)`), so this should mainly mean seeding each trade's own Section C skill questions into `trade_skill_questions` from the original design logs — verify that assumption live on a second trade before treating it as a pure data task.
 43. [Session 67 continued further, 28 Sep 2026, HIGH PRIORITY] Sub-Coordinator has NO inbox page anywhere — confirmed by grep, every `site_instructions` read under `app/sub-coordinator/` filters by `issued_by = user.id` (things Sub-Coordinator sent), never `issued_to = user.id` (things sent to them). Sub-Coordinator can send instructions and see their own sent history, but has no way to receive anything addressed to them — a real gap in the live flow, not cosmetic: `client_handover_dissatisfaction` (Pre-Delivery's dissatisfied-client alert) writes correctly to `site_instructions` with `issued_to` = a real sub-coordinator, but that row would sit invisible forever with no fix. Stopgap applied (28 Sep 2026): this alert now also notifies Coordinator (who has a working inbox) alongside Sub-Coordinator, so at least someone sees it — Sub-Coordinator still gets its own row too, so nothing regresses once a real inbox exists. Full build needed later: a real Sub-Coordinator inbox page reading `site_instructions` by `issued_to`, project owner's explicit decision to defer full build, not guessed at.
+44. [Session 67 continued further, 28 Sep 2026 finding, low priority] `pre_delivery_assessment.handover_completed_at` is a genuinely orphaned column -- confirmed by grep to appear exactly once in the entire codebase (a bare TypeScript type declaration in `app/admin/scope/ScopeTabs.tsx:52`), never read/displayed, never written by any code. Same "specified but never wired" pattern as `risk_flag_count`/Decision 5 Queue. Discovered while confirming this session's new `client_handover_at` (the real, functioning "handover happened" timestamp, written by `submitClientHandover`) wasn't itself duplicating an existing field -- it isn't, since nothing live ever depended on `handover_completed_at`. Left as-is per Amendment 1 (never delete the losing/dead candidate) -- needs its own build-it-or-retire-it decision later, same discipline as PENDING #21/#35.
+
+## SUPERVISOR BUILD: DATA-FIELD CONTRACT SWEEP COMPLETE (28 Sep 2026)
+Full Expand-side inventory pulled from every file under `app/supervisor/` (all 12 tabs): every
+table the Supervisor build touches, cross-checked against what's already frozen/canonical
+elsewhere in the project before allowing any field to count as final. Result -- every table
+either already-frozen-and-correctly-reused, or newly checked today and confirmed clean, no
+unresolved duplicates: `job_milestone_substages`, `site_visit_reports`, `supervisor_daily_routes`,
+`guest_enquiries`, `site_instructions` (fixed today), `milestone_payment_schedule`,
+`daily_site_logs`, `worker_day_slots`, `boq_generated`, `scope_change_requests` (fixed today),
+`supervisor_schedule` (confirmed today -- genuinely distinct concept from
+`supervisor_daily_routes`, not a duplicate), `pre_delivery_assessment` (confirmed today -- the 4
+new `client_handover_*` columns are genuinely new, no active duplicate; see PENDING #44 for the
+one orphaned-but-unrelated column this check surfaced). This is the data-field Contract phase of
+Expand-Contract for the Supervisor build specifically -- it does NOT itself confirm every tab's
+UI has been live-clicked (see the live-test checklist in the conversation/task list for that
+separate, still-incomplete status).
 
 ## SESSION RULES
 - Never write code without explicit permission per change
