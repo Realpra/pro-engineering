@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import PaymentCard, { NIL_PAYMENT, decisionType, type Payment, type PaymentMode } from './PaymentCard'
+import TokenPaymentCard, { type TokenPayment } from './TokenPaymentCard'
 
 function num(v: unknown): number {
   const n = Number(v)
@@ -27,7 +28,7 @@ const DECISION_TYPE_LABEL: Record<string, string> = {
   standard: 'Standard',
 }
 
-type TabKey = 'pending' | 'decision5' | 'rework' | 'hold' | 'above_limit' | 'history'
+type TabKey = 'pending' | 'token' | 'decision5' | 'rework' | 'hold' | 'above_limit' | 'history'
 
 const MILESTONE_OPTIONS = ['M0', 'M1', 'M2', 'M3', 'M4']
 const SKILL_LEVEL_OPTIONS = ['unskilled', 'semi_skilled', 'skilled', 'highly_skilled']
@@ -43,7 +44,7 @@ const STATUS_OPTIONS = [
 
 const DECISION_TYPE_OPTIONS = ['standard', 'decision_5', 'rework', 'override']
 
-const EMPTY_MESSAGE: Record<Exclude<TabKey, 'history'>, string> = {
+const EMPTY_MESSAGE: Record<Exclude<TabKey, 'history' | 'token'>, string> = {
   pending: 'No payments pending approval',
   decision5: 'No Decision 5 cases',
   rework: 'No rework deductions pending',
@@ -53,6 +54,7 @@ const EMPTY_MESSAGE: Record<Exclude<TabKey, 'history'>, string> = {
 
 export default function PaymentTabs({
   payments,
+  tokenPayments,
   clientMap,
   zoneMap,
   tradeOptions,
@@ -61,6 +63,7 @@ export default function PaymentTabs({
   coordinatorLimit,
 }: {
   payments: Payment[]
+  tokenPayments: TokenPayment[]
   clientMap: Record<string, string>
   zoneMap: Record<string, string>
   tradeOptions: string[]
@@ -100,6 +103,7 @@ export default function PaymentTabs({
 
   const TABS: { key: TabKey; label: string; count: number; badge: boolean }[] = [
     { key: 'pending', label: 'Pending Admin Approval', count: pending.length, badge: true },
+    { key: 'token', label: 'Token Payments', count: tokenPayments.length, badge: true },
     { key: 'decision5', label: 'Decision 5 Queue', count: decision5.length, badge: true },
     { key: 'rework', label: 'Rework Cost Deductions', count: rework.length, badge: true },
     { key: 'hold', label: 'On Hold', count: onHold.length, badge: false },
@@ -171,6 +175,22 @@ export default function PaymentTabs({
       </div>
 
       {tab === 'pending' && renderList(pending, 'pending')}
+      {tab === 'token' && (
+        tokenPayments.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">No token payments awaiting verification</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {tokenPayments.map((tp) => (
+              <TokenPaymentCard
+                key={tp.id}
+                payment={tp}
+                clientName={clientMap[tp.booking_ref] ?? '—'}
+                adminUserId={adminUserId}
+              />
+            ))}
+          </div>
+        )
+      )}
       {tab === 'decision5' && renderList(decision5, 'decision5')}
       {tab === 'rework' && renderList(rework, 'rework')}
       {tab === 'hold' && renderList(onHold, 'hold')}

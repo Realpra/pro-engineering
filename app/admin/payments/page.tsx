@@ -28,14 +28,21 @@ export default async function AdminPaymentsPage() {
 
   if (profile?.platform_role !== 'admin') redirect('/admin/dashboard')
 
-  const [{ data: paymentsData }, { data: enquiries }, { data: policy }, { data: trades }] = await Promise.all([
+  const [{ data: paymentsData }, { data: enquiries }, { data: policy }, { data: trades }, { data: tokenPaymentsData }] = await Promise.all([
     supabase.from('milestone_payment_schedule').select('*').order('created_at', { ascending: false }),
     supabase.from('guest_enquiries').select('booking_ref, contact_name, zone'),
     supabase.from('payment_policy').select('coordinator_limit, admin_limit').eq('is_active', true).limit(1),
     supabase.from('trade_config').select('trade_name').order('trade_name'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('payment_confirmations')
+      .select('id, booking_ref, milestone_code, utr_number, screenshot_base64, amount, created_at')
+      .eq('status', 'pending_verification')
+      .order('created_at', { ascending: true }),
   ])
 
   const payments = (paymentsData ?? []) as Payment[]
+  const tokenPayments = (tokenPaymentsData ?? []) as import('./TokenPaymentCard').TokenPayment[]
   const tradeOptions = Array.from(
     new Set((trades ?? []).map((t) => t.trade_name).filter((t): t is string => Boolean(t)))
   )
@@ -72,6 +79,7 @@ export default async function AdminPaymentsPage() {
 
   const stats: { label: string; count: number; className: string }[] = [
     { label: 'Pending Approval', count: pendingCount, className: 'text-[#F97316]' },
+    { label: 'Token Payments', count: tokenPayments.length, className: 'text-green-600' },
     { label: 'Decision 5 Queue', count: decision5Count, className: 'text-red-600' },
     { label: 'Rework Deductions', count: reworkCount, className: 'text-amber-600' },
     { label: 'On Hold', count: holdCount, className: 'text-red-600' },
@@ -111,6 +119,7 @@ export default async function AdminPaymentsPage() {
 
         <PaymentTabs
           payments={payments}
+          tokenPayments={tokenPayments}
           clientMap={clientMap}
           zoneMap={zoneMap}
           tradeOptions={tradeOptions}
