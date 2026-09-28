@@ -1488,21 +1488,86 @@ docs/SCHEMA_FREEZE_METHODOLOGY.md.
   with its own `npx tsc --noEmit` pass, flag anything needing a live SQL check rather than
   guessing at live-only schema.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — CLIENT PROCESS AUDITED, 4 REAL GAPS FIXED
+Ran the Client process (full `app/client/*` + `app/book/*`, all 20 files, read in full, not
+sampled) through the schema-freeze methodology's data-point-audit discipline, same as the
+12-tab Supervisor pass. Found and fixed 4 confirmed real bugs, each its own commit + clean
+`npx tsc --noEmit`, none requiring a schema/migration change (all columns involved already
+exist live):
+
+1. **ROOT-CAUSE FINDING, HIGHEST PRIORITY**: `/book/submit` -- the sole live path that creates a
+   real `guest_enquiries` row from a real client -- only ever captured `contact_name`. It never
+   captured or inserted `contact_phone`/`contact_email`, confirmed by a repo-wide grep showing
+   those columns are read by 3 live Coordinator pages (`cost`, `jobs`, `clients`) and required by
+   Client Login's magic-link/OTP lookups, but written NOWHERE in the entire codebase. Every real
+   booking ever created through the live public flow therefore had no phone/email on file, and
+   no client could ever reach their own dashboard from a real submission -- this was the true
+   root cause blocking the whole Client Interaction flow, not a cosmetic gap. Fixed: added
+   required phone + optional email fields to `/book/submit`'s contact step
+   (`lib/booking.ts`/`app/book/submit/page.tsx`), inserted into `guest_enquiries`.
+2. Compounding naming split found in the same investigation: Client Login's phone-based
+   `sendMagicLink`/`sendOtp`/`verifyOtp` (`app/client/login/actions.ts`) queried a column called
+   `client_phone`, never written anywhere either, while Coordinator's 3 pages depend on
+   `contact_phone`. Canonicalized onto `contact_phone` per Amendment 1's tie-break rule (the
+   column live code actually depends on, not the first-created one).
+3. `/client/dashboard/[bookingRef]/page.tsx` had a broken "Your Coordinator" lookup: it queried
+   the `users` table by `enquiryData.supervisor_id` (a `workers.id`), which can never match --
+   there is no per-job Coordinator FK anywhere in the live schema (Coordinator has universal,
+   unscoped access to every job, confirmed Session 59). Always rendered "--"; removed rather than
+   left misleading, along with a leftover debug `console.log` on every render.
+4. Section 11 of the Client Dashboard told an accepted client their first (M0 token) payment was
+   due, but gave no way to actually pay it -- `/client/payment` was unreachable from any
+   client-facing page (only linked from the still-orphaned `PendingPaymentsPanel.tsx`). Added a
+   real "PAY TOKEN AMOUNT" link with paid/awaiting-verification states already covered.
+5. Paired finding on the admin side, needed for #4 to mean anything end to end: `verifyPayment`/
+   `rejectPayment` (`app/client/payment/actions.ts`) had zero reachable UI anywhere --
+   `/admin/payments` (the page Admin's dashboard actually links to) only ever displayed
+   `token_payment_verified_at`, never set it. Any client UTR submission would sit in
+   `pending_verification` forever, blocking `work_started` and the whole downstream milestone
+   flow. Added a real "Token Payments" tab to `/admin/payments`, backed by a live query against
+   `payment_confirmations`, reusing the existing correct `verifyPayment`/`rejectPayment` actions.
+
+**Flagged, not fixed (each needs its own decision, not a guess, same discipline as the rest of
+this project)**:
+- `client_user_id` (gates the Email Login tab and both dashboard/payment access checks) is never
+  written anywhere in live code except a one-off manual fix script -- there is no live path that
+  ever provisions a client a real Supabase Auth account. The Email Login tab on `/client/login`
+  can never succeed for any real client today. Needs a real design decision (self-service
+  signup after magic-link/OTP verification? staff-provisioned like `mktg_agent`?), not a guess.
+- `sendMagicLink`/`sendOtp` generate and store a token/OTP but never dispatch it via any channel
+  (Session 63's finding, reconfirmed still true) -- needs a WhatsApp/SMS/email provider
+  integration, a real infra decision out of scope for this pass.
+- The `/book` wizard's Scope Report and Cost Estimate steps remain 100% static/mocked data
+  (Session 63's finding, reconfirmed) -- a real rebuild against `boq_generated`/the real BOQ
+  engine is a substantial project, not a drip-fix.
+- No handover/takeover/documents-vault/rating screen exists anywhere in `app/client/*` (Session
+  63's finding, reconfirmed) -- `pre_delivery_assessment.client_handover_*` (SA-13, built earlier
+  this session) is the real handover write today but has no Client-side surface at all.
+- `submitMilestonePaymentRequest` (`app/client/dashboard/[bookingRef]/actions.ts`) is orphaned
+  dead code -- fully written, never imported by `ClientDashboard.tsx` or anywhere else. Same
+  build-it-or-retire-it discipline as PENDING #21/#35, not guessed at.
+- `app/admin/dashboard/PendingPaymentsPanel.tsx` is now a confirmed pure duplicate of the new
+  Token Payments tab (same `verifyPayment`/`rejectPayment` calls, never rendered by any page) --
+  a safe delete candidate whenever dead-code cleanup is next in scope.
+- Every one of these fixes needs the same live SQL/UI verification Worker Onboarding and
+  Supervisor got before Client can be called genuinely Frozen (Amendment 2) -- not done this
+  session, this sandbox has no Supabase network access.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
 - **Supervisor is FROZEN.** Do not reopen it without a new real finding. Its remaining live
   click-through is the project owner's own deferred task, not this session's blocker.
-- **START HERE: Client process audit**, per docs/SCHEMA_FREEZE_METHODOLOGY.md. Read every file
-  under `app/client/` in full, cross-reference against MASTER_FLOW_STRINGS.xlsx's Client
-  Interaction sheet and the original design logs, and the already-confirmed Session 63 findings
-  that still apply: the `/book` wizard's Scope Report/Cost Estimate steps are 100% static/mocked
-  (only the final insert is real); magic-link/OTP client login generates a token but never
-  dispatches it via any channel; no handover/takeover/documents-vault/rating screen exists
-  anywhere in `app/client/*` despite `/book/confirmation`'s milestone labels implying them. Also
-  relevant: `pre_delivery_assessment.client_handover_*` (SA-13, built this session) is the real
-  handover-adjacent write today -- confirm whether/how it should surface on the Client side too.
+- **Client process: code-complete, NOT yet live-verified.** 4 real gaps fixed and pushed (see
+  above). Before calling Client Frozen: (1) run a real `/book` submission end to end and confirm
+  `contact_phone`/`contact_email` land on the `guest_enquiries` row, (2) confirm Magic
+  Link/OTP login actually finds that row via `contact_phone`, (3) confirm a real UTR submission
+  through `/client/payment` now shows up and can be verified/rejected from `/admin/payments`'
+  new Token Payments tab, (4) decide the `client_user_id`/Email-Login provisioning gap rather
+  than leaving it silently broken.
 - Remember the standing rule: push to `master` too (or flag it) whenever real fixes land on the
   working branch, not just to `claude/gracious-knuth-vxwkc3` -- this stale-master bug has now
-  happened twice.
+  happened twice, and this session's Client-process commits have NOT yet been fast-forwarded to
+  `master` (pending the project owner's authorization, since it triggers a real production
+  deploy).
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
 - Set a real `CRON_SECRET` value in Vercel before calling the Daily Log deadline cron frozen
