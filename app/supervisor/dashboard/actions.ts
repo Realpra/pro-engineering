@@ -41,6 +41,7 @@ export async function raiseSOS(params: {
     admins.map(a => ({
       booking_ref: params.bookingRef,
       instruction_type: 'sos',
+      instruction_category: 'system_alert',
       priority: 'critical',
       instruction_text: params.note || 'SOS raised by supervisor -- immediate attention required.',
       issued_by: params.supervisorUserId,

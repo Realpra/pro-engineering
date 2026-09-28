@@ -46,6 +46,7 @@ export async function submitSupervisorReport(params: {
     recipients.map(r => ({
       booking_ref: params.bookingRef,
       instruction_type: instructionType,
+      instruction_category: 'report',
       priority: instructionType === 'safety_critical' ? 'critical' : 'medium',
       instruction_text: params.reportText,
       issued_by: params.supervisorUserId,

@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
   const rows = missing.flatMap(sup =>
     coordinators.map(c => ({
       instruction_type: 'daily_log_deadline_missed',
+      instruction_category: 'system_alert',
       priority: 'high',
       instruction_text: `${sup.full_name ?? 'Supervisor'} has not submitted their ${stage} daily log (deadline ${stage === 'morning' ? '09:30' : '19:00'}).`,
       issued_to: c.id,

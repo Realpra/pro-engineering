@@ -71,6 +71,7 @@ export async function adminIssueDirective(
     booking_ref: data.booking_ref || null,
     client_ref: data.client_ref || null,
     instruction_type: data.instruction_type,
+    instruction_category: 'directive',
     subject: data.subject || null,
     instruction_text: data.instruction_text,
     admin_directive_text: data.admin_directive_text || null,
@@ -91,7 +92,9 @@ export async function adminIssueDirective(
     copy_to_super_admin: data.copy_to_super_admin,
     issued_by: adminUserId,
     issued_at: new Date().toISOString(),
-    status: 'active',
+    // 'active' violates the real status CHECK (pending/acknowledged/actioned/
+    // resolved, confirmed live) -- this insert would have failed outright.
+    status: 'pending',
   })
   if (error) return { error: error.message }
   revalidatePath('/admin/reports')

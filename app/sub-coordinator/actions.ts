@@ -49,6 +49,7 @@ export async function sendInstruction(formData: FormData) {
       booking_ref,
       substage_code: substage_code || null,
       instruction_type,
+      instruction_category: 'site_instruction',
       priority,
       subject: subject || null,
       instruction_text,
@@ -141,6 +142,7 @@ export async function chaseSiteHead(formData: FormData) {
   const { error } = await supabase.from('site_instructions').insert({
     booking_ref,
     instruction_type: 'chase',
+    instruction_category: 'site_instruction',
     priority: 'high',
     instruction_text: 'Chase: Please submit LTF feed update immediately.',
     issued_by: userData?.id ?? null,
@@ -165,6 +167,7 @@ export async function notifyCoordinator(formData: FormData) {
   const { error } = await supabase.from('site_instructions').insert({
     booking_ref,
     instruction_type: 'notification',
+    instruction_category: 'site_instruction',
     priority: 'medium',
     instruction_text: message,
     issued_by: userData?.id ?? null,

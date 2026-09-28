@@ -98,6 +98,7 @@ export async function submitExtraWork(
         coordinators.map(c => ({
           booking_ref: data.booking_ref,
           instruction_type: 'scope_change_threshold_breach',
+          instruction_category: 'system_alert',
           priority: 'high',
           instruction_text: `Scope change on ${data.booking_ref} exceeds threshold -- cost impact ₹${costImpact.toLocaleString('en-IN')}, timeline impact ${timelineImpactDays} day(s).`,
           issued_to: c.id,

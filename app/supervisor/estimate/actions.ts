@@ -69,6 +69,7 @@ export async function submitSupervisorEstimateReview(params: {
         coordinators.map(c => ({
           booking_ref: params.bookingRef,
           instruction_type: 'supervisor_estimate_review',
+          instruction_category: 'report',
           priority: 'medium',
           instruction_text: `Supervisor ${params.action}s estimate for ${params.bookingRef}${params.revisedAmount ? ` -- suggested ₹${params.revisedAmount.toLocaleString('en-IN')}` : ''}: ${params.reason ?? '(no reason given)'}`,
           issued_to: c.id,

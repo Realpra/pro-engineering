@@ -27,7 +27,7 @@ export default async function CoordinatorReportsPage() {
   // both value sets.
   const { data: reports } = await supabase
     .from('site_instructions')
-    .select('id, instruction_type, priority, instruction_text, booking_ref, issued_at, status, issued_by')
+    .select('id, instruction_type, instruction_category, priority, instruction_text, booking_ref, issued_at, status, issued_by')
     .in('instruction_type', [
       'safety_critical', 'method_improvement', 'payment_policy', 'methodology', 'special_site', 'execution',
       'hold', 'expedite', 'revised', 'resource', 'alert', 'chase', 'notification',
@@ -115,7 +115,20 @@ export default async function CoordinatorReportsPage() {
     return 'bg-gray-100 text-gray-500 border-gray-200'
   }
 
-  const getTypeInfo = (type: string) => reportTypes.find(t => t.type === type) ?? reportTypes[5]
+  // instruction_category disambiguates rows whose instruction_type isn't one
+  // of the 6 named report types above -- previously these (Sub-Coordinator's
+  // hold/expedite/revised/resource/alert/chase/notification) silently fell
+  // through to reportTypes[5] ("Methodology"), a wrong label. instruction_type
+  // itself still holds the real, specific value (widened CHECK constraint,
+  // 28 Sep 2026) -- instruction_category is only the broader display grouping.
+  const SITE_INSTRUCTION_TYPE = {
+    icon: '📨', label: 'Site Instruction', color: 'bg-gray-100 text-gray-600 border-gray-300',
+    headerColor: 'bg-gray-500', urgent: false, type: 'site_instruction',
+  }
+  const getTypeInfo = (r: { instruction_type: string; instruction_category: string | null }) => {
+    if (r.instruction_category === 'site_instruction') return SITE_INSTRUCTION_TYPE
+    return reportTypes.find(t => t.type === r.instruction_type) ?? SITE_INSTRUCTION_TYPE
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -231,7 +244,7 @@ export default async function CoordinatorReportsPage() {
               {otherReports.map(r => {
                 const job = r.booking_ref ? jobMap[r.booking_ref] : null
                 const sender = userMap[r.issued_by]
-                const typeInfo = getTypeInfo(r.instruction_type)
+                const typeInfo = getTypeInfo(r)
                 return (
                   <div key={r.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className={`${typeInfo.headerColor} px-5 py-3`}>

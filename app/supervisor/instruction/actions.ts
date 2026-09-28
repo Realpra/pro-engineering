@@ -29,6 +29,7 @@ export async function sendSupervisorInstruction(params: {
     booking_ref: params.bookingRef,
     substage_code: params.substageCode,
     instruction_type: params.instructionType,
+    instruction_category: 'site_instruction',
     priority: params.priority,
     instruction_text: params.instructionText,
     issued_by: params.supervisorUserId,

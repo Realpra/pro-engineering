@@ -193,6 +193,7 @@ export async function submitClientHandover(
         subCoordinators.map(sc => ({
           booking_ref: input.bookingRef,
           instruction_type: 'client_handover_dissatisfaction',
+          instruction_category: 'system_alert',
           priority: 'high',
           instruction_text: `Client dissatisfied at handover (${input.bookingRef}): ${input.dissatisfactionCategories.join(', ')}`,
           issued_to: sc.id,
