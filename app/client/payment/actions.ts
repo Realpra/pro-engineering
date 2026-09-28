@@ -116,7 +116,15 @@ export async function verifyPayment(
 
   const now = new Date().toISOString()
 
-  const [pcUpdate, milestoneUpdate, enquiryUpdate, boqUpdate] = await Promise.all([
+  // boq_generated.client_accepted_at/status are NOT touched here. They belong to the
+  // client's own act of accepting an estimate (submitOverallResponse, dashboard/
+  // [bookingRef]/actions.ts) -- a distinct, client-initiated event from admin verifying
+  // a token payment, and one that can legitimately recur on a NEW boq_generated row when
+  // the estimate is revised (survey-stage to-fro, or an execution-stage scope change) and
+  // the client re-accepts. Admin's payment verification is never that event, and this
+  // update was also unscoped (no boq_id filter -- would have touched every version of the
+  // BOQ for this booking_ref, not just the accepted one).
+  const [pcUpdate, milestoneUpdate, enquiryUpdate] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('payment_confirmations')
@@ -139,14 +147,9 @@ export async function verifyPayment(
       .from('guest_enquiries')
       .update({ status: 'work_started' })
       .eq('booking_ref', bookingRef),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from('boq_generated')
-      .update({ status: 'accepted', client_accepted_at: now })
-      .eq('booking_ref', bookingRef),
   ])
 
-  const err = pcUpdate.error || milestoneUpdate.error || enquiryUpdate.error || boqUpdate.error
+  const err = pcUpdate.error || milestoneUpdate.error || enquiryUpdate.error
   if (err) return { success: false, error: err.message }
 
   return { success: true }
