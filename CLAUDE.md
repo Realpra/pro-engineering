@@ -1404,34 +1404,32 @@ a broader grouping layer ABOVE `instruction_type`, not a replacement for it.
 - Project owner's instruction: after Supervisor's build is fully tested, other roles' builds are
   also to be tested before the whole thing is called frozen -- not scoped to Supervisor alone.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — ALL 3 REMAINING MIGRATIONS RUN LIVE
+- `20260928_pre_delivery_client_handover_sa13.sql`, `20260928_boq_generated_supervisor_review.sql`,
+  `20260928_scope_change_requests_cost_timeline_impact.sql` all confirmed run live in Supabase
+  ("Success. No rows returned" on all 3). Every migration this session's 12-tab Supervisor pass
+  produced is now applied -- nothing pending on the schema side anymore.
+- `CRON_SECRET` confirmed NOT set in Vercel. Not a functional blocker -- the cron route's own
+  check (`if (process.env.CRON_SECRET && authHeader !== ...)`) short-circuits to allow the
+  request through when the var is absent, so Vercel's scheduled cron will still fire and work.
+  It does mean the endpoint is currently reachable by anyone who finds the URL with no auth at
+  all -- a real (low-severity, internal-tool) security gap to close before calling this frozen,
+  not before testing it.
+- Full 12-tab Supervisor live-test checklist can now proceed with no remaining schema blockers,
+  other than Sub-Coordinator's own 3 actions (`sendInstruction`/`chaseSiteHead`/
+  `notifyCoordinator`) staying blocked on the still-unexplained `subcoordinator@proengineering.in`
+  login failure.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **PICK UP HERE FIRST**: continue the role-by-role live-test checklist for the 12-tab Supervisor
-  build (see entry above) -- supervisor62 tabs 1-11, admin's directive issue, coordinator's
-  Reports inbox display. Sub-Coordinator's own 3 write actions stay blocked until its login is
-  fixed. Once Supervisor is fully tested, move to testing other roles' builds before freezing.
+- **PICK UP HERE FIRST**: work through the role-by-role live-test checklist for the 12-tab
+  Supervisor build (see conversation for the exact step list) -- supervisor62 tabs 1-11, admin's
+  directive issue, coordinator's Reports inbox display. Sub-Coordinator's own 3 write actions stay
+  blocked until its login is fixed. Once Supervisor is fully tested, move to testing other roles'
+  builds before freezing (project owner's explicit instruction -- not scoped to Supervisor alone).
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
-- **All 12 Supervisor tabs are otherwise code-complete under the schema-freeze methodology, but
-  NONE of this pass's new code has been live-verified beyond the constraint check above.** Before
-  calling any of it frozen, on a session with live DB + deployment access:
-  1. Run the 3 new migrations: `20260928_pre_delivery_client_handover_sa13.sql`,
-     `20260928_boq_generated_supervisor_review.sql`,
-     `20260928_scope_change_requests_cost_timeline_impact.sql` (all written defensively with
-     `ADD COLUMN IF NOT EXISTS`, but this session could not confirm any of the 3 tables' full real
-     column sets -- `pre_delivery_assessment` and `scope_snag_items` have both already surprised
-     this project once each with hidden live-only columns).
-  2. Set `CRON_SECRET` as a real env var in Vercel and redeploy so the new daily-log-deadline cron
-     (`vercel.json`) actually registers and authenticates.
-  3. Live-click through each of the 8 newly-built flows at least once: Dashboard's SOS button and
-     new task list; Route's `/supervisor/route` screen + Confirm Day Plan + manual slot add;
-     Milestones' `/supervisor/approval/[id]` approve/send-back; Pre-Delivery's Client Handover
-     4-screen flow; Estimates' generate + review actions; Extra Works' new threshold fields;
-     Directives' `/supervisor/instruction`; Reports' 6 report types.
-  4. Confirm the `site_instructions` fan-outs this pass added (SOS, daily-log deadline, client
-     handover dissatisfaction, scope-change threshold breach, supervisor estimate review, outbound
-     instruction, all 6 report types) actually land where each destination role's page expects --
-     each was checked against the destination's real read query before writing, but the
-     `instruction_type` bug above means none of these inserts would even succeed yet.
+- Set a real `CRON_SECRET` value in Vercel before calling the Daily Log deadline cron frozen
+  (functional without it, but currently has no auth at all).
 - Deliberately left dead, not guessed at (each needs its own real decision, same discipline as
   the rest of this pass): `/supervisor/milestone-tracker/propose` (no live schema to build the
   insert against); the "work blocked until scope-change approved" enforcement gap in
