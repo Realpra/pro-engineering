@@ -21,6 +21,8 @@ export default function SubmitPage() {
   const [district, setDistrict]     = useState('')
   const [startDate, setStartDate]   = useState('')
   const [contactName, setContactName] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [stage, setStage]           = useState<Stage>('select')
   const [bookingRef, setRef]        = useState('')
   const [error, setError]           = useState('')
@@ -33,6 +35,8 @@ export default function SubmitPage() {
     setDistrict(b.district || '')
     setStartDate(b.startDate || '')
     setContactName(b.contactName || '')
+    setContactPhone(b.contactPhone || '')
+    setContactEmail(b.contactEmail || '')
   }, [router])
 
   async function handleSubmit() {
@@ -48,6 +52,8 @@ export default function SubmitPage() {
     const insertPayload = {
       booking_ref: ref,
       contact_name: contactName.trim(),
+      contact_phone: contactPhone.trim(),
+      contact_email: contactEmail.trim() || null,
       job_title: b.jobTitle || 'Construction Project',
       job_type: JOB_TYPE_DB_MAP[b.jobType || ''] || 'other',
       zone: ZONE_DB_MAP[b.zone || ''] || 'west',
@@ -176,7 +182,7 @@ export default function SubmitPage() {
     )
   }
 
-  const isValid = contactName.trim().length > 0
+  const isValid = contactName.trim().length > 0 && contactPhone.trim().length >= 10
 
   return (
     <div className="max-w-2xl mx-auto w-full px-4 py-6 flex flex-col flex-1">
@@ -191,20 +197,53 @@ export default function SubmitPage() {
         <div className="px-5 py-4 border-b border-slate-100">
           <h2 className="text-sm font-bold text-slate-900">Contact Details</h2>
         </div>
-        <div className="px-5 py-4">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">
-            Your Name
-          </label>
-          <input
-            type="text"
-            value={contactName}
-            onChange={e => {
-              setContactName(e.target.value)
-              saveBooking({ contactName: e.target.value })
-            }}
-            placeholder="Full name"
-            className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        <div className="px-5 py-4 space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">
+              Your Name
+            </label>
+            <input
+              type="text"
+              value={contactName}
+              onChange={e => {
+                setContactName(e.target.value)
+                saveBooking({ contactName: e.target.value })
+              }}
+              placeholder="Full name"
+              className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">
+              Mobile Number
+            </label>
+            <input
+              type="tel"
+              value={contactPhone}
+              onChange={e => {
+                setContactPhone(e.target.value)
+                saveBooking({ contactPhone: e.target.value })
+              }}
+              placeholder="10-digit mobile number"
+              className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">Your coordinator will call this number, and you'll use it to sign in to your project dashboard.</p>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">
+              Email <span className="text-slate-300 normal-case">(optional)</span>
+            </label>
+            <input
+              type="email"
+              value={contactEmail}
+              onChange={e => {
+                setContactEmail(e.target.value)
+                saveBooking({ contactEmail: e.target.value })
+              }}
+              placeholder="you@example.com"
+              className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
       </div>
 

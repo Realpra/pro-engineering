@@ -2,6 +2,8 @@ export interface BookingState {
   jobType?: string
   jobTitle?: string
   contactName?: string
+  contactPhone?: string
+  contactEmail?: string
   budget?: number
   zone?: string
   district?: string

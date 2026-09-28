@@ -26,7 +26,7 @@ export async function sendMagicLink(contact: string): Promise<ActionResult> {
     supabase
       .from('guest_enquiries')
       .select('id, status')
-      .eq('client_phone', contact)
+      .eq('contact_phone', contact)
       .neq('status', 'new')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -58,7 +58,7 @@ export async function sendOtp(phone: string): Promise<ActionResult> {
   const { data: row } = await supabase
     .from('guest_enquiries')
     .select('id')
-    .eq('client_phone', phone)
+    .eq('contact_phone', phone)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -86,7 +86,7 @@ export async function verifyOtp(phone: string, otp: string): Promise<ActionResul
   const { data: row } = await supabase
     .from('guest_enquiries')
     .select('id, booking_ref, client_otp_expires_at')
-    .eq('client_phone', phone)
+    .eq('contact_phone', phone)
     .eq('client_otp', otp)
     .maybeSingle()
 
