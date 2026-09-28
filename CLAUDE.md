@@ -1386,12 +1386,31 @@ a broader grouping layer ABOVE `instruction_type`, not a replacement for it.
   write sites have actually been exercised against the real, widened constraint. Do that before
   calling this closed.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — MIGRATION RUN LIVE, subcoordinator LOGIN FOUND BROKEN
+- `20260928_site_instructions_instruction_type_widen.sql` run live in Supabase -- confirmed
+  success ("no rows returned", the expected result for a pure ALTER/DDL statement).
+- **NEW FINDING, not yet investigated**: `subcoordinator@proengineering.in` -- listed in this
+  file's own WORKING LOGINS section -- now rejects with "invalid credentials" when the project
+  owner tried to log in to test whether Supervisor-side `site_instructions` writes reach
+  Sub-Coordinator. This blocks live-testing `sendInstruction`/`chaseSiteHead`/`notifyCoordinator`
+  (`app/sub-coordinator/actions.ts`) specifically -- every other write site in the 12-tab
+  Supervisor pass can still be tested via `supervisor62`/`admin`/`coordinator` logins, which
+  remain confirmed working. Needs its own root-cause investigation (same class of issue as the
+  existing SU-472225 broken-login ticket for superadmin/client1-7, but not assumed to be the same
+  cause without checking) before Sub-Coordinator's own actions can be live-verified.
+- Full 12-tab Supervisor live-test checklist now in progress (role-by-role: supervisor62 for tabs
+  1-11, admin for adminIssueDirective, coordinator for the Reports inbox relabel fix) -- see
+  conversation for the exact step list. Not yet complete.
+- Project owner's instruction: after Supervisor's build is fully tested, other roles' builds are
+  also to be tested before the whole thing is called frozen -- not scoped to Supervisor alone.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **PICK UP HERE FIRST**: run `supabase/migrations/20260928_site_instructions_instruction_type_widen.sql`
-  in Supabase, then live-test at least one write from each of the 4 `instruction_category` buckets
-  (e.g. raise a real SOS, submit a real Supervisor report, issue a real Admin directive, send a
-  real Sub-Coordinator instruction) and confirm each insert succeeds and shows up correctly
-  (including the relabeled "Site Instruction" rows) in Coordinator's Reports inbox.
+- **PICK UP HERE FIRST**: continue the role-by-role live-test checklist for the 12-tab Supervisor
+  build (see entry above) -- supervisor62 tabs 1-11, admin's directive issue, coordinator's
+  Reports inbox display. Sub-Coordinator's own 3 write actions stay blocked until its login is
+  fixed. Once Supervisor is fully tested, move to testing other roles' builds before freezing.
+- Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
+  it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
 - **All 12 Supervisor tabs are otherwise code-complete under the schema-freeze methodology, but
   NONE of this pass's new code has been live-verified beyond the constraint check above.** Before
   calling any of it frozen, on a session with live DB + deployment access:
