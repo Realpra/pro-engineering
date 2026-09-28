@@ -841,7 +841,7 @@ export default function SiteVisitManager({
                 {textArea('Description of Change', form.scopeChangeDesc, v => update('scopeChangeDesc', v), 'Describe the proposed scope change...')}
                 {textArea('Technical Reason / Justification', form.scopeChangeTechnicalReason, v => update('scopeChangeTechnicalReason', v), 'Why is this change needed?')}
                 {inputField('Estimated Cost Impact (₹)', form.scopeChangeCostImpact, v => update('scopeChangeCostImpact', v), 'e.g. 12000', 'number')}
-                {inputField('Timeline Impact (days)', form.scopeChangeTimelineImpact, v => update('scopeChangeTimelineImpact', v), 'e.g. 1', 'number')}
+                {inputField('Timeline Impact (whole days)', form.scopeChangeTimelineImpact, v => update('scopeChangeTimelineImpact', v), 'e.g. 1', 'number')}
                 <div className="bg-blue-50 rounded-xl px-4 py-3">
                   <p className="text-xs text-blue-700 font-semibold">
                     {form.scopeChangeTrigger.startsWith('Trigger A')
@@ -1079,7 +1079,7 @@ export default function SiteVisitManager({
                         rough_items: form.scopeChangeCostImpact
                           ? [{ description: form.scopeChangeDesc || 'Scope change', qty: 1, unit: 'lot', amount: Number(form.scopeChangeCostImpact) || 0 }]
                           : [],
-                        timeline_impact_days: Number(form.scopeChangeTimelineImpact) || 0,
+                        timeline_impact_days: Math.round(Number(form.scopeChangeTimelineImpact)) || 0,
                       })
                     }
                     if (form.paymentDecision === '5') {

@@ -96,7 +96,7 @@ export default function ExtraWorksForm({ supervisorId, jobs }: Props) {
         description,
         justification,
         rough_items: items,
-        timeline_impact_days: Number(timelineImpactDays) || 0,
+        timeline_impact_days: Math.round(Number(timelineImpactDays)) || 0,
       })
 
       if (result.error) throw new Error(result.error)
@@ -191,10 +191,11 @@ export default function ExtraWorksForm({ supervisorId, jobs }: Props) {
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">Timeline Impact (days)</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Timeline Impact (whole days)</p>
             <input
               type="number"
               min="0"
+              step="1"
               value={timelineImpactDays}
               onChange={e => setTimelineImpactDays(e.target.value)}
               placeholder="e.g. 1"

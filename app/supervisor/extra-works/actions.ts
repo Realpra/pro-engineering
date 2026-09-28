@@ -40,6 +40,23 @@ export async function submitExtraWork(
   const supabase = await createClient()
   const now = new Date().toISOString()
   const costImpact = data.rough_items.reduce((sum, it) => sum + it.amount, 0)
+  // Live check this session (not assumed): app/admin/scope's ScopeTabs.tsx and
+  // app/admin/milestones' MilestoneTabs.tsx already read cost_impact_additions/
+  // cost_impact_deletions/cost_impact_net/proposed_additions on this table --
+  // a real, pre-existing, richer cost model this action never populated (per
+  // app/admin/milestones/page.tsx's own comment: "Supervisor's own
+  // submitExtraWork never populates cost_impact_net at all", Duplicate/
+  // Conflict #15). This flow only ever proposes additions (never deletions),
+  // so net = additions. timeline_impact_days is a real pre-existing INTEGER
+  // column (confirmed live -- a decimal silently rounds), rounded here too so
+  // the stored value always matches what the UI enforces.
+  const timelineImpactDays = Math.round(data.timeline_impact_days)
+  const proposedAdditions = data.rough_items.map(it => ({
+    description: it.description,
+    qty: it.qty,
+    unit: it.unit,
+    amount: it.amount,
+  }))
 
   const { error: insertErr } = await supabase.from('scope_change_requests').insert({
     booking_ref: data.booking_ref,
@@ -49,8 +66,11 @@ export async function submitExtraWork(
     trigger_type: data.trigger_type,
     client_request: data.trigger_type === 'client_demand' ? data.client_request ?? data.description : null,
     supervisor_rough_estimate: data.rough_items,
-    cost_impact_amount: costImpact,
-    timeline_impact_days: data.timeline_impact_days,
+    proposed_additions: proposedAdditions,
+    cost_impact_additions: costImpact,
+    cost_impact_deletions: 0,
+    cost_impact_net: costImpact,
+    timeline_impact_days: timelineImpactDays,
     justification_cos: data.justification,
     supervisor_submitted_at: now,
     requested_at: now,
@@ -71,7 +91,7 @@ export async function submitExtraWork(
   // adds the missing Coordinator notification specifically when either
   // threshold is crossed, via the same site_instructions pattern already
   // frozen this session.
-  if (costImpact > COST_NOTIFY_THRESHOLD || data.timeline_impact_days > TIMELINE_NOTIFY_THRESHOLD_DAYS) {
+  if (costImpact > COST_NOTIFY_THRESHOLD || timelineImpactDays > TIMELINE_NOTIFY_THRESHOLD_DAYS) {
     const { data: coordinators } = await supabase.from('users').select('id').eq('platform_role', 'coordinator')
     if (coordinators && coordinators.length > 0) {
       await supabase.from('site_instructions').insert(
@@ -79,7 +99,7 @@ export async function submitExtraWork(
           booking_ref: data.booking_ref,
           instruction_type: 'scope_change_threshold_breach',
           priority: 'high',
-          instruction_text: `Scope change on ${data.booking_ref} exceeds threshold -- cost impact ₹${costImpact.toLocaleString('en-IN')}, timeline impact ${data.timeline_impact_days} day(s).`,
+          instruction_text: `Scope change on ${data.booking_ref} exceeds threshold -- cost impact ₹${costImpact.toLocaleString('en-IN')}, timeline impact ${timelineImpactDays} day(s).`,
           issued_to: c.id,
           issued_at: now,
           status: 'pending',
