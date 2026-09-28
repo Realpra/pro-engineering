@@ -1553,21 +1553,107 @@ this project)**:
   Supervisor got before Client can be called genuinely Frozen (Amendment 2) -- not done this
   session, this sandbox has no Supabase network access.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — CLIENT FIELD INVENTORY RUN PROPERLY (EXPAND/CONTRACT), 2 MORE FIXES + 1 MIGRATION, SESSION CLOSED BY PROJECT OWNER
+Project owner correctly called out that the first Client-process pass (the 4-gap pass above)
+skipped the actual required methodology -- it patched the first bug found instead of building the
+full Expand-side field inventory across every Client screen/flow first, then reconciling each
+field against the Contract side (already-frozen concepts) per `docs/SCHEMA_FREEZE_METHODOLOGY.md`.
+Redone properly this entry: every field on every `/book` (9 screens) and `/client/*` screen
+inventoried, cross-checked against what Worker Onboarding and Supervisor Visit already froze.
+
+**2 more real fixes shipped from that proper inventory pass:**
+- `app/client/payment/actions.ts`'s `verifyPayment` was overwriting `boq_generated.
+  client_accepted_at`/`status` a second time (admin verifying the M0 token payment is NOT the
+  same event as the client accepting the estimate -- confirmed by tracing every reader, none of
+  which distinguish the two, and by the project owner's own clarification: `client_accepted_at`
+  is the frozen record of when the client agreed to that specific BOQ version/rates/risk terms;
+  it legitimately gets a NEW value only when the client re-accepts a REVISED estimate (a new
+  `boq_generated` version -- the table already supports this via its own `version` column), never
+  when admin verifies a payment). The removed update was also unscoped (no `boq_id` filter --
+  would have touched every BOQ version for the booking, not just the accepted one). Fixed,
+  committed, pushed (`c5a3b41`).
+- New migration `supabase/migrations/20260928_geo_hierarchy_delhi_central_delhi.sql` -- a real
+  Contradiction found in the inventory (not a naming duplicate, a genuine schema/business-scope
+  conflict): `/book/schedule`'s zone/district picker writes Delhi-compass values (north/south/
+  east/west/central/northeast) into `guest_enquiries.zone`, but `generateBOQ`
+  (`app/admin/estimate/[bookingRef]/actions.ts:767-776`) looks that exact column up directly
+  against `geo_hierarchy.name WHERE level='sector'` -- a compass direction can never match, so
+  every `/book`-originated job silently gets the hardcoded default Noida Sector 62 rate card
+  regardless of what the client actually picked. Project owner confirmed the real fix (Option B):
+  geo_hierarchy needs real Delhi coverage, not a Noida-only redesign. Decided structure: Delhi
+  (state) > Central Delhi (district) > Central Delhi (region, same name as district, a
+  deliberate pass-through until more districts/offices are added) > IIT Zone (zone -- Zone is
+  explicitly the unit that proliferates as new offices open) > Hauz Khas / Panchsheel Park
+  (sector -- real Delhi place names, not numerals, since Delhi is organized by area unlike
+  Noida's numbered sectors). Migration written using the exact same safe upsert-by-name-and-level
+  pattern already proven live in Session 66 (not `ON CONFLICT` -- the original table's declared
+  `UNIQUE(name)` cannot be trusted against the live schema, since a live test in Session 66 hit
+  Postgres error 42P10 trying to rely on it). **NOT YET RUN in Supabase.**
+- While investigating, found and flagged (not fixed) a pre-existing, unrelated inconsistency in
+  `geo_hierarchy` itself: the table's very first seed (`20260628_estimate_console.sql`) already
+  contains a flat `'Delhi'` row (`type='city'`, the OLD classification column) alongside orphaned
+  `'Noida Sector 137/143/168'`/`'default'`/`'Greater Noida'`/`'Gurgaon'`/`'Gurugram'` rows that
+  use `type` but were never given a `level`, so `generateBOQ`'s `level='sector'` filter never
+  matches them -- dead rows sitting in the table, never reconciled with the newer `level`-based
+  hierarchy Worker Onboarding built. Left untouched per the project owner's explicit instruction
+  (matches the "search before create fresh" + "never delete, just add alongside" discipline) --
+  no decision needed right now, flagged for whenever real project locations are added under this
+  hierarchy going forward.
+
+**Full Client-process field-inventory status at session close (Expand-Contract, per screen):**
+FINALIZED (Contract-side confirmed, no further action): `/book` screens 1,2,3(dates/duration),4
+(service_model itself, not its display-label bug), 7, 9 (`contact_name`/`contact_phone`/
+`contact_email`); `/client/login`'s token/OTP/last-login fields; `/client/dashboard`'s
+`client_accepted_at`/`status`, `milestone_payment_schedule.*`, `job_milestone_substages.*`,
+`estimate_client_responses.*`, `scope_change_requests` (client-raised), the earlier
+coordinator-lookup/debug-log/payment-link fixes; `/client/payment`'s `payment_confirmations.*`,
+`milestone_payment_schedule.status`/`evidence_submitted`/`token_payment_verified_at`.
+
+**3 confirmed, precisely-characterized obstructions, NONE guessed past, all needing the project
+owner's decision, not a fix attempted blind:**
+1. `guest_enquiries.client_user_id` -- the COLUMN EXISTS (read in 4 places: both dashboard pages,
+   `login/actions.ts`, `payment/page.tsx`) but is written NOWHERE in live code except a one-off
+   manual fix script -- no process ever provisions a client a real Supabase Auth account. Email
+   Login on `/client/login` cannot work for any real client until this is decided (self-service
+   signup after OTP/magic-link verification? staff-provisioned like `mktg_agent`?).
+2. Client-requested site-visit date/slot (`/book/site-visit` screen 5) -- CONFIRMED, not assumed,
+   that NO column exists anywhere for this concept (re-checked specifically: `scheduled_date`
+   exists but belongs to `supervisor_daily_routes`, a different table for a different, already-
+   frozen purpose -- staff assigning their own routes, not a client's requested slot). The screen
+   tells the client "confirmed... WhatsApp confirmation" for an appointment nothing in the system
+   records. Needs a decision: build a real field, or stop the screen overpromising.
+3. `submitMilestonePaymentRequest` (`app/client/dashboard/[bookingRef]/actions.ts`) -- the
+   `status` COLUMN it targets exists and is heavily used elsewhere, but the specific value it
+   writes (`'client_payment_pending'`) has not been confirmed valid against the live (already
+   partially widened, for a different reason) CHECK constraint, and the function itself has zero
+   callers anywhere -- orphaned dead code needing the same build-it-or-retire-it call as PENDING
+   #21/#35, not guessed at.
+
+**Session closed by the project owner at this point.** Not done, explicitly carried to next
+session: rebuilding `/book/schedule`'s picker to actually consume the new geo_hierarchy tree
+once the migration is run; resolving the 3 obstructions above; live-verifying every fix from
+both Client-process passes (this sandbox has no Supabase access, same constraint as every prior
+session); fast-forwarding `master` (this session's 3 new commits -- `c5a3b41`, `d084a53`, and the
+CLAUDE.md record commit -- have NOT been pushed to `master`, same standing rule as before,
+pending the project owner's authorization since it triggers a production deploy).
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
 - **Supervisor is FROZEN.** Do not reopen it without a new real finding. Its remaining live
   click-through is the project owner's own deferred task, not this session's blocker.
-- **Client process: code-complete, NOT yet live-verified.** 4 real gaps fixed and pushed (see
-  above). Before calling Client Frozen: (1) run a real `/book` submission end to end and confirm
-  `contact_phone`/`contact_email` land on the `guest_enquiries` row, (2) confirm Magic
-  Link/OTP login actually finds that row via `contact_phone`, (3) confirm a real UTR submission
-  through `/client/payment` now shows up and can be verified/rejected from `/admin/payments`'
-  new Token Payments tab, (4) decide the `client_user_id`/Email-Login provisioning gap rather
-  than leaving it silently broken.
+- **Client process: NOT frozen, code-complete on the fixed items, 3 confirmed obstructions
+  still open (see immediately above), nothing live-verified.** Read the full status table above
+  before touching Client again -- do not re-patch a "bug" without first checking whether it's
+  already listed as finalized or as one of the 3 named obstructions.
+- Before calling Client Frozen: (1) run `20260928_geo_hierarchy_delhi_central_delhi.sql` in
+  Supabase and confirm the 5 new rows with a query, (2) rebuild `/book/schedule`'s picker to
+  read the real geo_hierarchy tree instead of its hardcoded compass-zone arrays, (3) get the
+  project owner's decision on all 3 obstructions above, (4) run a real `/book` submission and
+  confirm `contact_phone`/`contact_email` land on the row, Magic Link/OTP find it, a real UTR
+  submission through `/client/payment` shows up and can be verified from `/admin/payments`'
+  Token Payments tab.
 - Remember the standing rule: push to `master` too (or flag it) whenever real fixes land on the
-  working branch, not just to `claude/gracious-knuth-vxwkc3` -- this stale-master bug has now
-  happened twice, and this session's Client-process commits have NOT yet been fast-forwarded to
-  `master` (pending the project owner's authorization, since it triggers a real production
-  deploy).
+  working branch -- this session's Client-process commits (`dfc8292` through this entry's
+  closing commit) have NOT been fast-forwarded to `master` yet, pending authorization.
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
 - Set a real `CRON_SECRET` value in Vercel before calling the Daily Log deadline cron frozen
@@ -1575,7 +1661,8 @@ this project)**:
 - Deliberately left dead, not guessed at (each needs its own real decision, same discipline as
   the rest of this pass): `/supervisor/milestone-tracker/propose` (no live schema to build the
   insert against); the "work blocked until scope-change approved" enforcement gap in
-  Milestones/SubstageCard; PENDING #13 (job creator attribution).
+  Milestones/SubstageCard; PENDING #13 (job creator attribution); the pre-existing orphaned
+  `geo_hierarchy` flat/type-based rows found this session (see above).
 - Still open from the earlier Supervisor Visit freeze this session, untouched by this pass:
   `app/sub-coordinator/workers/page.tsx:226`'s lookup bug; the R27 `worker_route_legs` redesign
   awaiting the project owner's go-ahead; `decision_5_raised_by` storing a role string.
