@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   markClientViewed,
@@ -20,7 +21,6 @@ interface ClientDashboardProps {
   milestones: AnyRecord[]
   substages: AnyRecord[]
   clientResponse: AnyRecord | null
-  coordinator: { full_name: string } | null
   supervisor: { full_name: string } | null
 }
 
@@ -121,7 +121,6 @@ export default function ClientDashboard({
   milestones,
   substages,
   clientResponse,
-  coordinator,
   supervisor,
 }: ClientDashboardProps) {
   const router = useRouter()
@@ -425,8 +424,7 @@ export default function ClientDashboard({
               </div>
             </div>
           </div>
-          <div className="border-t pt-3 mt-3 grid grid-cols-2 text-sm">
-            <p><span className="text-gray-500">Your Coordinator: </span>{coordinator?.full_name ?? '—'}</p>
+          <div className="border-t pt-3 mt-3 text-sm">
             <p><span className="text-gray-500">Your Supervisor: </span>{supervisor?.full_name ?? 'To be assigned'}</p>
           </div>
         </div>
@@ -1211,12 +1209,26 @@ export default function ClientDashboard({
             </div>
           )
         ) : clientResponse?.response_type === 'accepted' ? (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 space-y-1">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 space-y-2">
             <p>✓ Estimate Accepted on {fmtDate(clientResponse?.responded_at)}. Work will commence as per the agreed schedule.</p>
             {milestones[0] && (
-              <p>
-                Your first payment of {money(milestones[0].payment_amount)} is due on {fmtDate(milestones[0].planned_date)}.
-              </p>
+              <>
+                <p>
+                  Your first payment of {money(milestones[0].payment_amount)} is due on {fmtDate(milestones[0].planned_date)}.
+                </p>
+                {milestones[0].payment_released_at ? (
+                  <p className="font-semibold">✓ Token payment received.</p>
+                ) : milestones[0].status === 'verification_pending' ? (
+                  <p className="font-semibold">Payment submitted — awaiting coordinator verification.</p>
+                ) : (
+                  <Link
+                    href={`/client/payment?booking_ref=${enquiry.booking_ref}`}
+                    className="inline-block bg-green-700 hover:bg-green-800 text-white text-sm font-bold px-4 py-2 rounded-lg"
+                  >
+                    PAY TOKEN AMOUNT
+                  </Link>
+                )}
+              </>
             )}
             <p>You will receive daily site updates through this dashboard.</p>
           </div>

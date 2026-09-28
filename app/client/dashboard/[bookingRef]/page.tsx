@@ -97,21 +97,16 @@ export default async function ClientDashboardPage({
       .maybeSingle(),
   ])
 
-  // eslint-disable-next-line no-console
-  console.log('[page] clientResponse for', bookingRef, ':', responseData)
-
   if (!enquiryData) {
     return <AccessCard message="Booking not found." />
   }
 
-  const [coordinatorResult, supervisorResult] = await Promise.all([
-    enquiryData.supervisor_id
-      ? supabase.from('users').select('full_name').eq('id', enquiryData.supervisor_id).single()
-      : Promise.resolve({ data: null as { full_name: string } | null }),
-    enquiryData.supervisor_id
-      ? supabase.from('workers').select('full_name').eq('id', enquiryData.supervisor_id).single()
-      : Promise.resolve({ data: null as { full_name: string } | null }),
-  ])
+  // There is no per-job Coordinator assignment anywhere in the live schema
+  // (Coordinator has universal, unscoped access to every job -- confirmed
+  // Session 59) -- only Supervisor is a real per-job FK on guest_enquiries.
+  const { data: supervisor } = enquiryData.supervisor_id
+    ? await supabase.from('workers').select('full_name').eq('id', enquiryData.supervisor_id).single()
+    : { data: null as { full_name: string } | null }
 
   if (!boqData) {
     return (
@@ -133,8 +128,7 @@ export default async function ClientDashboardPage({
       milestones={milestonesData ?? []}
       substages={substagesData ?? []}
       clientResponse={responseData ?? null}
-      coordinator={coordinatorResult.data ?? null}
-      supervisor={supervisorResult.data ?? null}
+      supervisor={supervisor ?? null}
     />
   )
 }
