@@ -1337,14 +1337,61 @@ column list / actual fix approach should be confirmed against live `site_instruc
 (`\d site_instructions` or an information_schema query) before picking Option A vs B, not decided
 blind. No commits made this entry.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — instruction_type CHECK-CONSTRAINT FIX COMPLETE (commit eb11144)
+Resumed after the pause above. Project owner ran the requested `information_schema.columns` query
+and got back `site_instructions`' full real column list -- 45 columns, including two genuinely
+free, live, previously-unused ones this session hadn't known about: `instruction_category` and
+`directive_type`/`directive_priority`/`directive_target_role`/`subject` (the latter four already
+claimed by Admin's own pre-existing `adminIssueDirective` feature).
+
+**Bigger root cause found while investigating**: the `instruction_type` problem predates this
+session entirely. `app/admin/reports/actions.ts`'s `adminIssueDirective` (NOT built this session)
+has been writing 9 invalid `instruction_type` values (`admin`/`safety_critical`/`quality`/
+`general_policy`/`business_policy`/`methodology`/`method_improvement`/`payment_policy`/`general`,
+from `ReportTabs.tsx`'s `INSTRUCTION_TYPE_OPTIONS`) AND an invalid `status: 'active'` (the real
+CHECK only allows `pending/acknowledged/actioned/resolved`) since before this session touched
+anything. `app/coordinator/reports/page.tsx`'s widened `.in('instruction_type', [...])` filter
+(added in an earlier session, per its own comment citing "Duplicate/Conflict #21") already
+matched this same invalid vocabulary -- confirming Admin's directive feature and Coordinator's
+inbox agreed with each other but neither ever matched the live database.
+
+**Project owner's decision, confirmed explicitly**: these are real, distinct operational values
+that must keep working as `instruction_type` -- not collapsed into a generic `'alert'` as this
+session first proposed. `instruction_category` (Option A, confirmed by the project owner) becomes
+a broader grouping layer ABOVE `instruction_type`, not a replacement for it.
+
+**Fix shipped (commit eb11144, 11 files)**:
+- New migration `supabase/migrations/20260928_site_instructions_instruction_type_widen.sql` --
+  `site_instructions`' first-ever migration file (it had none) -- widens the live CHECK constraint
+  from 6 to 24 values, covering every `instruction_type` value any live code actually writes
+  today (the original 6 + this session's 4 new alerts + Supervisor's 6 report types/estimate
+  review + Sub-Coordinator's `chase`/`notification` + Admin's 5 pre-existing directive types).
+  **Not yet run in Supabase.**
+- `instruction_category` populated at every one of 9 write sites: `'system_alert'` (Dashboard SOS,
+  daily-log-deadline cron, Extra Works threshold breach, Pre-Delivery handover dissatisfaction),
+  `'report'` (Supervisor's 6 report types, estimate review), `'directive'` (Admin's
+  `adminIssueDirective`), `'site_instruction'` (Sub-Coordinator's `sendInstruction`/
+  `chaseSiteHead`/`notifyCoordinator`, Supervisor's outbound `/supervisor/instruction`).
+- `app/admin/reports/actions.ts`'s `status: 'active'` fixed to `'pending'` (the real initial
+  status value -- this insert would have failed against the live CHECK constraint every time).
+- `app/coordinator/reports/page.tsx`: fixed a real pre-existing display bug caught while wiring
+  this in -- every Sub-Coordinator `chase`/`notification`/`hold`/`expedite`/`revised`/`resource`/
+  `alert` row was mislabeled "Methodology" (wrong `getTypeInfo` fallback). Now uses
+  `instruction_category === 'site_instruction'` for a correct generic "Site Instruction" label,
+  with a graceful fallback for any row written before this column existed.
+- `npx tsc --noEmit`: exit 0, no new errors (this session's sandbox unexpectedly had
+  `node_modules` present, so this was a real compiler run, not the usual environmental-noise
+  caveat).
+- **Still NOT live-tested**: the migration hasn't been run in Supabase yet, so none of these 9
+  write sites have actually been exercised against the real, widened constraint. Do that before
+  calling this closed.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **PICK UP HERE FIRST**: the `instruction_type` CHECK-constraint violation above. Recommend
-  running `SELECT column_name, data_type FROM information_schema.columns WHERE table_name =
-  'site_instructions' ORDER BY ordinal_position;` first to see the REAL full column list (never
-  captured anywhere, table has no migration file) before deciding Option A vs B, then fix all 8
-  broken write sites (7 new + the 2 pre-existing `chase`/`notification` ones) plus
-  `app/coordinator/reports/page.tsx`'s matching read-side vocabulary in the same pass so read and
-  write agree with the real DB, not just each other. Re-run `npx tsc --noEmit`, commit, push.
+- **PICK UP HERE FIRST**: run `supabase/migrations/20260928_site_instructions_instruction_type_widen.sql`
+  in Supabase, then live-test at least one write from each of the 4 `instruction_category` buckets
+  (e.g. raise a real SOS, submit a real Supervisor report, issue a real Admin directive, send a
+  real Sub-Coordinator instruction) and confirm each insert succeeds and shows up correctly
+  (including the relabeled "Site Instruction" rows) in Coordinator's Reports inbox.
 - **All 12 Supervisor tabs are otherwise code-complete under the schema-freeze methodology, but
   NONE of this pass's new code has been live-verified beyond the constraint check above.** Before
   calling any of it frozen, on a session with live DB + deployment access:
