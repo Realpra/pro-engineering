@@ -1420,12 +1420,48 @@ a broader grouping layer ABOVE `instruction_type`, not a replacement for it.
   `notifyCoordinator`) staying blocked on the still-unexplained `subcoordinator@proengineering.in`
   login failure.
 
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — RECURRING STALE-MASTER BUG FOUND AND FIXED AGAIN
+While testing the Dashboard SOS button, it appeared completely missing from `pro-engineering.
+vercel.app` even after hard refreshes and fresh incognito windows on multiple machines. Root cause,
+confirmed step by step (not guessed): Vercel's Deployment Details panel for the domain showed
+`pro-engineering.vercel.app` was aliased to a Production deployment built from **`master`** at
+commit `bde966f` -- Session 66's final commit, 2 days stale -- while every commit since (this
+session's entire 12-tab Supervisor pass, the instruction_type fix, all 3 migrations-run records)
+only ever existed on `claude/gracious-knuth-vxwkc3`, never merged forward. **This is the exact same
+bug Session 66 already hit and fixed once** ("Master branch was still 4 days stale on Vercel") --
+it silently recurred because nothing re-merges the branch into master automatically; every session
+that pushes commits needs to also push them to `master` (or the project owner needs to merge PR #1)
+for Vercel to actually deploy them, since `master` is confirmed to be this project's configured
+Vercel Production Branch (its own deployment aliases include `pro-engineering-git-master-...`).
+- Confirmed via each deployment's own dedicated preview URL (bypassing the domain alias entirely):
+  the actual code on `claude/gracious-knuth-vxwkc3` was 100% correct all along -- "Today's Tasks"
+  (not "Daily Tasks"), real dynamic task list, Earnings Summary section all rendered correctly on
+  the branch's own deployment URL. This was purely a stale-alias problem, never a code bug.
+- **Fixed**: fast-forwarded `master` from `bde966f` to `9bd1a49` (`git push origin origin/
+  claude/gracious-knuth-vxwkc3:master`) -- confirmed clean fast-forward first (`git merge-base
+  --is-ancestor`, zero divergence), executed only after explicit user authorization since pushing
+  to master triggers a real production deploy (a safety-gated action). Vercel should now build and
+  alias the domain to this commit automatically.
+- **STANDING RULE going forward, to stop this recurring**: at the end of any session (or session
+  segment) that pushes real fixes to `claude/gracious-knuth-vxwkc3`, also fast-forward `master` to
+  match (or explicitly flag to the project owner that master needs updating) before considering the
+  work "live." Pushing to the working branch alone is NOT sufcient for anything to reach
+  `pro-engineering.vercel.app` -- confirmed twice now.
+- Not yet reconfirmed live after this fix: the SOS button, "Today's Tasks," and everything else on
+  the actual `pro-engineering.vercel.app` domain (deployment was just triggered, needs ~1-2 min to
+  build) -- do that check first thing next.
+
 ## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **PICK UP HERE FIRST**: work through the role-by-role live-test checklist for the 12-tab
-  Supervisor build (see conversation for the exact step list) -- supervisor62 tabs 1-11, admin's
-  directive issue, coordinator's Reports inbox display. Sub-Coordinator's own 3 write actions stay
-  blocked until its login is fixed. Once Supervisor is fully tested, move to testing other roles'
-  builds before freezing (project owner's explicit instruction -- not scoped to Supervisor alone).
+- **PICK UP HERE FIRST**: confirm the new master-triggered Vercel deployment is Ready and
+  `pro-engineering.vercel.app` now shows current code (SOS button, "Today's Tasks"), then resume
+  the role-by-role live-test checklist for the 12-tab Supervisor build (see conversation for the
+  exact step list) -- supervisor62 tabs 1-11, admin's directive issue, coordinator's Reports inbox
+  display. Sub-Coordinator's own 3 write actions stay blocked until its login is fixed. Once
+  Supervisor is fully tested, move to testing other roles' builds before freezing (project owner's
+  explicit instruction -- not scoped to Supervisor alone).
+- Remember the standing rule above: push to `master` too (or flag it) whenever real fixes land on
+  the working branch, not just to `claude/gracious-knuth-vxwkc3` -- this stale-master bug has now
+  happened twice.
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
 - Set a real `CRON_SECRET` value in Vercel before calling the Daily Log deadline cron frozen
