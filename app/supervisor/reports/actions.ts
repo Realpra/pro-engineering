@@ -2,6 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
+
+// Supervisor is not staff under is_staff() (project owner's explicit
+// decision, 28 Sep 2026) -- its own session can't read the users table
+// beyond its own row, so recipient lookups need a service-role client.
+// Matches the exact precedent already used for checkPhoneExists (Session 65).
+function adminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  return serviceKey
+    ? createAdminClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    : createAdminClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+}
 
 // /supervisor/reports/new was confirmed dead (all 6 report types
 // unreachable, PENDING #26) despite Coordinator's own reports page already
@@ -30,14 +44,14 @@ export async function submitSupervisorReport(params: {
   if (!instructionType) return { error: 'Unknown report type.' }
 
   const supabase = await createClient()
-  const { data: coordinators } = await supabase.from('users').select('id').eq('platform_role', 'coordinator')
+  const { data: coordinators } = await adminClient().from('users').select('id').eq('platform_role', 'coordinator')
   if (!coordinators || coordinators.length === 0) return { error: 'No coordinator recipient found.' }
 
   // Safety Critical routes to Coordinator + Admin (auto CC), per the label
   // already shown on the report-type card.
   const recipients = [...coordinators]
   if (instructionType === 'safety_critical') {
-    const { data: admins } = await supabase.from('users').select('id').eq('platform_role', 'admin')
+    const { data: admins } = await adminClient().from('users').select('id').eq('platform_role', 'admin')
     recipients.push(...(admins ?? []))
   }
 

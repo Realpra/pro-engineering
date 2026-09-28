@@ -2,6 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
+
+// Supervisor is not staff under is_staff() (project owner's explicit
+// decision, 28 Sep 2026) -- its own session can't read the users table
+// beyond its own row, so recipient lookups need a service-role client.
+// Matches the exact precedent already used for checkPhoneExists (Session 65).
+function adminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  return serviceKey
+    ? createAdminClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    : createAdminClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+}
 
 export type SnagItem = {
   location: string
@@ -187,7 +201,7 @@ export async function submitClientHandover(
   // (confirmed by grep) -- reuses the same site_instructions fan-out
   // pattern already frozen for the SOS/broadcast fixes this session.
   if (!input.satisfied) {
-    const { data: subCoordinators } = await supabase.from('users').select('id').eq('platform_role', 'sub_coordinator')
+    const { data: subCoordinators } = await adminClient().from('users').select('id').eq('platform_role', 'sub_coordinator')
     if (subCoordinators && subCoordinators.length > 0) {
       await supabase.from('site_instructions').insert(
         subCoordinators.map(sc => ({

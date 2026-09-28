@@ -15,9 +15,17 @@
 -- not live-critical. `users`, `workers`, and `scope_reports` are the ones
 -- that matter for the real, live app.
 --
--- Project owner's explicit decision: every platform_role except 'client'
--- counts as staff (not an enumerated allow-list, so it stays correct if new
--- staff roles are added later without needing this function touched again).
+-- Project owner's revised, explicit decision (narrower than the first pass
+-- above): staff = super_admin, admin, coordinator, sub_coordinator only.
+-- Supervisor, Site Incharge, Mktg Agent, and Client are all non-staff.
+-- Consequence, deliberately accepted: Supervisor's own session can no longer
+-- read the users table beyond its own row -- the recipient-lookup queries
+-- that need to find admins/coordinators (raiseSOS, submitSupervisorReport,
+-- submitExtraWork's coordinator-notify, submitClientHandover's
+-- sub-coordinator-notify, submitSupervisorEstimateReview's coordinator-notify)
+-- are switched to a service-role client instead (same commit), matching the
+-- exact precedent already used for checkPhoneExists in Session 65 -- narrow
+-- the specific lookup, not the RLS boundary.
 CREATE OR REPLACE FUNCTION public.is_staff()
  RETURNS boolean
  LANGUAGE sql
@@ -26,8 +34,7 @@ AS $function$
   SELECT EXISTS (
     SELECT 1 FROM users
     WHERE id = auth.uid()
-      AND platform_role IS NOT NULL
-      AND platform_role != 'client'
+      AND platform_role IN ('super_admin', 'admin', 'coordinator', 'sub_coordinator')
       AND is_active = true
   );
 $function$;

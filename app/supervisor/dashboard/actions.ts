@@ -2,6 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
+
+// Supervisor is not staff under is_staff() (project owner's explicit
+// decision, 28 Sep 2026) -- its own session can't read the users table
+// beyond its own row, so recipient lookups need a service-role client.
+// Matches the exact precedent already used for checkPhoneExists (Session 65).
+function adminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  return serviceKey
+    ? createAdminClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    : createAdminClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+}
 
 // "Site Head Not Ready" (SA-1 dashboard action, June log line 10465 area --
 // supervisor arrives at a slot but the Site Incharge isn't present/ready).
@@ -34,7 +48,7 @@ export async function raiseSOS(params: {
 }): Promise<{ error?: string }> {
   const supabase = await createClient()
 
-  const { data: admins } = await supabase.from('users').select('id').eq('platform_role', 'admin')
+  const { data: admins } = await adminClient().from('users').select('id').eq('platform_role', 'admin')
   if (!admins || admins.length === 0) return { error: 'No admin recipient found to raise SOS to.' }
 
   const { error } = await supabase.from('site_instructions').insert(
