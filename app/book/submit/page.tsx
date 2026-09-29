@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, Loader2, Copy } from 'lucide-react'
-import { getBooking, saveBooking, clearBooking, JOB_TYPE_DB_MAP, ZONE_DB_MAP } from '@/lib/booking'
+import { getBooking, saveBooking, clearBooking, JOB_TYPE_DB_MAP } from '@/lib/booking'
 import { createClient } from '@/lib/supabase-client'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -56,7 +56,7 @@ export default function SubmitPage() {
       contact_email: contactEmail.trim() || null,
       job_title: b.jobTitle || 'Construction Project',
       job_type: JOB_TYPE_DB_MAP[b.jobType || ''] || 'other',
-      zone: ZONE_DB_MAP[b.zone || ''] || 'west',
+      zone: b.zone || null,
       district: b.district || null,
       budget_min: b.budget ? Math.round(b.budget * 0.8) : null,
       budget_max: b.budget || null,

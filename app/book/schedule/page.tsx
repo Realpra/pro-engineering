@@ -3,23 +3,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, MapPin } from 'lucide-react'
 import { saveBooking, getBooking } from '@/lib/booking'
+import { getBookingGeoTree, type GeoNode } from '@/app/book/actions'
 import { cn } from '@/lib/utils'
-
-const ZONES = ['North', 'South', 'East', 'West', 'Central', 'Northeast']
-
-const DELHI_DISTRICTS = [
-  'Central Delhi',
-  'East Delhi',
-  'New Delhi',
-  'North Delhi',
-  'North East Delhi',
-  'North West Delhi',
-  'Shahdara',
-  'South Delhi',
-  'South East Delhi',
-  'South West Delhi',
-  'West Delhi',
-]
 
 const DURATION_OPTIONS = [
   { label: '1 week',   weeks: 1  },
@@ -40,8 +25,12 @@ export default function SchedulePage() {
   const [jobTitle, setJobTitle]         = useState('')
   const [startDate, setStartDate]       = useState('')
   const [durationWeeks, setDuration]    = useState<number | null>(null)
-  const [zone, setZone]                 = useState('')
-  const [district, setDistrict]         = useState('')
+
+  const [geo, setGeo]                   = useState<GeoNode[]>([])
+  const [districtId, setDistrictId]     = useState('')
+  const [regionId, setRegionId]         = useState('')
+  const [zoneId, setZoneId]             = useState('')
+  const [sectorId, setSectorId]         = useState('')
 
   useEffect(() => {
     const b = getBooking()
@@ -49,15 +38,40 @@ export default function SchedulePage() {
     setJobTitle(b.jobTitle || '')
     if (b.startDate)     setStartDate(b.startDate)
     if (b.durationWeeks) setDuration(b.durationWeeks)
-    if (b.zone)          setZone(b.zone)
-    if (b.district)      setDistrict(b.district)
+    getBookingGeoTree().then(setGeo)
   }, [router])
 
-  const isValid = startDate && durationWeeks && zone && district
+  const districts = geo.filter(g => g.level === 'district')
+  const regions   = geo.filter(g => g.level === 'region' && g.parent_id === districtId)
+  const zones     = geo.filter(g => g.level === 'zone' && g.parent_id === regionId)
+  const sectors   = geo.filter(g => g.level === 'sector' && g.parent_id === zoneId)
+
+  function selectDistrict(id: string) {
+    setDistrictId(id)
+    setRegionId('')
+    setZoneId('')
+    setSectorId('')
+  }
+
+  function selectRegion(id: string) {
+    setRegionId(id)
+    setZoneId('')
+    setSectorId('')
+  }
+
+  function selectZone(id: string) {
+    setZoneId(id)
+    setSectorId('')
+  }
+
+  const districtName = districts.find(d => d.id === districtId)?.name ?? ''
+  const sectorName   = sectors.find(s => s.id === sectorId)?.name ?? ''
+
+  const isValid = startDate && durationWeeks && districtId && sectorId
 
   function handleContinue() {
     if (!isValid) return
-    saveBooking({ startDate, durationWeeks: durationWeeks!, zone, district })
+    saveBooking({ startDate, durationWeeks: durationWeeks!, zone: sectorName, district: districtName })
     router.push('/book/service-model')
   }
 
@@ -108,42 +122,74 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        {/* Zone */}
+        {/* Site Location -- real geo_hierarchy cascade */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <label className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
             <MapPin className="w-3.5 h-3.5" />
-            Service Zone
+            Site Location
           </label>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {ZONES.map(z => (
-              <button
-                key={z}
-                onClick={() => setZone(z)}
-                className={cn(
-                  'py-2 px-3 rounded-xl text-xs font-semibold border transition-all',
-                  zone === z
-                    ? 'bg-blue-700 text-white border-blue-700'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-blue-400',
-                )}
-              >
-                {z}
-              </button>
-            ))}
-          </div>
 
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-            Delhi District
-          </label>
-          <select
-            value={district}
-            onChange={e => setDistrict(e.target.value)}
-            className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select district…</option>
-            {DELHI_DISTRICTS.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          {geo.length === 0 ? (
+            <p className="text-sm text-slate-400">Loading service areas…</p>
+          ) : (
+            <div className="space-y-3">
+              <select
+                value={districtId}
+                onChange={e => selectDistrict(e.target.value)}
+                className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select district…</option>
+                {districts.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+
+              {districtId && (
+                regions.length === 0 ? (
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
+                    We don&apos;t serve this district yet. Choose another, or a coordinator will confirm coverage after you submit.
+                  </p>
+                ) : (
+                  <select
+                    value={regionId}
+                    onChange={e => selectRegion(e.target.value)}
+                    className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select region…</option>
+                    {regions.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                )
+              )}
+
+              {regionId && zones.length > 0 && (
+                <select
+                  value={zoneId}
+                  onChange={e => selectZone(e.target.value)}
+                  className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select zone…</option>
+                  {zones.map(z => (
+                    <option key={z.id} value={z.id}>{z.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {zoneId && sectors.length > 0 && (
+                <select
+                  value={sectorId}
+                  onChange={e => setSectorId(e.target.value)}
+                  className="w-full text-sm font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select sector / area…</option>
+                  {sectors.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

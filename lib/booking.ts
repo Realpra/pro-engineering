@@ -51,12 +51,3 @@ export const JOB_TYPE_DB_MAP: Record<string, string> = {
   'project-management': 'other',
   'manufacturing': 'other',
 }
-
-export const ZONE_DB_MAP: Record<string, string> = {
-  'North': 'north',
-  'South': 'south',
-  'East': 'east',
-  'West': 'west',
-  'Central': 'central',
-  'Northeast': 'northeast',
-}
