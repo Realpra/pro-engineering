@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import SignOutButton from './SignOutButton'
+import RequestResourcesButton from './RequestResourcesButton'
+import LTFSubmitButton from './LTFSubmitButton'
 import Link from 'next/link'
 
 function greeting(hour: number) {
@@ -211,6 +213,20 @@ export default async function SiteInchargeDashboardPage() {
             </div>
           )}
         </section>
+
+        {activeJob && (
+          <section className="space-y-3">
+            <LTFSubmitButton
+              bookingRef={activeJob.booking_ref}
+              siteId={activeJob.id}
+              siteInchargeUserId={user.id}
+            />
+            <RequestResourcesButton
+              siteInchargeUserId={user.id}
+              bookingRef={activeJob.booking_ref}
+            />
+          </section>
+        )}
 
         {instructions && instructions.length > 0 && (
           <section>

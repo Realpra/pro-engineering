@@ -16,11 +16,18 @@ import ConfirmDayPlanButton from './ConfirmDayPlanButton'
 // and stays there (a genuinely different job -- editing vs. viewing the
 // compiled plan) rather than being merged in here.
 //
-// "ltf_feeds" as a literal table was never built; the LTF-driven-visit
-// concept it named lives on supervisor_daily_routes.ltf_note (already
-// wired end to end -- confirmed by grep, populated by Sub-Coordinator's
-// route actions). "Free slots" here is reported as a simple count rather
-// than exact time-gap computation, a disclosed simplification.
+// CORRECTION (29 Sep 2026): this comment previously claimed "ltf_feeds as a
+// literal table was never built" -- wrong, or at least unverified either
+// way. app/sub-coordinator/ltf/page.tsx and dashboard/page.tsx both already
+// query .from('ltf_feeds') directly, and it now has a real writer
+// (app/site-incharge/dashboard/actions.ts's submitLTF) plus a real
+// automatic consumer (app/api/cron/ltf-route-compile). Whether the table
+// genuinely exists live has never been confirmed either way in this
+// sandbox (no DB access) -- flagged for a live check, not assumed. This
+// page's own display still reads the LTF signal via
+// supervisor_daily_routes.ltf_note (set by the same cron), which stays
+// correct regardless. "Free slots" here is reported as a simple count
+// rather than exact time-gap computation, a disclosed simplification.
 function formatTime(t: string | null | undefined) {
   if (!t) return '—'
   const [h, m] = t.split(':').map(Number)
@@ -87,6 +94,19 @@ export default async function SupervisorRoutePage() {
     ? await supabase.from('guest_enquiries').select('id, booking_ref').in('id', routeSiteIds)
     : { data: [] }
   const siteIdToBookingRef = Object.fromEntries((siteJobs ?? []).map(j => [j.id, j.booking_ref]))
+
+  // PENDING #31 pattern (already fixed on dashboard/page.tsx and
+  // route/plan/page.tsx) -- missed here when this page was first built.
+  // A scope_survey/client_visit/estimate_visit overdue slot must open the
+  // pre-confirm Site Survey form, not Flow (ii)'s Daily Execution form.
+  const visitHref = (slot: { id: string; site_id: string | null; slot_type: string | null }): string | null => {
+    if (slot.slot_type === 'hq') return null
+    if (slot.slot_type === 'client_visit' || slot.slot_type === 'scope_survey' || slot.slot_type === 'estimate_visit') {
+      const bookingRef = slot.site_id ? siteIdToBookingRef[slot.site_id] : null
+      return bookingRef ? `/site-survey/${bookingRef}` : null
+    }
+    return `/supervisor/site-visit?slot=${slot.id}`
+  }
 
   const ltfDrivenVisits = (todayRoute ?? []).filter(s => s.ltf_note)
   const otherVisits = (todayRoute ?? []).filter(s => !s.ltf_note)
@@ -157,9 +177,11 @@ export default async function SupervisorRoutePage() {
                     <p className="text-sm font-semibold text-red-700">{(s.site_id && siteIdToBookingRef[s.site_id]) ?? 'Site TBC'}</p>
                     <p className="text-xs text-gray-400 mt-0.5">Was due {s.scheduled_date} · {s.slot_type ?? 'inspection'}</p>
                   </div>
-                  <Link href={`/supervisor/site-visit?slot=${s.id}`} className="shrink-0 text-xs text-red-600 font-semibold underline">
-                    Visit Now →
-                  </Link>
+                  {visitHref(s) && (
+                    <Link href={visitHref(s)!} className="shrink-0 text-xs text-red-600 font-semibold underline">
+                      Visit Now →
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>

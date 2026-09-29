@@ -54,7 +54,11 @@ export default async function CoordinatorReportsPage() {
   const { data: supervisors } = await supabase
     .from('users')
     .select('id, full_name, platform_role')
-    .in('platform_role', ['supervisor', 'sub_coordinator'])
+    // site_incharge added 29 Sep 2026 -- Site Incharge's own outbound resource
+    // request (app/site-incharge/dashboard/actions.ts's requestResources)
+    // lands here as issued_by, otherwise the sender name would silently fail
+    // to resolve for every row it sends.
+    .in('platform_role', ['supervisor', 'sub_coordinator', 'site_incharge'])
 
   const jobMap = Object.fromEntries((activeJobs ?? []).map(j => [j.booking_ref, j]))
   const userMap = Object.fromEntries((supervisors ?? []).map(s => [s.id, s]))

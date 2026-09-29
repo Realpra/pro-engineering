@@ -5,6 +5,7 @@
   "installCommand": "npm install",
   "crons": [
     { "path": "/api/cron/daily-log-deadline-check", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/daily-log-deadline-check", "schedule": "30 13 * * *" }
+    { "path": "/api/cron/daily-log-deadline-check", "schedule": "30 13 * * *" },
+    { "path": "/api/cron/ltf-route-compile", "schedule": "30 14 * * *" }
   ]
 }
