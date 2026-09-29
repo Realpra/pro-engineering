@@ -23,6 +23,12 @@ isolated relationship line. No schema migration work starts on any table/relatio
 until it has gone through that process. Read docs/SCHEMA_FREEZE_METHODOLOGY.md before
 proposing any new FK, table, or relationship change.
 
+**FROZEN so far (live-verified, not just code-complete)**: Worker Onboarding (Session 66),
+Supervisor Visit + all 12 tabs (Session 67), Client (`/book` + `/client/*`, Session 67 continued
+further, 29 Sep 2026 -- see CLIENT FIELDS below for the frozen field list). Each entry's own
+session log has the live-run + Amendment 2 evidence; do not reopen a frozen process without a
+new real finding.
+
 ## PROCESS FLOW — READ BEFORE ANY FIELD/SCHEMA DECISION (set 23 Sep 2026)
 Real-life end-to-end flow this platform models, in order:
 1. Client posts a job, OR any role sources one via local outreach -> a job record is created
@@ -154,6 +160,69 @@ Screen 4: zones, isAvailable, dailyWage, hourlyRate, heightRestriction, dustRest
 Screen 5: bocwRegistered, bocwNumber, pfUan, esicIp, bankAccount, ifscCode, emergencyName,
   emergencyPhone
 Screen 6: declared, agreed (review + declaration only)
+
+## CLIENT FIELDS (Contract side, frozen 29 Sep 2026 -- Client process live-verified end to end,
+## real trial job confirmed by the project owner. Same screen->code->DB discipline as WORKER
+## FIELDS above -- every row here is a real, confirmed write path, not an inference.)
+
+**`/book` public wizard (9 screens, all client-side state in `lib/booking.ts`'s `BookingState`
+until the final `/book/submit` insert):**
+- Screen 1 Job Type (`app/book/page.tsx`) -> `jobType`, `jobTitle` -> `guest_enquiries.job_type`
+  (mapped via `JOB_TYPE_DB_MAP`), `guest_enquiries.job_title`
+- Screen 2 Budget (`app/book/budget/`) -> `budget` -> `guest_enquiries.budget_min`/`budget_max`
+  (computed as 80%/100% of the entered figure)
+- Screen 3 Schedule (`app/book/schedule/`) -> `startDate`, `durationWeeks`, `zone` (real
+  geo_hierarchy sector name), `district` -> `guest_enquiries.preferred_start_date`,
+  `duration_weeks`, `zone`, `district`. Geo picker sourced from `getBookingGeoTree`
+  (`app/book/actions.ts`), a real District->Region->Zone->Sector cascade against
+  `geo_hierarchy`/`geo_zone_sector_coverage` -- not the old fake compass-direction `ZONES`.
+- Screen 4 Service Model (`app/book/service-model/`) -> `serviceModel`, `serviceModelTitle` ->
+  `guest_enquiries.service_model`, `guest_enquiries.service_model_title`
+- Screen 5 Site Visit (`app/book/site-visit/` or `civil-site-visit/`, by job type) ->
+  `siteVisitDate`, `siteVisitSlot` -> NOT written to `guest_enquiries` at all -- feeds
+  `site_visit_requests.requested_date`/`requested_slot` at submit time (a real request-intake
+  row, genuinely distinct from `supervisor_daily_routes`'s staff-assigned side)
+- Screen 6 Scope Report (`app/book/scope-report/`) -> `scopeApproved` -> NOT persisted anywhere
+  (confirmed static/mocked, Session 63 finding, still true -- flagged, not silently treated as
+  live data)
+- Screen 7 Estimate (`app/book/estimate/`) -> `estimateTotal` -> `guest_enquiries.estimate_total`
+  (confirmed static/mocked preview data, not the real `boq_generated` estimate shown later)
+- Screen 8 Confirmation -- display only, no new field
+- Screen 9 Submit/Contact (`app/book/submit/`) -> `contactName`, `contactPhone`, `contactEmail`
+  -> `guest_enquiries.contact_name`/`contact_phone`/`contact_email` (phone required, email
+  optional, by design). This same screen's submit action also: inserts the `site_visit_requests`
+  row if Screen 5 was filled; calls `createClientDevAuthAccount` (dev/beta path -- generates
+  `<name>_client_<suffix>@proengineering.in` + `Client2026`, sets `client_user_id` immediately).
+
+**`/client/login`**: Email Link tab -> real `supabase.auth.signInWithOtp({ email })`; the
+resulting session is picked up by `app/client/auth/callback`, which calls `linkClientAccount` to
+set `client_user_id` on every matching `guest_enquiries` row (the one step that never existed
+before this session). Phone OTP tab -> real `signInWithOtp({ phone })`/`verifyOtp` -- needs an
+SMS provider configured in Supabase Auth settings, not yet done (flagged, not assumed working).
+
+**`/client/dashboard/[bookingRef]`** (`app/client/dashboard/[bookingRef]/actions.ts`): reads
+`guest_enquiries.*`, latest non-draft `boq_generated`, `milestone_payment_schedule.*`,
+`job_milestone_substages.*`, latest `estimate_client_responses`. Writes:
+`submitLineItemResponse`/`submitOverallResponse` -> `estimate_client_responses.*`,
+`boq_generated.client_accepted_at`/`status`/`client_rejected_at` (accept/reject only -- never
+touched by payment verification, see the `verifyPayment` fix below); `acknowledgeRiskFlag` ->
+`boq_generated.risk_flag_items`; `acceptTerms` -> `boq_generated.terms_accepted_at`/
+`terms_accepted_by`; `submitMilestonePaymentRequest` -> `milestone_payment_schedule.status =
+'client_payment_pending'`; `submitClientScopeChange` -> `scope_change_requests` (client-raised).
+
+**`/client/payment`** (`app/client/payment/actions.ts`, generalized to any milestone via
+`milestone_code`): `confirmTokenPayment` -> `payment_confirmations.*` (insert) +
+`milestone_payment_schedule.status = 'verification_pending'`/`evidence_submitted`;
+`verifyPayment` -> `payment_confirmations.status = 'verified'` + (M0:
+`milestone_payment_schedule.status = 'paid'`/`token_payment_verified_at`,
+`guest_enquiries.status = 'work_started'`; M1-M4: `status = 'payment_released'`/
+`payment_released_at`) -- never touches `boq_generated.client_accepted_at` (a distinct,
+client-only event, fixed this session); `rejectPayment` -> `payment_confirmations.status =
+'rejected'` + (M0 only) `guest_enquiries.status = 'estimate_accepted'`.
+
+**Confirmed real gaps, not fixed, needing their own decision (not guessed at)**: `/book`'s Scope
+Report and Cost Estimate screens are 100% static/mocked, disconnected from the real `boq_
+generated` estimate; no handover/documents-vault/rating screen exists anywhere in `app/client/*`.
 
 ## PENDING
 1. Auth fix — Supabase SU-472225
