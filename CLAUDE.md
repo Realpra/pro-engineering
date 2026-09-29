@@ -25,8 +25,17 @@ proposing any new FK, table, or relationship change.
 
 **FROZEN so far (live-verified, not just code-complete)**: Worker Onboarding (Session 66),
 Supervisor Visit + all 12 tabs (Session 67), Client (`/book` + `/client/*`, Session 67 continued
-further, 29 Sep 2026 -- see CLIENT FIELDS below for the frozen field list). Each entry's own
-session log has the live-run + Amendment 2 evidence; do not reopen a frozen process without a
+further, 29 Sep 2026 -- see CLIENT FIELDS below for the frozen field list; Amendment 2's data-
+integrity check run against the real trial job PE8VKFGQUE, 29 Sep 2026 -- `guest_enquiries`
+single row, `contact_name`/`contact_phone` populated, `contact_email` correctly null (optional),
+`zone`="Panchsheel Park" a real place name not a compass direction, `service_model_title`
+populated, `client_user_id` populated; `site_visit_requests` initially looked like a duplicate
+[2 rows, same booking_ref/date/slot] but the `id`/`requested_by_role`/`source`/`created_at`
+columns proved both legitimate -- one real client submission via `/book` [`client`/`book_form`],
+one the project owner's own test of Coordinator's manual "Log a Visit Request" feature
+[`coordinator`/`phone`, notes "check run", 14 minutes later] -- a bonus confirmation that feature
+works too, not a bug). Each entry's own session log has the live-run + Amendment 2 evidence; do
+not reopen a frozen process without a
 new real finding.
 
 ## PROCESS FLOW — READ BEFORE ANY FIELD/SCHEMA DECISION (set 23 Sep 2026)
