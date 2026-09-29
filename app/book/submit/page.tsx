@@ -85,6 +85,22 @@ export default function SubmitPage() {
       return
     }
 
+    // The site-visit screen collects a requested date/slot but never wrote it
+    // anywhere -- confirmed real gap (Client field inventory). Non-fatal if
+    // this insert fails: the enquiry itself is already safely saved above.
+    if (b.siteVisitDate && b.siteVisitSlot) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('site_visit_requests').insert({
+        booking_ref: ref,
+        visit_category: 'scope_survey',
+        requested_date: b.siteVisitDate,
+        requested_slot: b.siteVisitSlot,
+        requested_by_role: 'client',
+        source: 'book_form',
+        status: 'pending',
+      })
+    }
+
     saveBooking({ jobId: ref })
     setRef(ref)
     setStage('success')

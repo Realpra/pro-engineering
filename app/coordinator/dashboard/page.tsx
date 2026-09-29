@@ -48,6 +48,12 @@ export default async function CoordinatorDashboardPage() {
         .order('subcoordinator_reviewed_at', { ascending: true })
     : { data: [] }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count: pendingVisitRequests } = await (supabase as any)
+    .from('site_visit_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+
   const { data: scopeReports } = await supabase
     .from('guest_enquiries')
     .select('booking_ref, job_title, job_type, zone, status')
@@ -116,6 +122,7 @@ export default async function CoordinatorDashboardPage() {
     { href: '/coordinator/zone-registry', icon: '🗺', label: 'Zone Registry', count: null, urgent: false },
     { href: '/coordinator/workers', icon: '👷', label: 'Workers', count: (pendingWorkers ?? []).length, urgent: approaching120.length > 0 },
     { href: '/coordinator/routes', icon: '📍', label: 'Routes', count: null, urgent: false },
+    { href: '/coordinator/visit-requests', icon: '📅', label: 'Visit Requests', count: pendingVisitRequests ?? 0, urgent: (pendingVisitRequests ?? 0) > 0 },
     { href: '/coordinator/reports', icon: '📝', label: 'Reports', count: null, urgent: false },
     { href: '/coordinator/escalations', icon: '⚠️', label: 'Escalations', count: null, urgent: false },
     { href: '/coordinator/cost', icon: '📈', label: 'Live Cost', count: null, urgent: false },
