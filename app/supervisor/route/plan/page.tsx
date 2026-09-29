@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../../dashboard/SignOutButton'
 import AddSlotForm from './AddSlotForm'
+import DeclineSlotButton from './DeclineSlotButton'
+import PendingPickupSection from './PendingPickupSection'
 
 function formatTime(t: string | null | undefined) {
   if (!t) return '—'
@@ -63,12 +65,28 @@ export default async function RoutePlanPage() {
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
+  // Project owner's rule (29 Sep 2026): a declined visit stays "pending"
+  // until a higher role overrides it (app/coordinator/visit-requests) --
+  // whatever's left un-overridden is open for ANY supervisor to pick up
+  // into one of their own empty slots, not only the one who declined it.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pendingSlotsRaw } = await (supabase as any)
+    .from('supervisor_daily_routes')
+    .select('id, scheduled_date, slot_start, slot_end, slot_type, site_id, decline_reason')
+    .eq('visit_status', 'supervisor_declined')
+    .is('override_confirmed_at', null)
+    .order('scheduled_date', { ascending: true })
+
   // supervisor_daily_routes.site_id is a UUID referencing guest_enquiries.id
   // (confirmed live -- a real test insert failed with "site_id is of type
   // uuid but expression is of type text"), NOT a booking_ref string as
   // PENDING #31's fix first assumed. Resolve it before building any
   // /site-survey/[bookingRef] link.
-  const routeSiteIds = Array.from(new Set((todayRoute ?? []).map(s => s.site_id).filter((v): v is string => Boolean(v))))
+  const pendingSlots = pendingSlotsRaw ?? []
+  const routeSiteIds = Array.from(new Set([
+    ...(todayRoute ?? []).map(s => s.site_id),
+    ...pendingSlots.map((s: { site_id: string | null }) => s.site_id),
+  ].filter((v): v is string => Boolean(v))))
   const { data: routeSiteJobs } = routeSiteIds.length > 0
     ? await supabase.from('guest_enquiries').select('id, booking_ref').in('id', routeSiteIds)
     : { data: [] }
@@ -316,19 +334,32 @@ export default async function RoutePlanPage() {
                     )}
 
                     {/* Report status */}
-                    <div className="flex items-center justify-between pt-1">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${reportBadge(slot.report_status)}`}>
-                        {reportLabel(slot.report_status)}
-                      </span>
-                      {slot.report_status !== 'submitted' && visitHref(slot) && (
-                        <Link
-                          href={visitHref(slot)!}
-                          className="text-xs text-[#2E74B5] font-semibold underline"
-                        >
-                          Submit Report →
-                        </Link>
-                      )}
-                    </div>
+                    {slot.visit_status === 'supervisor_declined' ? (
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+                        <p className="text-xs font-bold text-orange-700">⏳ Sent to Pending — awaiting a coordinator/admin decision</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${reportBadge(slot.report_status)}`}>
+                            {reportLabel(slot.report_status)}
+                          </span>
+                          {slot.report_status !== 'submitted' && visitHref(slot) && (
+                            <Link
+                              href={visitHref(slot)!}
+                              className="text-xs text-[#2E74B5] font-semibold underline"
+                            >
+                              Submit Report →
+                            </Link>
+                          )}
+                        </div>
+                        {slot.report_status !== 'submitted' && (
+                          <div className="pt-1">
+                            <DeclineSlotButton slotId={slot.id} supervisorUserId={user.id} />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -386,6 +417,12 @@ export default async function RoutePlanPage() {
             </div>
           )}
         </section>
+
+        <PendingPickupSection
+          slots={pendingSlots}
+          siteIdToBookingRef={siteIdToBookingRef}
+          supervisorId={workerRecord?.id ?? ''}
+        />
 
         {/* MANUAL ADD SLOT */}
         <section>

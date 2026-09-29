@@ -99,3 +99,63 @@ export async function addSlotManually(input: ManualSlotInput): Promise<{ error?:
   revalidatePath('/supervisor/dashboard')
   return {}
 }
+
+// Project owner's rule (29 Sep 2026): Supervisor proposing NOT to do a
+// scheduled day's work moves it to "pending" by default -- it stays assigned
+// only if a higher role (superadmin/admin/coordinator/sub-coordinator)
+// explicitly overrides the proposal (see overrideDecline in
+// app/coordinator/visit-requests/actions.ts). Needs
+// 20260929_supervisor_daily_routes_decline_override.sql run first.
+export async function declineSlot(slotId: string, supervisorUserId: string, reason: string): Promise<{ error?: string }> {
+  if (!reason.trim()) return { error: 'Explain why you cannot do this visit.' }
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('supervisor_daily_routes')
+    .update({
+      visit_status: 'supervisor_declined',
+      decline_reason: reason.trim(),
+      declined_at: new Date().toISOString(),
+      declined_by: supervisorUserId,
+    })
+    .eq('id', slotId)
+  if (error) return { error: error.message }
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  revalidatePath('/coordinator/visit-requests')
+  return {}
+}
+
+// The "balance of all pending" (declined, not overridden by a higher role)
+// is open for ANY supervisor to pick up into their own empty slot -- not
+// only the one who originally declined it.
+export async function claimPendingSlot(params: {
+  slotId: string
+  supervisorId: string
+  scheduledDate: string
+  slotStart: string
+  slotEnd: string
+}): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('supervisor_daily_routes')
+    .update({
+      supervisor_id: params.supervisorId,
+      scheduled_date: params.scheduledDate,
+      slot_start: params.slotStart,
+      slot_end: params.slotEnd,
+      visit_status: 'scheduled',
+      decline_reason: null,
+      declined_at: null,
+      declined_by: null,
+      planned_by: 'supervisor',
+    })
+    .eq('id', params.slotId)
+    .eq('visit_status', 'supervisor_declined')
+    .is('override_confirmed_at', null)
+  if (error) return { error: error.message }
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  return {}
+}

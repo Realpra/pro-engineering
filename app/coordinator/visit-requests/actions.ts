@@ -107,6 +107,30 @@ export async function scheduleVisitRequest(input: ScheduleVisitRequestInput): Pr
   return {}
 }
 
+// Project owner's rule (29 Sep 2026): a supervisor's proposal not to do a
+// scheduled visit stays "pending" (declined) unless a higher role
+// (superadmin/admin/coordinator -- sub-coordinator excluded, that role's
+// build is deferred) explicitly overrides it, keeping the slot exactly as
+// originally assigned. Needs
+// 20260929_supervisor_daily_routes_decline_override.sql run first.
+export async function overrideDecline(slotId: string, overriddenByUserId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('supervisor_daily_routes')
+    .update({
+      visit_status: 'scheduled',
+      override_confirmed_at: new Date().toISOString(),
+      override_confirmed_by: overriddenByUserId,
+    })
+    .eq('id', slotId)
+  if (error) return { error: error.message }
+  revalidatePath('/coordinator/visit-requests')
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  return {}
+}
+
 export async function cancelVisitRequest(requestId: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
