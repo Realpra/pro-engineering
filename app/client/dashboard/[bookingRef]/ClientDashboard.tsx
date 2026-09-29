@@ -106,15 +106,6 @@ function milestoneBadgeLabel(m: AnyRecord): string {
   return `M${m.milestone_number ?? '0'}`
 }
 
-function serviceModelLabel(v: unknown): string {
-  if (typeof v !== 'string' || !v) return '—'
-  const val = v.toLowerCase()
-  if (val === 'l' || val === 'labour') return 'Labour Only'
-  if (val === 'm' || val === 'material') return 'Material Supply'
-  if (val === 'lm' || val === 'turnkey' || val === 'r1') return 'Labour + Material (Turnkey)'
-  return v
-}
-
 export default function ClientDashboard({
   enquiry,
   boq,
@@ -409,7 +400,7 @@ export default function ClientDashboard({
                 <span className="text-gray-500">Sector: </span>
                 <Pill className="bg-gray-200 text-gray-700">{enquiry.sector ?? '—'}</Pill>
               </p>
-              <p><span className="text-gray-500">Service model: </span>{serviceModelLabel(enquiry.service_model)}</p>
+              <p><span className="text-gray-500">Service model: </span>{enquiry.service_model_title ?? enquiry.service_model ?? '—'}</p>
               <p>
                 <span className="text-gray-500">Tier: </span>
                 <TierBadge tier={boq.tier} />

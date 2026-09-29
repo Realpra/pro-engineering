@@ -63,6 +63,7 @@ export default function SubmitPage() {
       preferred_start_date: b.startDate || null,
       duration_weeks: b.durationWeeks || null,
       service_model: b.serviceModel || null,
+      service_model_title: b.serviceModelTitle || null,
       estimate_total: b.estimateTotal || null,
       status: 'enquiry',
     }
