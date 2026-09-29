@@ -1875,3 +1875,70 @@ further asking -- do it immediately as part of closing this out, per the standin
   awaiting the project owner's go-ahead; `decision_5_raised_by` storing a role string.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
+
+## SESSION 67 CONTINUED FURTHER — 29 Sep 2026 — CLIENT PROCESS LIVE-VERIFIED, `master` CURRENT
+All 4 migrations from the Client + Route/decline-override passes confirmed run live by the
+project owner ("Success. No rows returned" on each) -- `master` fast-forwarded to match
+`claude/gracious-knuth-vxwkc3` (currently `aa7940a`). One caught-mid-fast-forward mistake:
+pushed `ed00b83` (the decline/override migration's dependent code) to `master` before confirming
+that migration had run -- caught immediately, migration run within minutes, no live breakage
+observed. Lesson applied going forward: check each commit's OWN new migration before including
+it in a `master` push, not just the batch's oldest one.
+
+**Client process live-run, executed by the project owner end to end**: a real `/book` submission
+through Step 5 of the checklist above. Confirmed working exactly as coded: booking created with
+a real dev login account, the geo picker, client dev login (correctly showed "being prepared" --
+right behavior pre-admin-approval, not a bug), and the site visit request reaching `/coordinator/
+visit-requests` as Pending with a working "Confirm Schedule" flow. Email Link login untested this
+round (no email entered on this test booking -- optional field, working as designed).
+
+**One real bug found and fixed via this live run**: `/admin/estimate/[bookingRef]` (Estimate
+Console, where staff prepare a BOQ) never selected `contact_name`/`contact_phone`/`contact_email`
+from `guest_enquiries` at all -- not a display miss, the columns weren't even fetched. Staff
+preparing an estimate had no way to see who to call. Fixed (`aa7940a`): now selected and shown in
+the page header next to the job title. Same bug, smaller blast radius, also fixed in
+`app/coordinator/jobs/page.tsx` (selected `contact_phone`, only ever rendered `contact_name`).
+
+**Confirmed NOT a bug, a real pre-existing data gap**: "No rate card found for zone 'Panchsheel
+Park' — rates set to ₹0" on the Estimate Console. The geo_hierarchy Delhi seed (`20260928_geo_
+hierarchy_delhi_central_delhi.sql`) added real Delhi place names to the location picker, but no
+rate_card data exists for any Delhi zone -- only Noida Sector 62/63/64 ever got real numbers
+entered (PENDING #3). Needs someone to enter real Delhi rates, same as Noida's -- not a code fix,
+and exactly why PENDING #19 (the Rate Intelligence form) still matters.
+
+**Client process is now genuinely live-verified** under `docs/SCHEMA_FREEZE_METHODOLOGY.md` --
+joins Worker Onboarding and Supervisor Visit as the third process both coded and confirmed
+working end to end, not just code-complete.
+
+## NEXT SESSION — START HERE (Updated 29 Sep 2026)
+- **Client, Worker Onboarding, and Supervisor Visit are all live-verified.** `master` is current
+  as of `aa7940a` -- confirm this is still true before assuming it (check `git log -1 origin/
+  master` vs `origin/claude/gracious-knuth-vxwkc3`).
+- Not yet live-tested this session: Site Incharge's new Request Resources + LTF Submit buttons,
+  Supervisor's new LTF Submit button + SiteVisitManager's Screen 2 LTF wiring, the
+  decline/override/pending-pickup flow on Route Plan + `/coordinator/visit-requests`, and whether
+  `ltf_feeds` genuinely exists as a live table at all (flagged twice now -- both new writers
+  degrade gracefully either way, but this needs one live check: `select count(*) from
+  ltf_feeds;`).
+- Enter real Delhi zone rate_card data (PENDING #3/#19) -- Panchsheel Park and every other new
+  Delhi sector currently price at ₹0.
+- Configure an SMS provider in Supabase's Auth settings before Phone OTP can deliver a code.
+- Run `scripts/reset-client-passwords.mjs` locally to confirm the 11 existing client dev accounts
+  sign in with `Client2026`.
+- Test a second `/book` submission WITH an email entered, to actually exercise Email Link login
+  end to end (untested this round since the test booking used phone-only).
+- Separate, real, flagged-not-fixed finding: `app/coordinator/routes/page.tsx` queries
+  `supervisor_daily_routes` with a stale, incompatible column set -- needs its own decision/
+  rebuild pass later.
+- Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure.
+- Set a real `CRON_SECRET` value in Vercel before calling either cron (daily-log-deadline-check,
+  ltf-route-compile) frozen.
+- Deliberately left dead, not guessed at: `/supervisor/milestone-tracker/propose`; the "work
+  blocked until scope-change approved" enforcement gap; PENDING #13 (job creator attribution);
+  the pre-existing orphaned `geo_hierarchy` flat/type-based rows; a distinct "other"/training
+  `slot_type` value on `supervisor_daily_routes`.
+- Still open: `app/sub-coordinator/workers/page.tsx:226`'s lookup bug; the R27
+  `worker_route_legs` redesign awaiting the project owner's go-ahead; `decision_5_raised_by`
+  storing a role string.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
