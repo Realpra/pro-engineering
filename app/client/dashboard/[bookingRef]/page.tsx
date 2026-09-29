@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { verifyMagicToken } from '@/app/client/login/actions'
 import ClientDashboard from './ClientDashboard'
 
 function AccessCard({ message }: { message: string }) {
@@ -22,39 +21,28 @@ function AccessCard({ message }: { message: string }) {
 
 export default async function ClientDashboardPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ bookingRef: string }>
-  searchParams: Promise<{ token?: string }>
 }) {
   const { bookingRef } = await params
-  const { token } = await searchParams
 
   const supabase = await createClient()
 
   let accessGranted = false
 
-  if (token) {
-    const result = await verifyMagicToken(token)
-    if (result.error) {
-      return <AccessCard message="This link is invalid or has expired. Please request a new link." />
-    }
-    accessGranted = true
-  } else {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-    if (session) {
-      const { data: match } = await supabase
-        .from('guest_enquiries')
-        .select('id')
-        .eq('client_user_id', session.user.id)
-        .eq('booking_ref', bookingRef)
-        .maybeSingle()
+  if (session) {
+    const { data: match } = await supabase
+      .from('guest_enquiries')
+      .select('id')
+      .eq('client_user_id', session.user.id)
+      .eq('booking_ref', bookingRef)
+      .maybeSingle()
 
-      accessGranted = !!match
-    }
+    accessGranted = !!match
   }
 
   if (!accessGranted) {

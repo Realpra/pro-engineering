@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { sendMagicLink, sendOtp, verifyOtp, getBookingRefForUser } from './actions'
+import { linkClientAccount, getBookingRefForUser } from './actions'
 
 type Tab = 'magic' | 'otp' | 'email'
 
@@ -11,13 +11,15 @@ export default function ClientLoginPage() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('magic')
 
-  // Magic link state
-  const [magicContact, setMagicContact] = useState('')
+  // Magic link state (real Supabase Auth email OTP -- sends a real email)
+  const [magicEmail, setMagicEmail] = useState('')
   const [magicLoading, setMagicLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
   const [magicError, setMagicError] = useState<string | null>(null)
 
-  // OTP state
+  // Phone OTP state (real Supabase Auth phone OTP -- requires an SMS
+  // provider configured in Supabase's Auth settings; sending will fail with
+  // a real error from Supabase until that's set up)
   const [otpPhase, setOtpPhase] = useState<1 | 2>(1)
   const [otpPhone, setOtpPhone] = useState('')
   const [otpCode, setOtpCode] = useState('')
@@ -34,10 +36,17 @@ export default function ClientLoginPage() {
     setMagicLoading(true)
     setMagicError(null)
     setMagicSent(false)
-    const result = await sendMagicLink(magicContact)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOtp({
+      email: magicEmail,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/client/auth/callback`,
+      },
+    })
     setMagicLoading(false)
-    if (result.error) {
-      setMagicError(result.error)
+    if (error) {
+      setMagicError(error.message)
     } else {
       setMagicSent(true)
     }
@@ -46,10 +55,14 @@ export default function ClientLoginPage() {
   async function handleSendOtp() {
     setOtpLoading(true)
     setOtpError(null)
-    const result = await sendOtp(otpPhone)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: otpPhone,
+      options: { shouldCreateUser: true },
+    })
     setOtpLoading(false)
-    if (result.error) {
-      setOtpError(result.error)
+    if (error) {
+      setOtpError(error.message)
     } else {
       setOtpPhase(2)
     }
@@ -58,7 +71,18 @@ export default function ClientLoginPage() {
   async function handleVerifyOtp() {
     setOtpLoading(true)
     setOtpError(null)
-    const result = await verifyOtp(otpPhone, otpCode)
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone: otpPhone,
+      token: otpCode,
+      type: 'sms',
+    })
+    if (error || !data.user) {
+      setOtpLoading(false)
+      setOtpError(error?.message ?? 'Verification failed.')
+      return
+    }
+    const result = await linkClientAccount(data.user.id, null, otpPhone)
     setOtpLoading(false)
     if (result.error) {
       setOtpError(result.error)
@@ -99,8 +123,8 @@ export default function ClientLoginPage() {
         <div className="flex gap-2 mb-6">
           {(
             [
-              { key: 'magic', label: 'Magic Link' },
-              { key: 'otp', label: 'OTP' },
+              { key: 'magic', label: 'Email Link' },
+              { key: 'otp', label: 'Phone OTP' },
               { key: 'email', label: 'Email Login' },
             ] as { key: Tab; label: string }[]
           ).map(({ key, label }) => (
@@ -123,13 +147,13 @@ export default function ClientLoginPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                WhatsApp number or email address
+                Email address
               </label>
               <input
-                type="text"
-                value={magicContact}
-                onChange={e => setMagicContact(e.target.value)}
-                placeholder="Enter your WhatsApp number or email"
+                type="email"
+                value={magicEmail}
+                onChange={e => setMagicEmail(e.target.value)}
+                placeholder="Enter the email you registered with"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1F3864]"
               />
             </div>
@@ -137,15 +161,15 @@ export default function ClientLoginPage() {
             <button
               type="button"
               onClick={handleSendMagicLink}
-              disabled={magicLoading || !magicContact}
+              disabled={magicLoading || !magicEmail}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition disabled:opacity-60"
             >
-              {magicLoading ? 'Sending…' : 'SEND LINK'}
+              {magicLoading ? 'Sending…' : 'SEND LOGIN LINK'}
             </button>
 
             {magicSent && (
               <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
-                Link sent. Click the link in your WhatsApp or email to access your dashboard.
+                Link sent to {magicEmail}. Click the link in your email to access your dashboard.
               </div>
             )}
             {magicError && (
@@ -168,6 +192,7 @@ export default function ClientLoginPage() {
                     type="text"
                     value={otpPhone}
                     onChange={e => setOtpPhone(e.target.value)}
+                    placeholder="+91XXXXXXXXXX"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1F3864]"
                   />
                 </div>

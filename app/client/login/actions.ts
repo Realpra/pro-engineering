@@ -1,138 +1,61 @@
 'use server'
 
-import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
+
+function adminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  return serviceKey
+    ? createAdminClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    : createAdminClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+}
 
 type ActionResult = {
   success?: true
   error?: string
-  message?: string
-  token?: string
   bookingRef?: string
 }
 
-export async function sendMagicLink(contact: string): Promise<ActionResult> {
-  const supabase = await createClient()
+// Real, production self-service path (replaces the previous mechanism, which
+// generated a token/OTP and stored it on guest_enquiries but never actually
+// dispatched it anywhere -- confirmed non-functional, Session 63/this
+// session's own finding). Magic-link and phone-OTP sending itself now runs
+// client-side via the Supabase Auth SDK directly (app/client/login/page.tsx,
+// app/client/auth/callback/page.tsx) so the resulting session is set
+// correctly in the browser -- this server action only does the one thing
+// that needs elevated access: linking a real, now-authenticated
+// auth.users.id onto every guest_enquiries row matching the verified
+// email/phone, since client_user_id was previously never written by any
+// live code path at all.
+export async function linkClientAccount(
+  userId: string,
+  contactEmail: string | null,
+  contactPhone: string | null,
+): Promise<ActionResult> {
+  if (!contactEmail && !contactPhone) return { error: 'No contact to match against.' }
 
-  const [byEmail, byPhone] = await Promise.all([
-    supabase
-      .from('guest_enquiries')
-      .select('id, status')
-      .eq('contact_email', contact)
-      .neq('status', 'new')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('guest_enquiries')
-      .select('id, status')
-      .eq('contact_phone', contact)
-      .neq('status', 'new')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ])
+  const admin = adminClient()
+  const now = new Date().toISOString()
 
-  const row = byEmail.data ?? byPhone.data
+  const query = admin.from('guest_enquiries').select('booking_ref, created_at').order('created_at', { ascending: false })
+  const { data: rows, error: findErr } = contactEmail
+    ? await query.eq('contact_email', contactEmail)
+    : await query.eq('contact_phone', contactPhone!)
 
-  if (!row) {
-    return { error: 'No booking found for this contact. Please check your details.' }
+  if (findErr) return { error: findErr.message }
+  if (!rows || rows.length === 0) {
+    return { error: 'No booking found for this contact. Ask your coordinator to confirm your details are on file.' }
   }
 
-  const token = randomUUID()
-  const expiresAt = new Date(Date.now() + 86400000).toISOString()
-
-  const { error: updateErr } = await supabase
-    .from('guest_enquiries')
-    .update({ client_access_token: token, client_access_token_expires_at: expiresAt })
-    .eq('id', row.id)
+  const { error: updateErr } = contactEmail
+    ? await admin.from('guest_enquiries').update({ client_user_id: userId, client_last_login_at: now }).eq('contact_email', contactEmail)
+    : await admin.from('guest_enquiries').update({ client_user_id: userId, client_last_login_at: now }).eq('contact_phone', contactPhone!)
 
   if (updateErr) return { error: updateErr.message }
 
-  return { success: true, message: 'Link sent', token }
-}
-
-export async function sendOtp(phone: string): Promise<ActionResult> {
-  const supabase = await createClient()
-
-  const { data: row } = await supabase
-    .from('guest_enquiries')
-    .select('id')
-    .eq('contact_phone', phone)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (!row) {
-    return { error: 'No booking found for this mobile number.' }
-  }
-
-  const otp = Math.floor(100000 + Math.random() * 900000).toString()
-  const expiresAt = new Date(Date.now() + 600000).toISOString()
-
-  const { error: updateErr } = await supabase
-    .from('guest_enquiries')
-    .update({ client_otp: otp, client_otp_expires_at: expiresAt })
-    .eq('id', row.id)
-
-  if (updateErr) return { error: updateErr.message }
-
-  return { success: true }
-}
-
-export async function verifyOtp(phone: string, otp: string): Promise<ActionResult> {
-  const supabase = await createClient()
-
-  const { data: row } = await supabase
-    .from('guest_enquiries')
-    .select('id, booking_ref, client_otp_expires_at')
-    .eq('contact_phone', phone)
-    .eq('client_otp', otp)
-    .maybeSingle()
-
-  if (!row) {
-    return { error: 'Invalid OTP. Please try again.' }
-  }
-
-  if (!row.client_otp_expires_at || new Date(row.client_otp_expires_at).getTime() <= Date.now()) {
-    return { error: 'OTP has expired. Please request a new one.' }
-  }
-
-  const { error: updateErr } = await supabase
-    .from('guest_enquiries')
-    .update({ client_last_login_at: new Date().toISOString(), client_otp: null })
-    .eq('id', row.id)
-
-  if (updateErr) return { error: updateErr.message }
-
-  return { success: true, bookingRef: row.booking_ref }
-}
-
-export async function verifyMagicToken(token: string): Promise<ActionResult> {
-  const supabase = await createClient()
-
-  const { data: row } = await supabase
-    .from('guest_enquiries')
-    .select('id, booking_ref, client_access_token_expires_at')
-    .eq('client_access_token', token)
-    .maybeSingle()
-
-  if (!row) {
-    return { error: 'Invalid link. Please request a new link.' }
-  }
-
-  if (!row.client_access_token_expires_at || new Date(row.client_access_token_expires_at).getTime() <= Date.now()) {
-    return { error: 'Link has expired. Please request a new link.' }
-  }
-
-  const { error: updateErr } = await supabase
-    .from('guest_enquiries')
-    .update({ client_last_login_at: new Date().toISOString(), client_access_token: null })
-    .eq('id', row.id)
-
-  if (updateErr) return { error: updateErr.message }
-
-  return { success: true, bookingRef: row.booking_ref }
+  return { success: true, bookingRef: rows[0].booking_ref }
 }
 
 export async function getBookingRefForUser(userId: string): Promise<ActionResult> {

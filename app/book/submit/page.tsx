@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, Loader2, Copy } from 'lucide-react'
 import { getBooking, saveBooking, clearBooking, JOB_TYPE_DB_MAP } from '@/lib/booking'
 import { createClient } from '@/lib/supabase-client'
+import { createClientDevAuthAccount } from '@/app/book/actions'
 import { cn, formatDate } from '@/lib/utils'
 
 type Stage = 'select' | 'processing' | 'success' | 'error'
@@ -27,6 +28,7 @@ export default function SubmitPage() {
   const [bookingRef, setRef]        = useState('')
   const [error, setError]           = useState('')
   const [copied, setCopied]         = useState(false)
+  const [devLoginEmail, setDevLoginEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const b = getBooking()
@@ -101,6 +103,17 @@ export default function SubmitPage() {
       })
     }
 
+    // Dev/beta convention (mirrors Worker Onboarding's createWorkerAuthAccount):
+    // every booking gets its own real, distinct auth.users row immediately, so
+    // local development/testing of the Client flow is never blocked on real
+    // email/SMS delivery. Non-fatal if it fails -- the enquiry is already safely
+    // saved above, and the real self-service login (Magic Link/Phone OTP) still
+    // works independently of this.
+    if (contactName.trim()) {
+      const devAccount = await createClientDevAuthAccount(ref, contactName.trim())
+      if (devAccount.loginEmail) setDevLoginEmail(devAccount.loginEmail)
+    }
+
     saveBooking({ jobId: ref })
     setRef(ref)
     setStage('success')
@@ -141,6 +154,14 @@ export default function SubmitPage() {
           </div>
           <p className="text-xs text-slate-500 mt-2">Save this reference for all future correspondence</p>
         </div>
+
+        {devLoginEmail && (
+          <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-left">
+            <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">Dev/Beta Login (for testing)</p>
+            <p className="text-sm text-amber-900 font-mono">{devLoginEmail}</p>
+            <p className="text-xs text-amber-700 mt-1">Password: Client2026 — use this at /client/login (Email Login tab) to view this project&apos;s dashboard during development.</p>
+          </div>
+        )}
 
         {/* Summary */}
         <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
