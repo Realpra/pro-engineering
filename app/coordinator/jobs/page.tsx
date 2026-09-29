@@ -184,6 +184,12 @@ export default async function CoordinatorJobsPage() {
                               <p className="font-semibold text-gray-700">{job.contact_name}</p>
                             </div>
                           )}
+                          {job.contact_phone && (
+                            <div>
+                              <p className="text-gray-400">Phone</p>
+                              <p className="font-semibold text-gray-700">{job.contact_phone}</p>
+                            </div>
+                          )}
                           {job.estimate_total && (
                             <div>
                               <p className="text-gray-400">Estimate</p>

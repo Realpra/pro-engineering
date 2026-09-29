@@ -52,9 +52,14 @@ export default async function EstimatePage({
   const adminUserId = user.id
 
   // Step 1: fetch job — zone needed to filter rate card in next step
+  // contact_name/contact_phone/contact_email added 29 Sep 2026 -- confirmed
+  // real gap via a live test: this page never fetched or displayed the
+  // client's contact info at all, despite being where staff prepare an
+  // estimate and would need to reach the client (e.g. to arrange a survey
+  // visit). Not just a display miss -- the columns weren't even selected.
   const { data: job } = await supabase
     .from('guest_enquiries')
-    .select('booking_ref, job_title, zone, district, job_type')
+    .select('booking_ref, job_title, zone, district, job_type, contact_name, contact_phone, contact_email')
     .eq('booking_ref', bookingRef)
     .maybeSingle()
 
@@ -256,6 +261,13 @@ export default async function EstimatePage({
                   <span>{rateCards.length} rates loaded</span>
                 )}
               </div>
+              {(job.contact_name || job.contact_phone || job.contact_email) && (
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-white font-semibold">
+                  {job.contact_name && <span>👤 {job.contact_name}</span>}
+                  {job.contact_phone && <span>📞 {job.contact_phone}</span>}
+                  {job.contact_email && <span>✉️ {job.contact_email}</span>}
+                </div>
+              )}
             </div>
 
             <div className="text-right shrink-0">
