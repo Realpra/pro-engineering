@@ -105,6 +105,10 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
   // every other Screen 21 side-effect uses (Decision 5, Scope Change): ready
   // only if every answered sub-stage said Yes; any "No" makes the whole site
   // not-ready, with each "No" sub-stage's own remarks carried forward.
+  //
+  // CORRECTED 29 Sep 2026, live schema check: no booking_ref column exists
+  // on ltf_feeds at all (confirmed via information_schema) -- scoped by
+  // site_id (guest_enquiries.id) only now.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scopeIntent = (report as any).screen02_scope_intent as { ltfBySubstage?: Record<string, { confirmed?: string; remarks?: string }> } | null
   const ltfAnswers = Object.values(scopeIntent?.ltfBySubstage ?? {}).filter(a => a.confirmed === 'Yes' || a.confirmed === 'No')
@@ -120,32 +124,33 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
       .eq('booking_ref', report.booking_ref)
       .maybeSingle()
 
-    const todayStart = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingFeed } = await (supabase as any)
-      .from('ltf_feeds')
-      .select('id')
-      .eq('booking_ref', report.booking_ref)
-      .gte('submitted_at', todayStart)
-      .maybeSingle()
+    if (enquiry?.id) {
+      const todayStart = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existingFeed } = await (supabase as any)
+        .from('ltf_feeds')
+        .select('id')
+        .eq('site_id', enquiry.id)
+        .gte('submitted_at', todayStart)
+        .maybeSingle()
 
-    const feedPayload = {
-      site_id: enquiry?.id ?? null,
-      booking_ref: report.booking_ref,
-      submitted_by: (report as SupabaseAny).supervisor_id ?? null,
-      submitted_at: new Date().toISOString(),
-      is_ready_tomorrow: isReadyTomorrow,
-      target_time_slot: null,
-      contractor_notes: notes,
-      accountability_flag: false,
+      const feedPayload = {
+        site_id: enquiry.id,
+        submitted_by: (report as SupabaseAny).supervisor_id ?? null,
+        submitted_at: new Date().toISOString(),
+        is_ready_tomorrow: isReadyTomorrow,
+        target_time_slot: null,
+        contractor_notes: notes,
+        accountability_flag: false,
+      }
+
+      // Best-effort -- a failure here must not fail the visit submission
+      // itself, same discipline as the report_status write below.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (existingFeed) await (supabase as any).from('ltf_feeds').update(feedPayload).eq('id', existingFeed.id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      else await (supabase as any).from('ltf_feeds').insert(feedPayload)
     }
-
-    // Best-effort -- a failure here must not fail the visit submission
-    // itself, same discipline as the report_status write below.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (existingFeed) await (supabase as any).from('ltf_feeds').update(feedPayload).eq('id', existingFeed.id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    else await (supabase as any).from('ltf_feeds').insert(feedPayload)
   }
 
   const submittedAt = new Date().toISOString()

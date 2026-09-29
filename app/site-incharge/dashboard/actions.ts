@@ -63,15 +63,21 @@ export async function requestResources(params: {
 // in the entire codebase -- the "Site heads submit LTF feeds by 20:00 each
 // evening" rule shown on Sub-Coordinator's own LTF page has never had a
 // writer. This is that writer, on the actual Site Head role per the
-// original design's own naming. All columns below are already read
-// elsewhere (sub-coordinator/ltf/page.tsx's own select list) -- none
-// invented here. One feed per booking_ref per day: a same-day resubmission
-// updates the existing row rather than creating a duplicate, since no
-// unique constraint on (booking_ref, day) can be assumed on this
-// live-only, no-migration-file table (PENDING #20).
+// original design's own naming.
+//
+// CORRECTED 29 Sep 2026, live schema check: the first pass assumed a
+// booking_ref column (copying app/sub-coordinator/ltf/page.tsx's own SELECT,
+// which turns out to make the same wrong assumption -- that page has never
+// been live-tested either, per the login being broken). information_schema
+// confirms ltf_feeds' real columns: id, site_id, milestone_id, submitted_by,
+// submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes,
+// accountability_flag, created_at -- no booking_ref at all. Site scoping is
+// by site_id (a guest_enquiries.id UUID) only. One feed per site per day: a
+// same-day resubmission updates the existing row rather than creating a
+// duplicate, since no unique constraint can be assumed on this live-only,
+// no-migration-file table (PENDING #20).
 export async function submitLTF(params: {
-  bookingRef: string
-  siteId: string | null
+  siteId: string
   siteInchargeUserId: string
   isReadyTomorrow: boolean
   targetTimeSlot: 'morning' | 'afternoon' | 'evening' | null
@@ -84,13 +90,12 @@ export async function submitLTF(params: {
   const { data: existing } = await (supabase as any)
     .from('ltf_feeds')
     .select('id')
-    .eq('booking_ref', params.bookingRef)
+    .eq('site_id', params.siteId)
     .gte('submitted_at', todayStart)
     .maybeSingle()
 
   const payload = {
     site_id: params.siteId,
-    booking_ref: params.bookingRef,
     submitted_by: params.siteInchargeUserId,
     submitted_at: new Date().toISOString(),
     is_ready_tomorrow: params.isReadyTomorrow,

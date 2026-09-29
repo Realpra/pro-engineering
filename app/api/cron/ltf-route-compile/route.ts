@@ -61,14 +61,20 @@ export async function GET(req: NextRequest) {
   const errors: string[] = []
 
   // --- 1. LTF-ready compile ---
+  // ltf_feeds has no booking_ref column at all (confirmed via
+  // information_schema, 29 Sep 2026 -- corrected from the first pass, which
+  // wrongly copied app/sub-coordinator/ltf/page.tsx's own same-mistaken
+  // assumption). Scoped by site_id (guest_enquiries.id) only.
   const { data: readyFeeds } = await supabase
     .from('ltf_feeds')
-    .select('id, site_id, booking_ref, target_time_slot, contractor_notes')
+    .select('id, site_id, target_time_slot, contractor_notes')
     .eq('is_ready_tomorrow', true)
     .gte('submitted_at', `${today}T00:00:00.000Z`)
     .lt('submitted_at', `${tomorrow}T00:00:00.000Z`)
 
   for (const feed of readyFeeds ?? []) {
+    if (!feed.site_id) continue
+
     const { data: alreadyRouted } = await supabase
       .from('supervisor_daily_routes')
       .select('id')
@@ -79,7 +85,7 @@ export async function GET(req: NextRequest) {
     const { data: enquiry } = await supabase
       .from('guest_enquiries')
       .select('id, supervisor_id, zone, district')
-      .eq('booking_ref', feed.booking_ref)
+      .eq('id', feed.site_id)
       .maybeSingle()
     if (!enquiry?.supervisor_id) continue
 
@@ -100,7 +106,7 @@ export async function GET(req: NextRequest) {
       planned_by: 'system',
       report_status: 'pending',
     })
-    if (error) errors.push(`ltf ${feed.booking_ref}: ${error.message}`)
+    if (error) errors.push(`ltf feed ${feed.id}: ${error.message}`)
     else routesCreated++
   }
 

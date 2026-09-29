@@ -14,7 +14,7 @@ export default function LTFSubmitButton({
   supervisorUserId,
 }: {
   bookingRef: string
-  siteId: string | null
+  siteId: string
   supervisorUserId: string
 }) {
   const [open, setOpen] = useState(false)
@@ -29,7 +29,6 @@ export default function LTFSubmitButton({
     setStatus('loading')
     setError(null)
     const result = await submitSupervisorLTF({
-      bookingRef,
       siteId,
       supervisorUserId,
       isReadyTomorrow: ready,
