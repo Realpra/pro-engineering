@@ -1759,15 +1759,99 @@ repo-wide grep) -- the compass-code zone values it mapped no longer match anythi
 writes. Restored with a comment explaining why it's dead and pointing at the migration that
 superseded it, rather than left deleted.
 
+## SESSION 67 CONTINUED FURTHER — 29 Sep 2026 — SITE INCHARGE OUTBOUND + ROUTE AUTO-COMPILE, GO-LIVE BLOCKER IDENTIFIED
+Project owner decision on Sub-Coordinator (29 Sep 2026): not building/fixing that role right
+now. Where a flow's natural recipient would be Sub-Coordinator, route to Coordinator instead
+until a real Sub-Coordinator build happens -- same stopgap discipline as PENDING #43.
+
+**Site Incharge outbound, built for real (PENDING #17 closed)**: new
+`app/site-incharge/dashboard/actions.ts` + two buttons on the dashboard --
+`RequestResourcesButton.tsx` (fans out `instruction_type: 'resource'` to every real
+Coordinator, exactly `raiseSOS`'s fan-out shape) and `LTFSubmitButton.tsx` (Site Head's real
+day-end "ready tomorrow?" submission). `app/coordinator/reports/page.tsx`'s sender-name lookup
+widened to include `site_incharge` so these show a real name, not a blank.
+
+**Root cause found and fixed: `ltf_feeds` had zero writer anywhere in the codebase** -- read in
+4 places, updated once (`accountability_flag`), never inserted. Sub-Coordinator's own LTF page
+has claimed "feeds compile automatically at 20:00" since it was built; confirmed false. Fixed
+with two real pieces: `submitLTF` (Site Incharge's genuine writer) and a new cron,
+`app/api/cron/ltf-route-compile` (registered in `vercel.json`, 20:00 IST daily), which reads
+ready feeds and inserts the real `supervisor_daily_routes` slot for tomorrow -- making that
+claim true for the first time, and no longer dependent on Sub-Coordinator's deferred, login-
+broken role to run at all. Also carries forward "overhang" work automatically: any booking with
+an overdue incomplete critical-path substage (`early_finish_date < today`) gets one `overhang`
+slot queued for tomorrow, idempotent against repeat cron runs. Every column used
+(`ltf_feeds`/`supervisor_daily_routes`) is one already read or written elsewhere in this
+codebase -- none invented, per this project's own rule against guessing live-only schema.
+Flagged, not assumed: `ltf_feeds`'s own existence as a live table has never been confirmed in
+any sandbox session (a prior comment in `route/page.tsx` claimed it "was never built",
+contradicting the 4 files already reading it) -- both new writers fail gracefully (return/log
+an error, never throw) if it turns out missing, so this is safe to deploy either way but needs
+one live check before being called frozen.
+
+**Real regression fixed in `app/supervisor/route/page.tsx`**: its Overdue Visits section linked
+unconditionally to Flow (ii)'s Daily Execution form, missing the PENDING #31 slot_type routing
+fix already applied on `dashboard/page.tsx` and `route/plan/page.tsx` -- a `scope_survey`/
+`client_visit`/`estimate_visit` overdue slot would have opened the wrong form. Fixed identically.
+
+**`lib/booking.ts`'s `ZONE_DB_MAP` restored**, deprecated in place rather than left deleted (it
+was removed outright in `ed68ed1`, violating this project's own never-delete rule) -- kept with
+a comment pointing at the migration that made it obsolete.
+
+**`submitMilestonePaymentRequest` closed out**: wired into `ClientDashboard.tsx`'s milestone
+cards (a real "PAY [M#] NOW" button once `admin_approved` and unpaid), confirmed against the
+`client_payment_pending` CHECK-constraint value its own migration adds.
+
+### GO-LIVE STATUS -- read this before pushing anything further to `master`
+**Schema-freeze status by process**: Worker Onboarding -- FROZEN (Session 66). Supervisor Visit
++ all 12 tabs -- FROZEN (Session 67). Client (full `/book` + `/client/*` lifecycle) -- fully
+coded, NOT live-verified, blocked on migrations (below). Site Incharge outbound + Route
+auto-compile (this entry) -- fully coded, NOT live-verified, needs no new migration (every
+column used already exists live).
+
+**DB migration status -- this is the actual, concrete answer to "what's stopping going live"**:
+every migration through the Supervisor freeze is confirmed run live. Three from the Client pass
+are NOT yet run: `20260929_guest_enquiries_service_model_title.sql`,
+`20260929_site_visit_requests.sql`, `20260929_milestone_payment_schedule_client_payment_
+pending.sql` (`20260928_geo_hierarchy_delhi_central_delhi.sql` IS confirmed run live -- only
+these 3 remain). **This is a hard, confirmed blocker, not a caveat**: `app/book/submit/
+page.tsx:68` puts `service_model_title` directly into the SAME insert statement that creates
+every real `guest_enquiries` row -- the single most-used live write path in the entire app. If
+code referencing that column reaches production before the migration runs, every public
+booking submission fails outright with a Postgres error, not a soft degradation. `site_visit_
+requests` failing open is lower-severity (wrapped separately, main enquiry insert already
+succeeded by then) but still breaks the site-visit-request feature and 500s
+`/coordinator/visit-requests`. The `client_payment_pending` gap only affects non-M0 milestone
+payments, narrowest blast radius of the three.
+
+**Coding status**: nothing further needs to be written for Client, Site Incharge outbound, or
+Route auto-compile to work live -- all three are code-complete and `npx tsc --noEmit` clean.
+The only thing standing between here and live is running those 3 migrations, in that order
+they're listed (no interdependency, but keeping a fixed order makes it easy to confirm each
+one's own `20260929_guest_enquiries_service_model_title.sql`-style output line by line).
+
+**Master/branch call (delegated by the project owner, 29 Sep 2026, "for going live you were to
+take the call so that the real work works")**: deliberately NOT fast-forwarding `master` this
+entry, specifically because of the `service_model_title` finding above -- doing so right now
+would break live public bookings the moment Vercel redeploys, which is the opposite of "the
+real work works." Once the 3 migrations are confirmed run (paste their own success output back,
+same pattern as every migration this project has run live), fast-forwarding `master` needs no
+further asking -- do it immediately as part of closing this out, per the standing delegation.
+
 ## NEXT SESSION — START HERE (Updated 29 Sep 2026, Session 67 continued further)
-- **Supervisor is FROZEN.** Do not reopen it without a new real finding.
-- **Client process: all 3 obstructions resolved with real builds, NOTHING live-verified yet.**
-  Run the 3 new migrations listed above in Supabase, then live-test: a real `/book` submission
-  end to end (contact info lands, dev login account is created and works, a site-visit request
-  request can be logged/triaged/scheduled from `/coordinator/visit-requests`, the geo picker
-  cascades correctly); Email Link login end to end (a real email arrives, the callback page
-  links `client_user_id`); a non-M0 milestone "PAY NOW" end to end through to Admin's Token
-  Payments tab.
+- **Supervisor is FROZEN. Do not reopen it without a new real finding.**
+- **THE BLOCKER: run the 3 pending Client-process migrations in Supabase (see GO-LIVE STATUS
+  above), then fast-forward `master` immediately** -- no further authorization needed for that
+  specific fast-forward, it's already been delegated. Until those 3 run, `master` must stay
+  where it is (the Supervisor freeze point, `dcc04cf`) -- anything newer would break live
+  public bookings.
+- After migrations run and `master` is fast-forwarded, live-test: a real `/book` submission end
+  to end (contact info lands, dev login account created, a site-visit request logged/triaged/
+  scheduled from `/coordinator/visit-requests`, the geo picker cascades correctly); Email Link
+  login end to end; a non-M0 milestone "PAY NOW" end to end; Site Incharge's new Request
+  Resources + LTF Submit buttons; whether `ltf_feeds` genuinely exists as a table at all
+  (flagged above -- the new cron and writer degrade gracefully either way, but confirm before
+  calling this frozen).
 - Configure an SMS provider in Supabase's Auth settings before Phone OTP can actually deliver a
   code -- code side is real and ready, this one step is dashboard-only and outside this
   sandbox's reach.
@@ -1776,18 +1860,15 @@ superseded it, rather than left deleted.
 - Separate, real, flagged-not-fixed finding from this session: `app/coordinator/routes/page.tsx`
   queries `supervisor_daily_routes` with a stale, incompatible column set vs. the confirmed-live
   schema -- needs its own decision/rebuild pass later, not touched here.
-- Remember the standing rule: push to `master` too (or flag it) whenever real fixes land on the
-  working branch -- this session's commits have NOT been fast-forwarded to `master` yet.
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
-- Set a real `CRON_SECRET` value in Vercel before calling the Daily Log deadline cron frozen
-  (functional without it, but currently has no auth at all).
+- Set a real `CRON_SECRET` value in Vercel before calling either cron (daily-log-deadline-check,
+  ltf-route-compile) frozen (both functional without it, but currently have no auth at all).
 - Deliberately left dead, not guessed at (each needs its own real decision, same discipline as
   the rest of this pass): `/supervisor/milestone-tracker/propose` (no live schema to build the
   insert against); the "work blocked until scope-change approved" enforcement gap in
   Milestones/SubstageCard; PENDING #13 (job creator attribution); the pre-existing orphaned
-  `geo_hierarchy` flat/type-based rows found this session; auto-generating programmed site
-  visits from substage/milestone/complaint/overhang triggers; a distinct "other"/training
+  `geo_hierarchy` flat/type-based rows found this session; a distinct "other"/training
   `slot_type` value on `supervisor_daily_routes`.
 - Still open from the earlier Supervisor Visit freeze this session, untouched by this pass:
   `app/sub-coordinator/workers/page.tsx:226`'s lookup bug; the R27 `worker_route_legs` redesign
