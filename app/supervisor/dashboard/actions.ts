@@ -33,6 +33,58 @@ export async function markSiteHeadNotReady(slotId: string): Promise<{ error?: st
   return {}
 }
 
+// LTF -- correction (29 Sep 2026, project owner): the real-world source of
+// "is this site ready for tomorrow" is Site Head, Supervisor, AND the
+// Site Visit Manager form together -- not Site Incharge alone (the first
+// pass at this only put the button on Site Incharge's dashboard). This is
+// Supervisor's own direct submission (e.g. after a phone update from Site
+// Head, without doing a full visit) -- SiteVisitManager's Screen 2 LTF-per-
+// substage answers feed the same ltf_feeds table separately, at
+// submitReport() time (see app/supervisor/site-visit/actions.ts). Same
+// upsert-by-booking_ref-per-day shape as Site Incharge's submitLTF -- one
+// feed per booking_ref per day, later submission wins, since no unique
+// constraint can be assumed on this live-only, no-migration-file table.
+export async function submitSupervisorLTF(params: {
+  bookingRef: string
+  siteId: string | null
+  supervisorUserId: string
+  isReadyTomorrow: boolean
+  targetTimeSlot: 'morning' | 'afternoon' | 'evening' | null
+  contractorNotes: string | null
+}): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const todayStart = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (supabase as any)
+    .from('ltf_feeds')
+    .select('id')
+    .eq('booking_ref', params.bookingRef)
+    .gte('submitted_at', todayStart)
+    .maybeSingle()
+
+  const payload = {
+    site_id: params.siteId,
+    booking_ref: params.bookingRef,
+    submitted_by: params.supervisorUserId,
+    submitted_at: new Date().toISOString(),
+    is_ready_tomorrow: params.isReadyTomorrow,
+    target_time_slot: params.targetTimeSlot,
+    contractor_notes: params.contractorNotes,
+    accountability_flag: false,
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = existing
+    ? await (supabase as any).from('ltf_feeds').update(payload).eq('id', existing.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    : await (supabase as any).from('ltf_feeds').insert(payload)
+
+  if (error) return { error: error.message }
+  revalidatePath('/supervisor/dashboard')
+  return {}
+}
+
 // SOS (June log nav-bar spec: "SOS floating red button always visible
 // during active job hours... cannot be disabled by anyone" -- confirmed
 // not built anywhere in app/supervisor/, PENDING #28). Reuses the already-

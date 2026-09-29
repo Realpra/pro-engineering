@@ -4,6 +4,7 @@ import Link from 'next/link'
 import SignOutButton from './SignOutButton'
 import SiteHeadNotReadyButton from './SiteHeadNotReadyButton'
 import SOSButton from './SOSButton'
+import LTFSubmitButton from './LTFSubmitButton'
 
 function greeting(hour: number) {
   if (hour < 12) return 'Good morning'
@@ -857,6 +858,11 @@ export default async function SupervisorDashboardPage() {
                     >
                       Open →
                     </Link>
+                    <LTFSubmitButton
+                      bookingRef={job.booking_ref}
+                      siteId={job.id}
+                      supervisorUserId={user.id}
+                    />
                   </div>
                 </div>
               </div>

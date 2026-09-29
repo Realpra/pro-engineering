@@ -90,11 +90,63 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
 
   const { data: report, error: fetchErr } = await supabase
     .from('site_visit_reports')
-    .select('booking_ref, slot_id')
+    .select('booking_ref, slot_id, supervisor_id, screen02_scope_intent')
     .eq('id', reportId)
     .single()
 
   if (fetchErr) return { error: fetchErr.message }
+
+  // LTF sourcing correction (29 Sep 2026, project owner): Screen 2's
+  // per-substage LTF answers (form.ltfBySubstage, Session 58's "LTF per-
+  // substage loop") have always been captured here but only ever sat inside
+  // screen02_scope_intent's JSON blob, disconnected from the real ltf_feeds
+  // table the route-compile cron (app/api/cron/ltf-route-compile) actually
+  // reads. Aggregate to one site-level signal at the same finalization point
+  // every other Screen 21 side-effect uses (Decision 5, Scope Change): ready
+  // only if every answered sub-stage said Yes; any "No" makes the whole site
+  // not-ready, with each "No" sub-stage's own remarks carried forward.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scopeIntent = (report as any).screen02_scope_intent as { ltfBySubstage?: Record<string, { confirmed?: string; remarks?: string }> } | null
+  const ltfAnswers = Object.values(scopeIntent?.ltfBySubstage ?? {}).filter(a => a.confirmed === 'Yes' || a.confirmed === 'No')
+
+  if (ltfAnswers.length > 0) {
+    const isReadyTomorrow = ltfAnswers.every(a => a.confirmed === 'Yes')
+    const notes = ltfAnswers.filter(a => a.confirmed === 'No' && a.remarks).map(a => a.remarks).join('; ') || null
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: enquiry } = await (supabase as any)
+      .from('guest_enquiries')
+      .select('id')
+      .eq('booking_ref', report.booking_ref)
+      .maybeSingle()
+
+    const todayStart = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingFeed } = await (supabase as any)
+      .from('ltf_feeds')
+      .select('id')
+      .eq('booking_ref', report.booking_ref)
+      .gte('submitted_at', todayStart)
+      .maybeSingle()
+
+    const feedPayload = {
+      site_id: enquiry?.id ?? null,
+      booking_ref: report.booking_ref,
+      submitted_by: (report as SupabaseAny).supervisor_id ?? null,
+      submitted_at: new Date().toISOString(),
+      is_ready_tomorrow: isReadyTomorrow,
+      target_time_slot: null,
+      contractor_notes: notes,
+      accountability_flag: false,
+    }
+
+    // Best-effort -- a failure here must not fail the visit submission
+    // itself, same discipline as the report_status write below.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (existingFeed) await (supabase as any).from('ltf_feeds').update(feedPayload).eq('id', existingFeed.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    else await (supabase as any).from('ltf_feeds').insert(feedPayload)
+  }
 
   const submittedAt = new Date().toISOString()
 
