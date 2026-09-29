@@ -10,6 +10,7 @@ import {
   acknowledgeRiskFlag,
   acceptTerms,
   submitClientScopeChange,
+  submitMilestonePaymentRequest,
 } from './actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -302,6 +303,17 @@ export default function ClientDashboard({
       setTermsAccepted(true)
       router.refresh()
     }
+  }
+
+  async function handlePayMilestone(milestoneId: string, milestoneCode: string) {
+    setBusyKey(`pay-${milestoneId}`)
+    const result = await submitMilestonePaymentRequest(enquiry.booking_ref, milestoneId)
+    setBusyKey(null)
+    if (result?.error) {
+      alert(result.error)
+      return
+    }
+    router.push(`/client/payment?booking_ref=${enquiry.booking_ref}&milestone_code=${milestoneCode}`)
   }
 
   async function handleAccept() {
@@ -1003,6 +1015,25 @@ export default function ClientDashboard({
                   <p>{m.payment_released_at ? fmtDate(m.payment_released_at) : 'Pending'}</p>
                 </div>
               </div>
+              {m.milestone_code !== 'M0' && m.status === 'admin_approved' && !m.payment_released_at && (
+                <div className="px-4 pb-3">
+                  <button
+                    type="button"
+                    disabled={busyKey === `pay-${m.id}`}
+                    onClick={() => handlePayMilestone(m.id, m.milestone_code)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2.5 rounded-lg disabled:opacity-60"
+                  >
+                    {busyKey === `pay-${m.id}` ? 'Working…' : `PAY ${milestoneBadgeLabel(m)} NOW`}
+                  </button>
+                </div>
+              )}
+              {m.status === 'client_payment_pending' && !m.payment_released_at && (
+                <div className="px-4 pb-3">
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                    Payment submitted for verification.
+                  </p>
+                </div>
+              )}
               <div className="px-4 pb-4">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Cumulative: {money(m.cumulativeAmount)}</span>

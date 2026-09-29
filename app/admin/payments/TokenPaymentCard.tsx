@@ -44,7 +44,7 @@ export default function TokenPaymentCard({
   async function handleVerify() {
     setBusy(true)
     setError(null)
-    const res = await verifyPayment(payment.booking_ref, payment.id, adminUserId)
+    const res = await verifyPayment(payment.booking_ref, payment.id, adminUserId, payment.milestone_code ?? 'M0')
     setBusy(false)
     if (!res.success) {
       setError(res.error ?? 'Verification failed.')
@@ -57,7 +57,7 @@ export default function TokenPaymentCard({
     if (!reason.trim()) return
     setBusy(true)
     setError(null)
-    const res = await rejectPayment(payment.booking_ref, payment.id, reason.trim())
+    const res = await rejectPayment(payment.booking_ref, payment.id, reason.trim(), payment.milestone_code ?? 'M0')
     setBusy(false)
     if (!res.success) {
       setError(res.error ?? 'Rejection failed.')
@@ -71,7 +71,9 @@ export default function TokenPaymentCard({
       <div className="bg-[#1F3864] px-4 py-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-white font-bold text-sm leading-tight">{payment.booking_ref}</p>
-          <p className="text-blue-200 text-xs mt-0.5">Token Payment ({payment.milestone_code ?? 'M0'})</p>
+          <p className="text-blue-200 text-xs mt-0.5">
+            {payment.milestone_code === 'M0' || !payment.milestone_code ? 'Token Payment (M0)' : `Client Payment (${payment.milestone_code})`}
+          </p>
         </div>
         <p className="text-white font-bold text-lg">{money(payment.amount)}</p>
       </div>

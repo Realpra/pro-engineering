@@ -19,8 +19,9 @@ export default async function PaymentPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const { booking_ref } = await searchParams
+  const { booking_ref, milestone_code } = await searchParams
   const bookingRef = Array.isArray(booking_ref) ? booking_ref[0] : booking_ref
+  const milestoneCode = (Array.isArray(milestone_code) ? milestone_code[0] : milestone_code) || 'M0'
 
   const supabase = await createClient()
 
@@ -45,7 +46,7 @@ export default async function PaymentPage({
       .from('milestone_payment_schedule')
       .select('*')
       .eq('booking_ref', bookingRef)
-      .eq('milestone_code', 'M0')
+      .eq('milestone_code', milestoneCode)
       .maybeSingle(),
   ])
 

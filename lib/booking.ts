@@ -51,3 +51,19 @@ export const JOB_TYPE_DB_MAP: Record<string, string> = {
   'project-management': 'other',
   'manufacturing': 'other',
 }
+
+// DEPRECATED (28 Sep 2026): superseded by the real geo_hierarchy District->Region->
+// Zone->Sector picker in app/book/schedule/page.tsx, which now writes a real sector
+// name straight into guest_enquiries.zone. These compass-direction codes never matched
+// geo_hierarchy.name (generateBOQ's actual rate lookup), so every /book job silently
+// defaulted to Noida Sector 62 -- see 20260928_geo_hierarchy_delhi_central_delhi.sql.
+// Kept per this project's standing rule (never delete a construct without specific
+// permission, only deprecate/add-alongside) -- not read anywhere in live code.
+export const ZONE_DB_MAP: Record<string, string> = {
+  'North': 'north',
+  'South': 'south',
+  'East': 'east',
+  'West': 'west',
+  'Central': 'central',
+  'Northeast': 'northeast',
+}

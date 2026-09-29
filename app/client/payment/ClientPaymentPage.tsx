@@ -22,7 +22,8 @@ export default function ClientPaymentPage({ booking, milestone }: Props) {
   const amount = Number(milestone?.payment_amount ?? 0)
   const bookingRef = booking?.booking_ref ?? ''
   const jobTitle = booking?.job_title ?? 'Renovation Project'
-  const referenceNumber = `${bookingRef}-M0`
+  const milestoneCode = milestone?.milestone_code ?? 'M0'
+  const referenceNumber = `${bookingRef}-${milestoneCode}`
 
   const [utr, setUtr] = useState('')
   const [confirmed, setConfirmed] = useState(false)
@@ -57,7 +58,7 @@ export default function ClientPaymentPage({ booking, milestone }: Props) {
       })
     }
 
-    const result = await confirmTokenPayment(bookingRef, utr, base64)
+    const result = await confirmTokenPayment(bookingRef, utr, base64, milestoneCode)
 
     if (!result.success) {
       setSubmitting(false)
@@ -123,7 +124,7 @@ export default function ClientPaymentPage({ booking, milestone }: Props) {
           </div>
           <div>
             <p className="text-white font-bold text-sm">Pro Engineering</p>
-            <p className="text-blue-300 text-xs">Token Payment</p>
+            <p className="text-blue-300 text-xs">{milestoneCode === 'M0' ? 'Token Payment' : `${milestoneCode} Milestone Payment`}</p>
           </div>
         </div>
       </div>
@@ -140,7 +141,9 @@ export default function ClientPaymentPage({ booking, milestone }: Props) {
           <div className="bg-white/10 px-5 py-4 space-y-3">
             <div>
               <p className="text-blue-200 text-[10px] uppercase tracking-wide">Payment Type</p>
-              <p className="text-white font-bold text-sm">Token Advance Payment — Mobilisation</p>
+              <p className="text-white font-bold text-sm">
+                {milestoneCode === 'M0' ? 'Token Advance Payment — Mobilisation' : `${milestoneCode} — ${milestone?.milestone_name ?? 'Milestone Payment'}`}
+              </p>
             </div>
             <div className="flex items-end justify-between">
               <div>

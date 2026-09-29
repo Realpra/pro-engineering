@@ -28,6 +28,7 @@ export async function confirmTokenPayment(
   bookingRef: string,
   utrNumber: string,
   screenshotBase64: string | null,
+  milestoneCode: string = 'M0',
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
@@ -36,7 +37,7 @@ export async function confirmTokenPayment(
     .from('milestone_payment_schedule')
     .select('payment_amount')
     .eq('booking_ref', bookingRef)
-    .eq('milestone_code', 'M0')
+    .eq('milestone_code', milestoneCode)
     .maybeSingle()
 
   const amount = Number(milestone?.payment_amount ?? 0)
@@ -46,7 +47,7 @@ export async function confirmTokenPayment(
     .from('payment_confirmations')
     .select('id')
     .eq('booking_ref', bookingRef)
-    .eq('milestone_code', 'M0')
+    .eq('milestone_code', milestoneCode)
     .not('status', 'eq', 'rejected')
     .maybeSingle()
 
@@ -61,7 +62,7 @@ export async function confirmTokenPayment(
     .from('payment_confirmations')
     .insert({
       booking_ref: bookingRef,
-      milestone_code: 'M0',
+      milestone_code: milestoneCode,
       utr_number: utrNumber,
       screenshot_base64: screenshotBase64,
       amount,
@@ -75,17 +76,22 @@ export async function confirmTokenPayment(
   // Standardized on the same JSONB-array shape as Supervisor's
   // submitMilestoneEvidence -- was previously a JSON.stringify()'d string,
   // one of the 3 incompatible shapes behind Duplicate/Conflict #8.
-  const [milestoneUpdate, enquiryUpdate] = await Promise.all([
+  const milestoneUpdatePromise =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('milestone_payment_schedule')
-      .update({ status: 'verification_pending', evidence_submitted: [{ item: 'M0 token payment', utr_number: utrNumber, uploaded_at: now }] })
+      .update({ status: 'verification_pending', evidence_submitted: [{ item: `${milestoneCode} payment`, utr_number: utrNumber, uploaded_at: now }] })
       .eq('booking_ref', bookingRef)
-      .eq('milestone_code', 'M0'),
-    supabase
-      .from('guest_enquiries')
-      .update({ status: 'payment_pending_verification' })
-      .eq('booking_ref', bookingRef),
+      .eq('milestone_code', milestoneCode)
+
+  // M0 is the only milestone that gates job start -- a later milestone
+  // (M1-M4) being paid doesn't change the job's own status, it's already
+  // work_started by the time any later milestone reaches payment.
+  const [milestoneUpdate, enquiryUpdate] = await Promise.all([
+    milestoneUpdatePromise,
+    milestoneCode === 'M0'
+      ? supabase.from('guest_enquiries').update({ status: 'payment_pending_verification' }).eq('booking_ref', bookingRef)
+      : Promise.resolve({ error: null }),
   ])
 
   if (milestoneUpdate.error) return { success: false, error: milestoneUpdate.error.message }
@@ -98,6 +104,7 @@ export async function verifyPayment(
   bookingRef: string,
   paymentConfirmationId: string,
   coordinatorId: string,
+  milestoneCode: string = 'M0',
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
@@ -124,29 +131,41 @@ export async function verifyPayment(
   // the client re-accepts. Admin's payment verification is never that event, and this
   // update was also unscoped (no boq_id filter -- would have touched every version of the
   // BOQ for this booking_ref, not just the accepted one).
-  const [pcUpdate, milestoneUpdate, enquiryUpdate] = await Promise.all([
+  const pcUpdatePromise =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('payment_confirmations')
       .update({ status: 'verified', coordinator_verified_at: now, coordinator_verified_by: coordinatorId })
-      .eq('id', paymentConfirmationId),
-    // coordinator_approved_at is the correct, canonical name for a
-    // different event -- Supervisor's coordinatorApproveMilestone
-    // ("coordinator approved milestone evidence"), confirmed by
-    // PaymentCard.tsx's own "Days Waiting"/"Coordinator Approved" logic.
-    // This M0 token-payment verification is a distinct fact and now writes
-    // ONLY the correctly-scoped token_payment_verified_at column, resolved
-    // canonically, no dual-write (Duplicate/Conflict #2).
+      .eq('id', paymentConfirmationId)
+
+  // M0's token-payment verification is a distinct fact from every later
+  // milestone's client payment -- token_payment_verified_at/status:'paid'
+  // and the job's work_started transition are M0-specific (coordinator_
+  // approved_at is the canonical name for a different event, Supervisor's
+  // coordinatorApproveMilestone -- no dual-write, Duplicate/Conflict #2).
+  // A later milestone (M1-M4) being paid by the client, after already
+  // passing the staff approval chain, moves straight to the existing
+  // terminal payment_released state -- it doesn't gate job start again.
+  const milestoneUpdatePromise = milestoneCode === 'M0'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from('milestone_payment_schedule')
-      .update({ status: 'paid', token_payment_verified_at: now })
-      .eq('booking_ref', bookingRef)
-      .eq('milestone_code', 'M0'),
-    supabase
-      .from('guest_enquiries')
-      .update({ status: 'work_started' })
-      .eq('booking_ref', bookingRef),
+    ? (supabase as any)
+        .from('milestone_payment_schedule')
+        .update({ status: 'paid', token_payment_verified_at: now })
+        .eq('booking_ref', bookingRef)
+        .eq('milestone_code', milestoneCode)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    : (supabase as any)
+        .from('milestone_payment_schedule')
+        .update({ status: 'payment_released', payment_released_at: now })
+        .eq('booking_ref', bookingRef)
+        .eq('milestone_code', milestoneCode)
+
+  const [pcUpdate, milestoneUpdate, enquiryUpdate] = await Promise.all([
+    pcUpdatePromise,
+    milestoneUpdatePromise,
+    milestoneCode === 'M0'
+      ? supabase.from('guest_enquiries').update({ status: 'work_started' }).eq('booking_ref', bookingRef)
+      : Promise.resolve({ error: null }),
   ])
 
   const err = pcUpdate.error || milestoneUpdate.error || enquiryUpdate.error
@@ -159,6 +178,7 @@ export async function rejectPayment(
   bookingRef: string,
   paymentConfirmationId: string,
   rejectionReason: string,
+  milestoneCode: string = 'M0',
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
@@ -175,16 +195,18 @@ export async function rejectPayment(
     return { success: false, error: 'Unauthorized' }
   }
 
+  // Rejecting M0 reverts the job out of the payment-pending state it entered
+  // on submission. A later milestone's rejected payment doesn't touch the
+  // job's own status at all -- the job is already work_started by then.
   const [pcUpdate, enquiryUpdate] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('payment_confirmations')
       .update({ status: 'rejected', rejection_reason: rejectionReason })
       .eq('id', paymentConfirmationId),
-    supabase
-      .from('guest_enquiries')
-      .update({ status: 'estimate_accepted' })
-      .eq('booking_ref', bookingRef),
+    milestoneCode === 'M0'
+      ? supabase.from('guest_enquiries').update({ status: 'estimate_accepted' }).eq('booking_ref', bookingRef)
+      : Promise.resolve({ error: null }),
   ])
 
   if (pcUpdate.error) return { success: false, error: pcUpdate.error.message }

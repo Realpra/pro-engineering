@@ -1637,23 +1637,147 @@ session); fast-forwarding `master` (this session's 3 new commits -- `c5a3b41`, `
 CLAUDE.md record commit -- have NOT been pushed to `master`, same standing rule as before,
 pending the project owner's authorization since it triggers a production deploy).
 
-## NEXT SESSION — START HERE (Updated 28 Sep 2026, Session 67 continued further)
-- **Supervisor is FROZEN.** Do not reopen it without a new real finding. Its remaining live
-  click-through is the project owner's own deferred task, not this session's blocker.
-- **Client process: NOT frozen, code-complete on the fixed items, 3 confirmed obstructions
-  still open (see immediately above), nothing live-verified.** Read the full status table above
-  before touching Client again -- do not re-patch a "bug" without first checking whether it's
-  already listed as finalized or as one of the 3 named obstructions.
-- Before calling Client Frozen: (1) run `20260928_geo_hierarchy_delhi_central_delhi.sql` in
-  Supabase and confirm the 5 new rows with a query, (2) rebuild `/book/schedule`'s picker to
-  read the real geo_hierarchy tree instead of its hardcoded compass-zone arrays, (3) get the
-  project owner's decision on all 3 obstructions above, (4) run a real `/book` submission and
-  confirm `contact_phone`/`contact_email` land on the row, Magic Link/OTP find it, a real UTR
-  submission through `/client/payment` shows up and can be verified from `/admin/payments`'
-  Token Payments tab.
+## SESSION 67 CONTINUED FURTHER — 29 Sep 2026 — ALL 3 CLIENT OBSTRUCTIONS RESOLVED, REAL BUILDS SHIPPED
+Project owner gave explicit decisions on all 3 obstructions from the session-close entry above,
+plus two more real bugs surfaced along the way (`boq_generated.client_accepted_at` double-write,
+`/coordinator/routes` stale column mismatch). Every item built for real, not guessed at; each
+commit its own `npx tsc --noEmit` pass.
+
+**Screen 3 (`zone`) Contradiction, closed**: `20260928_geo_hierarchy_delhi_central_delhi.sql` run
+live in Supabase (confirmed). `app/book/schedule/page.tsx` rebuilt from scratch -- new
+`app/book/actions.ts` (`getBookingGeoTree`, service-role client since `/book` runs anonymously,
+same precedent as Worker Onboarding's own public geo picker) drives a real cascading
+District -> Region -> Zone -> Sector picker, replacing the fake compass-direction `ZONES`/
+`DELHI_DISTRICTS`/`ZONE_DB_MAP` entirely (removed from `lib/booking.ts`). The selected sector's
+real name now lands on `guest_enquiries.zone` directly, matching what `generateBOQ`'s rate
+lookup actually expects.
+
+**`boq_generated.client_accepted_at`/`status`, real bug confirmed and fixed**: project owner
+corrected the initial "two concepts, keep both" framing -- `client_accepted_at` is the frozen
+record of the client's own act of accepting a specific BOQ version (can legitimately get a NEW
+value only when the client re-accepts a REVISED estimate, which the table's own `version` column
+already supports), never touched by anyone else. Admin verifying an M0 token payment is a
+different event with its own already-correct home (`milestone_payment_schedule.
+token_payment_verified_at`). `verifyPayment` (`app/client/payment/actions.ts`) was overwriting
+`client_accepted_at` a second time on every M0 verification, AND doing it unscoped (no `boq_id`
+filter -- would have touched every BOQ version for the booking). Fixed: that update removed
+entirely (commit `c5a3b41`).
+
+**Screen 4 (Service Model), confirmed not a duplicate, "populate it and keep it"**: root cause was
+upstream, not the display bug itself -- `/book/service-model` already captured a human title
+(`serviceModelTitle`) at selection time but it was silently dropped before the insert.
+`ClientDashboard.tsx`'s `serviceModelLabel()` then tried to re-derive a label from values
+(`'l'`/`'m'`/`'lm'`/`'r1'`) none of the ~27 real `service_model` ids ever match. New column
+`guest_enquiries.service_model_title` (migration `20260929_guest_enquiries_service_model_title.sql`,
+run live) now persists what was already being captured; the dead label-guessing function is gone.
+
+**Screen 5 (Site Visit), the full real-world model, built**: project owner described two real
+branches -- (1) the pre-estimate survey visit, requestable by the client directly via `/book` OR
+logged by Coordinator/Admin when the request comes in by phone/WhatsApp/email, recurring during
+survey-stage to-fro; (2) execution-phase visits, both programmed (from substage/milestone
+schedule, client complaints, overhangs -- already the domain of the frozen `supervisor_daily_
+routes`) and "other"/training/briefing (admin/coordinator/superadmin-created) or supervisor
+self-created (already built, `addSlotManually`). New table `site_visit_requests` (migration
+`20260929_site_visit_requests.sql`, run live) is the request/intake side for branch (1) --
+genuinely distinct from `supervisor_daily_routes` since an incoming request has no supervisor
+assigned yet. `/book/submit` now writes a real row when a client requests a visit. New page
+`app/coordinator/visit-requests` (linked from the Coordinator dashboard nav with a live
+pending-count badge, not left orphaned) lets staff log phone/WhatsApp/email-received requests and
+convert a pending one into a real `supervisor_daily_routes` assignment.
+- **Found and flagged, not fixed, separate issue**: `app/coordinator/routes/page.tsx` queries
+  `supervisor_daily_routes` with a completely different, incompatible column set
+  (`slot_date`/`depart_time`/`arrive_time`/`work_start`/`work_end`) than the confirmed-live,
+  frozen shape (`scheduled_date`/`slot_start`/`slot_end`) -- that whole page is stale against the
+  real schema and was not used as the basis for the new triage feature.
+- **Deliberately scoped out**: auto-generating programmed visits from substage/milestone/
+  complaint/overhang triggers (a separate, larger scheduling-automation project); a distinct
+  "other"/training `slot_type` value on `supervisor_daily_routes` (that table has no migration
+  file at all and its live CHECK constraint can't be verified from this sandbox -- training/
+  briefing visits should use the already-valid `slot_type='hq'` via `addSlotManually` for now).
+
+**Screen/`client_user_id`, closed with both a real production path and dev/beta convenience,
+exactly as instructed**: replaced the previous mechanism (`app/client/login/actions.ts`'s
+`sendMagicLink`/`sendOtp`/`verifyOtp`/`verifyMagicToken` -- generated a token/OTP, stored it on
+`guest_enquiries`, never dispatched it anywhere, confirmed non-functional) with real Supabase Auth
+calls. Email Link tab calls `supabase.auth.signInWithOtp({ email })` client-side (sends a real
+email via Supabase's own Auth email service); new `app/client/auth/callback` page picks up the
+resulting session and calls the new `linkClientAccount` server action, which sets
+`client_user_id` on every `guest_enquiries` row matching the verified email/phone -- the one
+step that never existed anywhere before. Phone OTP tab calls the real `signInWithOtp({ phone })`/
+`verifyOtp` -- **flagged, not silently assumed working**: this needs an SMS provider (Twilio
+etc.) configured in Supabase's own Auth settings, which cannot be done or verified from this
+sandbox. Dev/beta path (`app/book/actions.ts`'s `createClientDevAuthAccount`, called from
+`/book/submit` after every real booking) exactly mirrors Worker Onboarding's
+`createWorkerAuthAccount` (Session 65) -- generates `<name>_client_<suffix>@proengineering.in`
+with a shared password (`Client2026`), creates a real distinct `auth.users` row, sets
+`client_user_id` immediately, shown on the booking success screen -- both paths write the same
+column, not two competing mechanisms, per the project owner's explicit "keep development moving"
+instruction. `scripts/reset-client-passwords.mjs` (must be run locally, not from this sandbox --
+no Supabase network access here) resets/confirms all 11 already-existing client dev accounts the
+project owner listed to the same `Client2026` password.
+
+**`submitMilestonePaymentRequest`/`client_payment_pending`, built for real**: confirmed
+`'client_payment_pending'` was NOT in the live CHECK constraint widened by
+`20260927_milestone_payment_schedule_freeze_fixes.sql` (read that migration's exact value list --
+same class of bug as the `instruction_type` CHECK mismatch found earlier this session). New
+migration `20260929_milestone_payment_schedule_client_payment_pending.sql` (Amendment 3
+Addition -- a genuinely new need, every existing reader/writer of `status` behaves exactly as
+before) adds it. `/client/payment` (`page.tsx`/`ClientPaymentPage.tsx`/`actions.ts`) generalized
+from hardcoded M0-only to any milestone via a `milestone_code` param -- M0 keeps its exact
+existing side effects (`token_payment_verified_at`, job `work_started`); a later milestone
+(M1-M4) moves to the existing `payment_released`/`payment_released_at` terminal state on
+verification instead, since the job is already under way by then. `ClientDashboard.tsx`'s
+Section 8 milestone cards now show a real "PAY [M#] NOW" button once a milestone is
+`admin_approved` and unpaid, calling `submitMilestonePaymentRequest` then routing to
+`/client/payment?booking_ref=X&milestone_code=Y`. `/admin/payments`' Token Payments tab and
+`TokenPaymentCard` (built earlier this session for M0 only) now handle any milestone's client
+payment through the same queue.
+
+**Not yet done, explicitly carried forward**: none of this session's 3 new migrations
+(`20260929_guest_enquiries_service_model_title.sql`, `20260929_site_visit_requests.sql`,
+`20260929_milestone_payment_schedule_client_payment_pending.sql`) have been run in Supabase yet
+(delivered as files, not pasted as SQL, per the project owner's explicit instruction) --
+`20260928_geo_hierarchy_delhi_central_delhi.sql` was the only one confirmed run live this
+session. Nothing in this entry has been live-verified beyond that one migration and a clean
+`tsc` pass; `master` has not been fast-forwarded (this session's commits stay on
+`claude/gracious-knuth-vxwkc3`, pending authorization since it triggers a production deploy).
+Real SMS delivery for Phone OTP needs an SMS provider configured in Supabase's Auth settings --
+a dashboard-only action outside what this sandbox can do or verify.
+
+**`submitMilestonePaymentRequest`, closed out**: the orphaned dead code flagged in the entry
+above is now real -- wired into `ClientDashboard.tsx`'s Section 8 milestone cards (a "PAY [M#]
+NOW" button appears once a milestone is `admin_approved` and unpaid, calling
+`submitMilestonePaymentRequest` then routing to `/client/payment?booking_ref=X&milestone_code=Y`)
+and confirmed against the new `client_payment_pending` CHECK-constraint value the migration
+above adds. `npx tsc --noEmit` clean.
+
+**`lib/booking.ts`'s `ZONE_DB_MAP` restored, deprecated in place**: `ed68ed1` deleted it outright
+when `/book/schedule` was rebuilt onto the real `geo_hierarchy` picker, which is a violation of
+this project's own standing rule (never delete a construct without specific permission, only
+deprecate/add-alongside) even though the constant is now genuinely unreferenced (confirmed by
+repo-wide grep) -- the compass-code zone values it mapped no longer match anything real code
+writes. Restored with a comment explaining why it's dead and pointing at the migration that
+superseded it, rather than left deleted.
+
+## NEXT SESSION — START HERE (Updated 29 Sep 2026, Session 67 continued further)
+- **Supervisor is FROZEN.** Do not reopen it without a new real finding.
+- **Client process: all 3 obstructions resolved with real builds, NOTHING live-verified yet.**
+  Run the 3 new migrations listed above in Supabase, then live-test: a real `/book` submission
+  end to end (contact info lands, dev login account is created and works, a site-visit request
+  request can be logged/triaged/scheduled from `/coordinator/visit-requests`, the geo picker
+  cascades correctly); Email Link login end to end (a real email arrives, the callback page
+  links `client_user_id`); a non-M0 milestone "PAY NOW" end to end through to Admin's Token
+  Payments tab.
+- Configure an SMS provider in Supabase's Auth settings before Phone OTP can actually deliver a
+  code -- code side is real and ready, this one step is dashboard-only and outside this
+  sandbox's reach.
+- Run `scripts/reset-client-passwords.mjs` locally to confirm the 11 existing client dev
+  accounts can actually sign in with `Client2026`.
+- Separate, real, flagged-not-fixed finding from this session: `app/coordinator/routes/page.tsx`
+  queries `supervisor_daily_routes` with a stale, incompatible column set vs. the confirmed-live
+  schema -- needs its own decision/rebuild pass later, not touched here.
 - Remember the standing rule: push to `master` too (or flag it) whenever real fixes land on the
-  working branch -- this session's Client-process commits (`dfc8292` through this entry's
-  closing commit) have NOT been fast-forwarded to `master` yet, pending authorization.
+  working branch -- this session's commits have NOT been fast-forwarded to `master` yet.
 - Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure -- check whether
   it's the same root cause as SU-472225 (superadmin/client1-7) or a new, separate issue.
 - Set a real `CRON_SECRET` value in Vercel before calling the Daily Log deadline cron frozen
@@ -1662,7 +1786,9 @@ pending the project owner's authorization since it triggers a production deploy)
   the rest of this pass): `/supervisor/milestone-tracker/propose` (no live schema to build the
   insert against); the "work blocked until scope-change approved" enforcement gap in
   Milestones/SubstageCard; PENDING #13 (job creator attribution); the pre-existing orphaned
-  `geo_hierarchy` flat/type-based rows found this session (see above).
+  `geo_hierarchy` flat/type-based rows found this session; auto-generating programmed site
+  visits from substage/milestone/complaint/overhang triggers; a distinct "other"/training
+  `slot_type` value on `supervisor_daily_routes`.
 - Still open from the earlier Supervisor Visit freeze this session, untouched by this pass:
   `app/sub-coordinator/workers/page.tsx:226`'s lookup bug; the R27 `worker_route_legs` redesign
   awaiting the project owner's go-ahead; `decision_5_raised_by` storing a role string.
