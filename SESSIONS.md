@@ -1082,3 +1082,294 @@ the standing discipline from Session 66.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
   claude/gracious-knuth-vxwkc3
+
+## SESSION 67 CONTINUED FURTHER — 27 Sep 2026 — SUPERVISOR VISIT LIVE-VERIFIED (6 OF 7 ITEMS)
+- All 8 pending migrations confirmed applied live; Amendment 2 verification queries all came
+  back clean (0 gaps on every canonical-cutover column) except `site_incharge_id_populated=0`/
+  `current_substage_id_populated=0`, which are correct zeros (no live assignment yet), not
+  failures.
+- 2 real bugs caught by live SQL checks and fixed: (1) the OLD auto-named `UNIQUE(supervisor_id,
+  booking_ref)` constraint on `site_visit_reports` was still live (the migration's `DROP
+  CONSTRAINT` used a name that was never the real one) -- fixed, retested; (2) a live Flow (i)/
+  (ii) + `current_substage_id` test assumed `supervisor_daily_routes.site_id` was a booking_ref
+  string, it's actually a `guest_enquiries.id` UUID -- fixed in the test path.
+- SA-12 Snag List live-tested end to end (open -> resolved), matching `resolveSnagItem`/
+  `adminApproveHandover`'s blocking logic. Evening->LTF data-wipe fix live-tested: Evening fields
+  survive an LTF submit on the same row.
+- Item #6 (Sub-Coordinator "All Supervisors" broadcast) confirmed correct by code read but not
+  live-clickable from SQL alone -- needs a real UI test once subcoordinator login works.
+- All test data self-cleaned, confirmed via a final zero-row count check.
+
+## SESSION 67 CONTINUED FURTHER — 27 Sep 2026 — FULL METHODOLOGY COMPLIANCE AUDIT FOR SUPERVISOR VISIT
+- Ran Supervisor Visit's fixes back against every clause of docs/SCHEMA_FREEZE_METHODOLOGY.md
+  (Amendment 1 tie-break, Amendment 2 data-integrity, Amendment 3 addition/contradiction, both
+  supporting checks). Verdict: not yet fully Frozen -- 5 of 7 fields clean, 2 flagged
+  (`workers.current_job_id`'s pre-existing sub-coordinator/workers/page.tsx:226 lookup bug;
+  `site_incharge_id`/`supervisor_id` dual-read not yet exercised by a real assignment).
+  3 concrete gates identified: live-test item #6, make a wire-up-or-discard call on dead
+  Supervisor routes, get one real `site_incharge_id`/`current_substage_id` assignment live.
+
+## SESSION 67 CONTINUED FURTHER — 27-28 Sep 2026 — ALL 12 SUPERVISOR TABS RUN THROUGH THE METHODOLOGY
+Ran every tab in the Supervisor nav (Dashboard, Route, Milestones, Daily Log, Pre-Delivery,
+Scope, Estimates, Extra Works, Directives, Reports, Certificate, + New Job) through the
+methodology's data-point audit, fixing each real gap found, one tab/commit at a time, all with
+clean `tsc`:
+- Dashboard (329c1f2): dead "Site Head Not Ready" button wired; SOS button built (raises a
+  critical `site_instructions` alert to every Admin); fake "Daily Tasks" replaced with a real
+  derived list; dead `CheckInButton.tsx` removed; Earnings Summary honestly flagged as blocked.
+- Route (4c6c104): `/supervisor/route` was a 404 despite being on every Supervisor page's nav --
+  built for real (fixed obligations, overdue/LTF/free slots, Confirm Day Plan lock). Wired the
+  orphaned `supervisor_schedule` table in. Built `confirmDayPlan()` and `addSlotManually()`.
+- Milestones (4099edd): built `/supervisor/approval/[id]` (PENDING #25, open since Session 62) --
+  the entire Site Head->Supervisor->Sub-Coordinator->Finance approval chain was dead. "Propose New
+  Sub-Stage" deliberately left dead (no live schema to build the insert against).
+- Daily Log (1ba6f29): built the spec's 09:30/19:00 deadline-alert cron (needs `CRON_SECRET`).
+- Pre-Delivery (01ac222): built SA-13 Client Handover Sign-Off (4-screen: satisfaction/
+  dissatisfaction/signature/photos).
+- Scope (e2cb97c): `/supervisor/scope-verification` was a 100%-dead mockup duplicating the
+  already-frozen Flow (i)/generateBOQ -- rebuilt as a real status/entry page into that one flow.
+- Estimates (b635230, PENDING #18): opened `generateBOQ` to Supervisor; built a scoped Confirm/
+  Revise/Modify review action (`boq_generated.supervisor_review_*`).
+- Extra Works (d3c2734, SA-10): added the 50-char description minimum and ₹5,000/2-day
+  Coordinator auto-notification thresholds.
+- Directives (85a6def): built the outbound counterpart, `/supervisor/instruction` (PENDING #26).
+- Reports (4c540b1): built the missing write side for Coordinator's already-widened 6
+  `instruction_type` report values; "Active Reports" made real.
+- Certificate (9ecbf8f): "Download PDF" wired to `window.print()` (no PDF library in the repo).
+- + New Job: no code needed, plain link to `/book`.
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — instruction_type CHECK-CONSTRAINT VIOLATION FOUND, THEN FIXED (paused mid-fix, then resumed, commit eb11144)
+- Live `pg_constraint` query revealed the REAL `site_instructions.instruction_type` CHECK only
+  allows 6 values (`pre_instruction/revised/hold/expedite/resource/alert`) -- every new value
+  this session's 12-tab pass wrote (`sos`, `daily_log_deadline_missed`,
+  `scope_change_threshold_breach`, `client_handover_dissatisfaction`,
+  `supervisor_estimate_review`, and all 6 Reports `TYPE_MAP` values) was INVALID against it.
+  Pre-existing, not from this pass: `app/sub-coordinator/actions.ts`'s `chase`/`notification`
+  also invalid. Session paused here at the project owner's request, no fix written yet.
+- Resumed: found the problem predates this session -- `adminIssueDirective`
+  (`app/admin/reports/actions.ts`) had been writing 9 more invalid values plus an invalid
+  `status: 'active'` since before this session touched anything. Project owner's decision: keep
+  every value as a real, distinct `instruction_type` (don't collapse to `'alert'`); add a new
+  `instruction_category` column as a broader grouping layer ABOVE it.
+- Fix shipped (eb11144, 11 files): new migration
+  `20260928_site_instructions_instruction_type_widen.sql` (site_instructions' first-ever
+  migration file) widens the CHECK from 6 to 24 values; `instruction_category` populated at all
+  9 write sites (`system_alert`/`report`/`directive`/`site_instruction`); fixed
+  `adminIssueDirective`'s invalid `status: 'active'` -> `'pending'`; fixed a real pre-existing
+  mislabel bug in `coordinator/reports/page.tsx` (every Sub-Coordinator instruction showed
+  "Methodology"). `npx tsc --noEmit` exit 0 (real compiler run, node_modules present this
+  session). Migration not yet run in Supabase.
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — MIGRATION RUN LIVE, subcoordinator LOGIN FOUND BROKEN
+- `20260928_site_instructions_instruction_type_widen.sql` confirmed run live in Supabase.
+- New finding, not investigated yet: `subcoordinator@proengineering.in` now rejects with
+  "invalid credentials" -- blocks live-testing Sub-Coordinator's own `site_instructions` writes.
+  Not assumed to share SU-472225's root cause without checking.
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — ALL 3 REMAINING MIGRATIONS RUN LIVE
+- `20260928_pre_delivery_client_handover_sa13.sql`, `20260928_boq_generated_supervisor_review.sql`,
+  `20260928_scope_change_requests_cost_timeline_impact.sql` all confirmed run live -- every
+  migration from the 12-tab Supervisor pass is now applied.
+- `CRON_SECRET` confirmed NOT set in Vercel -- not a functional blocker (the cron route's own
+  check short-circuits when absent) but a real, low-severity auth gap to close before freezing.
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — RECURRING STALE-MASTER BUG FOUND AND FIXED AGAIN
+- The Dashboard SOS button appeared missing on `pro-engineering.vercel.app` -- root cause: the
+  production alias was still pointed at `master`@`bde966f` (Session 66's last commit, 2 days
+  stale), while all of this session's work only ever lived on `claude/gracious-knuth-vxwkc3`.
+  Exact same class of bug Session 66 already hit once. Confirmed the branch's own preview URL had
+  the correct code all along -- purely a stale-alias problem.
+- Fixed: fast-forwarded `master` to `9bd1a49` after confirming a clean ancestor relationship,
+  with explicit user authorization (pushing to master triggers a real production deploy).
+- **Standing rule set**: any session that pushes real fixes to the working branch must also
+  fast-forward `master` (or explicitly flag that it needs updating) before considering work live
+  -- confirmed twice now that pushing to the branch alone does not reach production.
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — SUPERVISOR DECLARED FROZEN; MOVING TO CLIENT
+Project owner's explicit decision: Supervisor (Site Visit + all 12 tabs) is Frozen -- the
+remaining role-by-role UI click-through is deferred to the project owner's own time, not
+blocking. Supervisor joins Worker Onboarding as the second Frozen process. Next process per the
+methodology's recommended sequence and the project owner's direction: **Client** (full
+`/book` + `/client/*` lifecycle).
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — CLIENT PROCESS AUDITED, 4 REAL GAPS FIXED
+Read all 20 files under `app/client/*` + `app/book/*` in full. 4 real bugs found and fixed, each
+its own commit with clean `tsc`, none needing a migration:
+1. **Root-cause finding**: `/book/submit` only ever captured `contact_name` -- never
+   `contact_phone`/`contact_email`, despite 3 live Coordinator pages reading them and Client
+   Login depending on them. Every real booking had no phone/email on file, so no client could
+   ever reach their own dashboard. Fixed: added required phone + optional email fields.
+2. Client Login's phone lookup queried `client_phone` (never written anywhere); Coordinator's
+   pages depend on `contact_phone` -- canonicalized onto `contact_phone`.
+3. `/client/dashboard/[bookingRef]`'s "Your Coordinator" lookup queried `users` by a
+   `workers.id` (`supervisor_id`) which can never match (no per-job Coordinator FK exists) --
+   always rendered "--"; removed, along with a leftover debug `console.log`.
+4. Client Dashboard told an accepted client their M0 token payment was due but gave no way to
+   pay it -- `/client/payment` was unreachable from any client-facing page. Added a real "PAY
+   TOKEN AMOUNT" link. Paired admin-side fix: `verifyPayment`/`rejectPayment` had zero reachable
+   UI (`/admin/payments` never showed a way to verify) -- added a real "Token Payments" tab.
+Flagged, not fixed: `client_user_id` never provisioned anywhere in live code; magic-link/OTP
+tokens generated but never dispatched; `/book`'s Scope Report + Cost Estimate steps 100%
+static/mocked; no handover/documents-vault/rating screen anywhere in `app/client/*`;
+`submitMilestonePaymentRequest` orphaned dead code; `PendingPaymentsPanel.tsx` now a confirmed
+duplicate of the new Token Payments tab.
+
+## SESSION 67 CONTINUED FURTHER — 28 Sep 2026 — CLIENT FIELD INVENTORY RUN PROPERLY, 2 MORE FIXES + 1 MIGRATION, SESSION CLOSED
+Project owner correctly called out that the prior pass skipped the required Expand-side full
+field inventory and patched the first bug found instead -- redone properly: every field on every
+`/book` (9 screens) and `/client/*` screen inventoried and cross-checked against Worker
+Onboarding/Supervisor's already-frozen concepts.
+- Fixed `verifyPayment` double-writing `boq_generated.client_accepted_at`/`status` a second time
+  on M0 payment verification (a distinct, client-only event; the update was also unscoped, no
+  `boq_id` filter) -- removed (`c5a3b41`).
+- New migration `20260928_geo_hierarchy_delhi_central_delhi.sql`: `/book/schedule`'s zone picker
+  wrote Delhi compass values (north/south/etc.) into `guest_enquiries.zone`, but `generateBOQ`
+  looks that column up against real `geo_hierarchy` sector names -- every `/book`-originated Delhi
+  job silently defaulted to the Noida Sector 62 rate card. Real Delhi structure added: Delhi >
+  Central Delhi (district/region pass-through) > IIT Zone > Hauz Khas/Panchsheel Park (real place
+  names). NOT run in Supabase yet at session close.
+- Flagged, not fixed: pre-existing orphaned flat/`type`-based `geo_hierarchy` seed rows never
+  reconciled with the newer `level`-based hierarchy.
+- 3 confirmed obstructions needing the project owner's decision: `client_user_id` never
+  provisioned; no column exists for a client-requested site-visit date/slot; `'client_payment_
+  pending'` (used by orphaned `submitMilestonePaymentRequest`) not confirmed valid against the
+  live CHECK constraint.
+- Session closed by the project owner here -- `master` not fast-forwarded pending the 3
+  migrations from this Client pass.
+
+## SESSION 67 CONTINUED FURTHER — 29 Sep 2026 — ALL 3 CLIENT OBSTRUCTIONS RESOLVED, REAL BUILDS SHIPPED
+Project owner gave real decisions on all 3 obstructions; each built for real:
+- Screen 3 zone Contradiction closed: Delhi migration run live; `/book/schedule` rebuilt with a
+  real cascading District->Region->Zone->Sector picker (`app/book/actions.ts`'s
+  `getBookingGeoTree`), replacing the fake compass-direction constants entirely.
+- `boq_generated.client_accepted_at` double-write bug confirmed and fixed (same finding as
+  above, root-caused properly this time -- `client_accepted_at` only ever changes on a real
+  client re-acceptance of a revised BOQ version, never on payment verification).
+- Screen 4 Service Model: root cause was upstream -- `serviceModelTitle` was captured but
+  silently dropped before insert. New column `guest_enquiries.service_model_title`
+  (`20260929_guest_enquiries_service_model_title.sql`) persists what was already collected; the
+  dead label-guessing function removed.
+- Screen 5 Site Visit: new table `site_visit_requests`
+  (`20260929_site_visit_requests.sql`) built as the real request/intake side, genuinely distinct
+  from `supervisor_daily_routes`. `/book/submit` writes a real row on request. New page
+  `app/coordinator/visit-requests` built for staff to log/triage/convert requests into a real
+  `supervisor_daily_routes` assignment. Flagged separately: `app/coordinator/routes/page.tsx`
+  queries a stale, incompatible column set against the real schema.
+- `client_user_id` closed with a real dual path: Email Link tab now calls real
+  `supabase.auth.signInWithOtp`, picked up by new `app/client/auth/callback` ->
+  `linkClientAccount`; Phone OTP wired the same way (needs an SMS provider configured in
+  Supabase, not yet done); dev/beta path `createClientDevAuthAccount` mirrors Worker Onboarding's
+  convention (`<name>_client_<suffix>@proengineering.in` / `Client2026`).
+- `submitMilestonePaymentRequest`/`'client_payment_pending'` built for real: new migration
+  `20260929_milestone_payment_schedule_client_payment_pending.sql` adds the missing CHECK value;
+  `/client/payment` generalized to any milestone via `milestone_code`; wired into
+  `ClientDashboard.tsx`'s milestone cards as a real "PAY [M#] NOW" button.
+- `lib/booking.ts`'s `ZONE_DB_MAP` (deleted outright by the schedule rebuild, violating the
+  project's never-delete rule) restored, deprecated in place with a comment.
+- None of this session's 3 new migrations run in Supabase yet at this point (only the Delhi one
+  was); `master` not fast-forwarded.
+
+## SESSION 67 CONTINUED FURTHER — 29 Sep 2026 — SITE INCHARGE OUTBOUND + ROUTE AUTO-COMPILE, GO-LIVE BLOCKER IDENTIFIED
+Project owner decision: not building Sub-Coordinator right now -- route its natural recipients to
+Coordinator instead until a real build happens.
+- Site Incharge outbound built (PENDING #17 closed): `RequestResourcesButton.tsx` (fans out to
+  every Coordinator) and `LTFSubmitButton.tsx` (real day-end readiness submission) on the
+  dashboard.
+- Root cause found and fixed: `ltf_feeds` had zero writer anywhere despite being read in 4 places
+  and Sub-Coordinator's LTF page claiming "feeds compile automatically at 20:00" since it was
+  built (confirmed false). Built `submitLTF` (Site Incharge's real writer) and a new cron,
+  `app/api/cron/ltf-route-compile` (20:00 IST), which inserts tomorrow's real
+  `supervisor_daily_routes` slot from ready feeds, plus auto-queuing an `overhang` slot for any
+  overdue critical-path substage. Both writers fail gracefully if `ltf_feeds` turns out missing
+  (unconfirmed in any sandbox at this point).
+- Fixed a real regression in `app/supervisor/route/page.tsx`'s Overdue Visits section (missing
+  the PENDING #31 slot_type routing fix already applied elsewhere).
+- Restored `lib/booking.ts`'s `ZONE_DB_MAP` (deleted outright, violating the never-delete rule).
+- **GO-LIVE STATUS at this point**: Worker Onboarding + Supervisor Frozen; Client + Site Incharge
+  outbound/Route auto-compile fully coded but NOT live-verified, blocked on 3 unrun Client
+  migrations (`service_model_title`, `site_visit_requests`,
+  `milestone_payment_schedule_client_payment_pending`). Flagged as a hard, confirmed blocker:
+  `/book/submit` already puts `service_model_title` into the main `guest_enquiries` insert --
+  reaching production before the migration runs would fail every public booking outright.
+  `master` deliberately NOT fast-forwarded until those 3 are confirmed run.
+
+## SESSION 67 CONTINUED FURTHER — 29 Sep 2026 — CLIENT PROCESS LIVE-VERIFIED, master CURRENT
+- All 4 pending migrations (3 Client + the decline/override one from the same batch) confirmed
+  run live; `master` fast-forwarded to `aa7940a`. One caught-mid-fast-forward mistake (pushed
+  code to `master` one migration ahead of what had actually run) -- caught within minutes, no
+  live breakage; lesson applied: check each commit's own new migration before including it.
+- Project owner ran a real `/book` submission end to end through Step 5 of the checklist --
+  confirmed working: real dev login account created, geo picker worked, site visit request
+  reached `/coordinator/visit-requests` as Pending with a working "Confirm Schedule" flow.
+- Real bug found and fixed: `/admin/estimate/[bookingRef]` never even fetched
+  `contact_name`/`contact_phone`/`contact_email` -- staff preparing an estimate had no way to see
+  who to call. Fixed, plus the same smaller-blast-radius bug in `coordinator/jobs/page.tsx`.
+- Confirmed NOT a bug: "No rate card for zone 'Panchsheel Park' -- rates set to ₹0" -- real data
+  gap (no Delhi rate_card data entered anywhere), not a code fix, PENDING #3/#19.
+- **Client process is now live-verified** -- third process Frozen-equivalent under the
+  methodology, alongside Worker Onboarding and Supervisor Visit.
+
+## SESSION 67 CONTINUED FURTHER — 30 Sep 2026 — SITE INCHARGE/SUPERVISOR/ROUTE LIVE-TESTED, 5 REAL BUGS FOUND AND FIXED
+Project owner ran the full checklist for the previous entry's build (Site Incharge outbound, LTF
+sourcing, decline/override/pending-pickup) step by step live on production -- caught 5 real bugs
+code review alone would have missed:
+1. `ltf_feeds` has no `booking_ref` column at all -- every writer built on that wrong assumption
+   (copied from Sub-Coordinator's own never-tested LTF page). Fixed to scope by `site_id` only
+   (`810c6c7`).
+2. `supervisor_daily_routes` has RLS enabled with ZERO policies -- Postgres's default is deny-all,
+   silently blocking every real app write to this table (not just this session's new code) the
+   whole time; prior "live-simulated" checks must have used the SQL Editor's service-role session,
+   which bypasses RLS. New migration grants `authenticated` full access, matching the
+   `guest_enquiries` precedent (scoping stays in application code).
+3. `declineSlot` didn't clear stale `override_confirmed_at`/`by` on a re-decline -- caught by a
+   real decline->override->decline-again test; Coordinator's query only shows slots where that's
+   still null, so the second decline never surfaced. Fixed to clear both fields on every fresh
+   decline.
+4. No real "No" existed for Coordinator, only "Override" or silent inaction. New migration adds
+   `pending_confirmed_at`/`pending_confirmed_by`; new `confirmPending` action is the explicit
+   "No" (doesn't change WHEN a slot becomes pickup-eligible, only records a real decision was
+   made).
+5. Cosmetic, not fixed: Supervisor dashboard's "Next Site" field shows a raw `next_site_id` UUID
+   instead of resolving it to a booking_ref.
+- Full chain live-confirmed on production in order: staff assignment -> Site Incharge Request
+  Resources reaches Coordinator's inbox -> LTF Submit writes a real `ltf_feeds` row -> the
+  ltf-route-compile cron (triggered manually) found real overdue work and inserted a real
+  `overhang` slot -> Supervisor declines a slot -> Coordinator's Declined Visits panel shows it
+  -> Override returns it to normal; a second decline -> "No -- Send to Pending" -> the slot
+  appears under Supervisor's own Pending Pickup section -> Claim returns it to normal.
+  `ltf_feeds`'s existence as a real table is now conclusively confirmed.
+- All 3 new migrations from this pass (`ltf_feeds`/RLS fix, `pending_confirmed`) confirmed run
+  live; `master` fast-forwarded to `3a51db5` after each, checking each commit's own migration
+  before including it (the discipline learned the hard way in the previous entry).
+
+## NEXT SESSION — START HERE (Updated 30 Sep 2026)
+- **Client, Worker Onboarding, Supervisor Visit, and the Site Incharge outbound/LTF/decline-
+  override-pickup mechanism are ALL live-verified.** `master` is current as of `3a51db5` --
+  confirm this is still true before assuming it.
+- Cosmetic, low priority: Supervisor dashboard's raw-UUID "Next Site" field (Bug 5 above).
+- Enter real Delhi zone rate_card data (PENDING #3/#19) -- new Delhi sectors price at ₹0.
+- Configure an SMS provider in Supabase's Auth settings for Phone OTP delivery.
+- Run `scripts/reset-client-passwords.mjs` locally to confirm the 11 existing client dev accounts
+  sign in with `Client2026`.
+- Test a second `/book` submission WITH an email entered, to exercise Email Link login end to end.
+- Flagged, not fixed: `app/coordinator/routes/page.tsx`'s stale column set vs. the live schema.
+- Investigate `subcoordinator@proengineering.in`'s "invalid credentials" failure.
+- Set a real `CRON_SECRET` in Vercel before calling either cron frozen.
+- Deliberately left dead, not guessed at: `/supervisor/milestone-tracker/propose`; the "work
+  blocked until scope-change approved" enforcement gap; PENDING #13 (job creator attribution);
+  the pre-existing orphaned `geo_hierarchy` flat/type-based rows; a distinct "other"/training
+  `slot_type` value on `supervisor_daily_routes`.
+- Still open: `app/sub-coordinator/workers/page.tsx:226`'s lookup bug; the R27
+  `worker_route_legs` redesign awaiting the project owner's go-ahead; `decision_5_raised_by`
+  storing a role string.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch
+  claude/gracious-knuth-vxwkc3
+
+**Note (this entry, 30 Sep 2026): SESSIONS.md had silently gone out of sync with CLAUDE.md since
+27 Sep 2026** -- every session from "Supervisor Visit live-verified" through today's decline/
+override-pickup fixes was recorded only in CLAUDE.md, never backfilled here, despite CLAUDE.md's
+own "Read CLAUDE.md and SESSIONS.md" standing instruction treating both as live. Backfilled in
+full above rather than retiring this file, per the project's own "never silently drop a record"
+discipline. Going forward: update SESSIONS.md alongside CLAUDE.md at the end of every session,
+not CLAUDE.md alone.
