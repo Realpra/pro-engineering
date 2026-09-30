@@ -1988,23 +1988,89 @@ and exactly why PENDING #19 (the Rate Intelligence form) still matters.
 joins Worker Onboarding and Supervisor Visit as the third process both coded and confirmed
 working end to end, not just code-complete.
 
-## NEXT SESSION — START HERE (Updated 29 Sep 2026)
-- **Client, Worker Onboarding, and Supervisor Visit are all live-verified.** `master` is current
-  as of `aa7940a` -- confirm this is still true before assuming it (check `git log -1 origin/
-  master` vs `origin/claude/gracious-knuth-vxwkc3`).
-- Not yet live-tested this session: Site Incharge's new Request Resources + LTF Submit buttons,
-  Supervisor's new LTF Submit button + SiteVisitManager's Screen 2 LTF wiring, the
-  decline/override/pending-pickup flow on Route Plan + `/coordinator/visit-requests`, and whether
-  `ltf_feeds` genuinely exists as a live table at all (flagged twice now -- both new writers
-  degrade gracefully either way, but this needs one live check: `select count(*) from
-  ltf_feeds;`).
+## SESSION 67 CONTINUED FURTHER — 30 Sep 2026 — SITE INCHARGE/SUPERVISOR/ROUTE LIVE-TESTED, 5 REAL BUGS FOUND AND FIXED
+Project owner ran the full checklist for everything built the previous entry (Site Incharge
+outbound, LTF sourcing correction, decline/override/pending-pickup) step by step, live, on
+production. This is exactly what the methodology's Step 3 (live run) demands -- and it caught 5
+real bugs code review alone never would have, each fixed and confirmed working in the same pass.
+
+**Bug 1 -- `ltf_feeds` has no `booking_ref` column at all.** The previous entry's `submitLTF`,
+`submitSupervisorLTF`, the SiteVisitManager Screen 2 wiring, and the `ltf-route-compile` cron all
+assumed one, copying `app/sub-coordinator/ltf/page.tsx`'s own same wrong assumption (that page has
+never been live-tested either, its login being broken). `information_schema` confirmed the real
+columns: `id/site_id/milestone_id/submitted_by/submitted_at/is_ready_tomorrow/target_time_slot/
+contractor_notes/accountability_flag/created_at`. All four writers fixed to scope by `site_id`
+only (`810c6c7`).
+
+**Bug 2 -- `supervisor_daily_routes` has Row Level Security ENABLED with ZERO policies defined.**
+Postgres's default with RLS on and no matching policy is deny-all, for every command, to every
+non-owner role. A real Supervisor session hit "new row violates row-level security policy" on
+`addSlotManually` -- a PRE-EXISTING action from an earlier session, not built this pass, whose
+"live-simulated" status in the task list must have been checked via the SQL Editor's own
+service-role session (which bypasses RLS entirely), never through the real app. This had been
+silently blocking every write to this table through the app the whole time, not just this
+session's new code. New migration grants `authenticated` full access (`USING (true)`), matching
+the precedent already on `guest_enquiries` -- real scoping happens in application code via
+`.eq()` filters, not at the RLS layer, and nothing about this table needed finer-grained RLS.
+Confirmed fixed live: `addSlotManually` succeeded immediately after.
+
+**Bug 3 -- `declineSlot` didn't clear stale `override_confirmed_at`/`by` on a re-decline.** Caught
+by the project owner's own repeat test (decline -> override -> decline again): the second decline
+kept the FIRST cycle's override timestamp, so Coordinator's query (which only shows slots where
+that column is still null) never surfaced the second, genuinely-new decline at all. Fixed:
+`declineSlot` now clears both fields on every fresh decline.
+
+**Bug 4 -- no real "No" existed, only "Override" or silence.** Project owner's direct
+correction: "the denial by supervisor needs a yes/no" -- Coordinator only had one button
+(Override); doing nothing was an implicit, unrecorded "no." New migration adds
+`pending_confirmed_at`/`pending_confirmed_by`; new `confirmPending` action is the explicit "No,"
+recorded the same way "Yes" always was. Doesn't change WHEN a slot becomes pickup-eligible (still
+immediately on decline, unless overridden, per the original rule) -- only records that a real
+decision was made. `declineSlot`/`claimPendingSlot` both updated to clear these fields too, same
+discipline as Bug 3's fix, so no cycle leaks into the next one.
+
+**Bug 5, cosmetic, not fixed this pass**: `app/supervisor/dashboard/page.tsx`'s "Next Site"
+field shows a raw `next_site_id` UUID instead of resolving it to a booking_ref, unlike
+`route/plan/page.tsx`'s own resolved `siteIdToBookingRef` map. Flagged, low priority.
+
+**Full checklist result, all live-confirmed on production, in order**: assign supervisor62 +
+site_incharge62 to a job via `/coordinator/jobs` -> Site Incharge's Request Resources reaches
+Coordinator's `/coordinator/reports` inbox with a real sender name -> Site Incharge's LTF Submit
+writes a real `ltf_feeds` row -> the `ltf-route-compile` cron, triggered manually, found real
+overdue critical-path work on `PE-2026-0002` and inserted a real `overhang` slot for tomorrow
+with the correct note listing the overdue items -> Supervisor declines a slot on
+`/supervisor/route/plan` (shows "Sent to Pending") -> Coordinator's `/coordinator/visit-requests`
+shows it under "Declined Visits Needing a Decision" with the real reason and supervisor name ->
+"Yes — Override, Keep Assigned" returns it to normal -> a second decline -> "No — Send to
+Pending" -> the slot appears under Supervisor's own "Pending Visits — Pick Up" -> "Claim This
+Slot" returns it to a normal scheduled slot. Every link in this chain is now real, live-verified
+production behavior, not a plausible-looking mockup.
+
+`ltf_feeds`'s existence as a real table is now conclusively confirmed (it errored on a specific
+missing column, not "relation does not exist") -- the flag carried in the last 2 entries is closed.
+
+All 3 new migrations from this pass confirmed run live: the `ltf_feeds`/RLS fix
+(`20260929_supervisor_daily_routes_rls_policy.sql`), and `20260930_supervisor_daily_routes_
+pending_confirmed.sql`. `master` fast-forwarded to `3a51db5` after each migration was confirmed,
+checking each commit's own new migration before including it -- not just the batch's oldest one
+(the discipline this pass itself had to learn the hard way, after briefly pushing code to
+`master` one migration ahead of what had actually been run, caught and corrected within minutes,
+no live breakage observed).
+
+## NEXT SESSION — START HERE (Updated 30 Sep 2026)
+- **Client, Worker Onboarding, Supervisor Visit, and the Site Incharge outbound/LTF/decline-
+  override-pickup mechanism are ALL live-verified.** `master` is current as of `3a51db5` --
+  confirm this is still true before assuming it (`git log -1 origin/master` vs `origin/
+  claude/gracious-knuth-vxwkc3`).
+- Cosmetic, low priority: `app/supervisor/dashboard/page.tsx`'s "Next Site" field shows a raw
+  UUID instead of a booking_ref (Bug 5 above).
 - Enter real Delhi zone rate_card data (PENDING #3/#19) -- Panchsheel Park and every other new
   Delhi sector currently price at ₹0.
 - Configure an SMS provider in Supabase's Auth settings before Phone OTP can deliver a code.
 - Run `scripts/reset-client-passwords.mjs` locally to confirm the 11 existing client dev accounts
   sign in with `Client2026`.
 - Test a second `/book` submission WITH an email entered, to actually exercise Email Link login
-  end to end (untested this round since the test booking used phone-only).
+  end to end (untested since every test booking so far used phone-only).
 - Separate, real, flagged-not-fixed finding: `app/coordinator/routes/page.tsx` queries
   `supervisor_daily_routes` with a stale, incompatible column set -- needs its own decision/
   rebuild pass later.
