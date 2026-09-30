@@ -131,6 +131,32 @@ export async function overrideDecline(slotId: string, overriddenByUserId: string
   return {}
 }
 
+// Project owner's correction (30 Sep 2026): "Override" was the only real
+// action -- doing nothing silently meant "no" with no record of anyone
+// having decided that. This is the explicit "No" -- confirms the decline is
+// accepted and the slot moves into the open pool for any supervisor to pick
+// up (app/supervisor/route/plan's own PendingPickupSection). visit_status
+// stays 'supervisor_declined' (unchanged -- a slot already becomes pickup-
+// eligible the moment it's declined and not overridden, per the original
+// rule; this doesn't change that timing, it only records that a real
+// decision was made instead of leaving silence to mean "no").
+export async function confirmPending(slotId: string, confirmedByUserId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('supervisor_daily_routes')
+    .update({
+      pending_confirmed_at: new Date().toISOString(),
+      pending_confirmed_by: confirmedByUserId,
+    })
+    .eq('id', slotId)
+  if (error) return { error: error.message }
+  revalidatePath('/coordinator/visit-requests')
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  return {}
+}
+
 export async function cancelVisitRequest(requestId: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

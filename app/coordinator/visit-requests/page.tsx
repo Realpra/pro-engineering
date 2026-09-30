@@ -35,14 +35,18 @@ export default async function VisitRequestsPage() {
     // already documented for app/sub-coordinator/workers/page.tsx:226. Fixed
     // to match the confirmed-correct pattern (app/coordinator/jobs/page.tsx).
     supabase.from('workers').select('id, full_name').eq('trade', 'Supervisor').eq('is_active', true).order('full_name'),
-    // Project owner's rule (29 Sep 2026): a supervisor's decline stays
-    // "pending" until a higher role overrides it here (DeclinedVisitsPanel).
+    // Project owner's rule (29 Sep 2026, corrected 30 Sep 2026): a
+    // supervisor's decline needs a real yes/no from a higher role, not
+    // "Override, or silently do nothing" -- excludes rows where either
+    // explicit decision (override OR confirm-pending) has already been
+    // recorded, so this list only ever shows genuinely undecided declines.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('supervisor_daily_routes')
       .select('id, scheduled_date, slot_start, slot_end, slot_type, site_id, decline_reason, declined_at, supervisor_id')
       .eq('visit_status', 'supervisor_declined')
       .is('override_confirmed_at', null)
+      .is('pending_confirmed_at', null)
       .order('declined_at', { ascending: false }),
   ])
 

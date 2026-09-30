@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { overrideDecline } from './actions'
+import { overrideDecline, confirmPending } from './actions'
 
 export type DeclinedSlot = {
   id: string
@@ -22,11 +22,13 @@ function fmtDate(v: string): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// Project owner's rule (29 Sep 2026): a supervisor's decline defaults to
-// "pending" unless a higher role overrides it here and keeps the slot
-// assigned as originally planned. Anything left un-overridden becomes
-// available for any supervisor to self-pick-up (app/supervisor/route/plan's
-// own "Pending Visits — Pick Up" section reads the same rows).
+// Project owner's rule (29 Sep 2026, corrected 30 Sep 2026): a supervisor's
+// decline needs a real yes/no from a higher role. "Override" keeps the slot
+// assigned as originally planned; "Confirm — Send to Pending" explicitly
+// records agreement that it opens up for any supervisor to self-pick-up
+// (app/supervisor/route/plan's own "Pending Visits — Pick Up" section reads
+// the same rows either way -- confirming doesn't change WHEN a slot becomes
+// pickup-eligible, only that a real decision got recorded instead of silence).
 export default function DeclinedVisitsPanel({
   slots,
   bookingRefBySiteId,
@@ -46,6 +48,15 @@ export default function DeclinedVisitsPanel({
     setBusyId(slotId)
     setError(null)
     const res = await overrideDecline(slotId, overriddenByUserId)
+    setBusyId(null)
+    if (res.error) { setError(res.error); return }
+    router.refresh()
+  }
+
+  async function handleConfirmPending(slotId: string) {
+    setBusyId(slotId)
+    setError(null)
+    const res = await confirmPending(slotId, overriddenByUserId)
     setBusyId(null)
     if (res.error) { setError(res.error); return }
     router.refresh()
@@ -74,18 +85,23 @@ export default function DeclinedVisitsPanel({
                 <p className="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2 mt-2 italic">"{s.decline_reason}"</p>
               )}
             </div>
-            <div className="px-5 pb-4">
+            <div className="px-5 pb-4 flex gap-2">
               <button
                 type="button"
                 disabled={busyId === s.id}
                 onClick={() => handleOverride(s.id)}
-                className="w-full bg-[#1F3864] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-50"
+                className="flex-1 bg-[#1F3864] text-white font-bold py-2.5 rounded-xl text-sm disabled:opacity-50"
               >
-                {busyId === s.id ? 'Working…' : 'Override — Keep Assigned'}
+                {busyId === s.id ? 'Working…' : 'Yes — Override, Keep Assigned'}
               </button>
-              <p className="text-xs text-gray-400 mt-1.5 text-center">
-                Otherwise stays pending for any supervisor to pick up
-              </p>
+              <button
+                type="button"
+                disabled={busyId === s.id}
+                onClick={() => handleConfirmPending(s.id)}
+                className="flex-1 border border-gray-300 text-gray-700 font-bold py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {busyId === s.id ? 'Working…' : 'No — Send to Pending'}
+              </button>
             </div>
           </div>
         ))}

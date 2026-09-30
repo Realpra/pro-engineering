@@ -126,6 +126,8 @@ export async function declineSlot(slotId: string, supervisorUserId: string, reas
       declined_by: supervisorUserId,
       override_confirmed_at: null,
       override_confirmed_by: null,
+      pending_confirmed_at: null,
+      pending_confirmed_by: null,
     })
     .eq('id', slotId)
   if (error) return { error: error.message }
@@ -158,6 +160,8 @@ export async function claimPendingSlot(params: {
       decline_reason: null,
       declined_at: null,
       declined_by: null,
+      pending_confirmed_at: null,
+      pending_confirmed_by: null,
       planned_by: 'supervisor',
     })
     .eq('id', params.slotId)
