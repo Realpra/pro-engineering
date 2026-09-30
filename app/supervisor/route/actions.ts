@@ -106,6 +106,13 @@ export async function addSlotManually(input: ManualSlotInput): Promise<{ error?:
 // explicitly overrides the proposal (see overrideDecline in
 // app/coordinator/visit-requests/actions.ts). Needs
 // 20260929_supervisor_daily_routes_decline_override.sql run first.
+//
+// FIXED 30 Sep 2026 (real bug caught by a live re-decline test): a slot
+// declined, then overridden, then declined a second time kept the FIRST
+// cycle's override_confirmed_at -- since Coordinator's query only shows
+// slots where that's still null, the second, genuinely-new decline never
+// appeared as needing a decision at all. Every fresh decline must clear the
+// previous cycle's override fields, not just set its own.
 export async function declineSlot(slotId: string, supervisorUserId: string, reason: string): Promise<{ error?: string }> {
   if (!reason.trim()) return { error: 'Explain why you cannot do this visit.' }
   const supabase = await createClient()
@@ -117,6 +124,8 @@ export async function declineSlot(slotId: string, supervisorUserId: string, reas
       decline_reason: reason.trim(),
       declined_at: new Date().toISOString(),
       declined_by: supervisorUserId,
+      override_confirmed_at: null,
+      override_confirmed_by: null,
     })
     .eq('id', slotId)
   if (error) return { error: error.message }
