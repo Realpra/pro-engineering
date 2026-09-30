@@ -34,9 +34,40 @@ populated, `client_user_id` populated; `site_visit_requests` initially looked li
 columns proved both legitimate -- one real client submission via `/book` [`client`/`book_form`],
 one the project owner's own test of Coordinator's manual "Log a Visit Request" feature
 [`coordinator`/`phone`, notes "check run", 14 minutes later] -- a bonus confirmation that feature
-works too, not a bug). Each entry's own session log has the live-run + Amendment 2 evidence; do
-not reopen a frozen process without a
-new real finding.
+works too, not a bug), and Site Incharge Outbound + LTF Sourcing + Decline/Override/Pending-
+Pickup (30 Sep 2026, Session 67 continued further -- full checklist live-confirmed on
+production: staff assignment, Request Resources reaching Coordinator's inbox, a real `ltf_feeds`
+write, the `ltf-route-compile` cron's overhang carry-forward inserting a real
+`supervisor_daily_routes` row off real overdue critical-path work, and the complete decline ->
+explicit Yes/No decision -> override-or-pickup -> claim chain on `/supervisor/route/plan` +
+`/coordinator/visit-requests`; 5 real bugs caught and fixed by this live run, not by code review
+-- see that session's own log entry for the full list). Each entry's own session log has the
+live-run + Amendment 2 evidence; do not reopen a frozen process without a new real finding.
+
+**WHAT "FROZEN" MEANS HERE, EXACTLY — confirmed with the project owner, 30 Sep 2026**: for each
+process above, it means precisely three things, no more: (1) every data field that process's
+actual, currently-built screens capture has one real, canonical DB column, confirmed live
+(not just by code review) to persist and read back correctly, with its migration already run --
+these fields are unique, distinct, no longer "this-or-that," and genuinely final: real forms can
+write to them, real DB rows can be filled, they will not be silently redefined later; (2) the
+code for exactly what was built and tested is real, working, and already on `master`, which is
+this project's actual production deploy (`master` = pro-engineering.vercel.app, not a staging
+copy -- there is no separate beta/AWS environment anywhere in this stack; the "beta testing"
+that has been happening is directly against the one real live production database); (3) every
+migration those specific fields/features needed is written and confirmed run live -- full
+migration, full code, full working, demonstrated end to end, for exactly the flows tested.
+
+**What it explicitly does NOT mean**: that the named role or feature area is 100% complete.
+Each frozen process still carries its own separately-flagged, deliberately-not-guessed-at open
+items (extending Worker Onboarding past Mason to the other 8 trades; real Delhi rate_card data;
+Sub-Coordinator's entire role deferred; `app/coordinator/routes/page.tsx`'s stale schema; a
+cosmetic UUID-display bug; `CRON_SECRET` unset; etc. -- each one already recorded under its own
+PENDING number or session entry, never silently dropped). Freezing a process closes the book on
+re-litigating ITS ALREADY-BUILT fields' names/columns/behavior -- it does not freeze the whole
+platform, and it does not mean nothing is left to build in that area. Whatever gets built next,
+in any of these areas or new ones, gets added the same way -- built, live-tested, then recorded
+here as its own dated entry -- never by reopening what's already frozen without a new real
+finding.
 
 ## PROCESS FLOW — READ BEFORE ANY FIELD/SCHEMA DECISION (set 23 Sep 2026)
 Real-life end-to-end flow this platform models, in order:
