@@ -2199,7 +2199,114 @@ now live on `pro-engineering.vercel.app`, not just code-complete. None of this h
 through live yet though (no real Coordinator/Sub-Coordinator coverage has been set, no real job
 has been routed or confirmed for execution) -- that live-run + Amendment 2 check is still open.
 
-## NEXT SESSION — START HERE (Updated 1 Oct 2026)
+## SESSION 69 — 1 Oct 2026 — WORKERSTABLE_REVIEW WORKBOOK BUILT OUT IN FULL (E3/E5/E6/E7)
+Project owner uploaded two filled-in review workbooks (`Worker_Onboarding_All_Trades_Field_
+Template__30Sep26.xlsx`, `WorkersTable_Review__01Oct26.xlsx`) with explicit per-cell decisions,
+then confirmed via AskUserQuestion + a follow-up "the build as clarified be built... agreed
+means do it as told... sure, do it fully" to proceed. Built every item from the
+WorkersTable_Review workbook (Part A/B + File Disposition), each its own commit with a clean
+`npx tsc --noEmit`:
+
+- **File disposition**: `app/admin/dashboard/WorkersTable.tsx`/`approvalActions.ts` kept as dead
+  code (NOT deleted, per the project owner's explicit "keep both the files... be kept as dead but
+  not removed"), deprecation comments added pointing at their live replacements.
+- **E6, return-reason presets**: the dead file's 10 preset return reasons + auto-filled
+  correction message ported into a shared `lib/workerReturnReasons.ts`, wired into Sub-
+  Coordinator's, Coordinator's, AND Admin's own return actions (a dropdown that auto-fills the
+  remark, replacing free-text-only).
+- **E3, Coordinator's two independent actions**: new `coordinator_deployable_at/by/remark`
+  columns + `markWorkerDeployableAdhoc` action -- a second, independent action alongside the
+  existing `approveWorkerToAdmin` "recommend upward" flow. An adhoc-deployable worker is
+  immediately usable in every deployment picker (`SubstageCard.tsx`, daily-log crew check-in,
+  `coordinator/allocate`) regardless of `approval_status`, tagged ADHOC everywhere so whoever
+  deploys them knows the fields on file are Coordinator's own, provisional ones.
+- **E5, credential validity on the form itself**: Screen 12 (Compliance & Finance) of the 14-
+  screen onboarding form now captures `credential_type` (registration/permit_license/
+  not_applicable/other) + `credential_other_detail` + `credential_valid_upto`, flowing upward
+  unchanged (shown on Sub-Coordinator's review card, Coordinator's workers page, Admin's
+  WorkerCard) -- coexists with, does not replace, the pre-existing `admin_renewal_flag_reason`
+  mechanism (project owner's literal instruction: "it shall be in worker form and flows as part
+  of form to upward roles").
+- **E7-i, Admin's 4th action**: new `adminApproveProvisional` (approve now, subject to a
+  remarked compliance item) alongside the existing approve/approve-with-renewal-flag/return/
+  reject -- a different concept from the renewal flag (credential expiry vs. a one-off
+  compliance gap).
+- **E7-ii, fully-automatic resubmission linking**: `submitWorkerRegistration` now checks for an
+  existing REJECTED worker matching the new submission's phone and/or Aadhaar-last-4 before
+  inserting -- a match UPDATES that same row (same id/worker_code), resets to `pending`, stamps
+  `resubmission_count`/`resubmitted_at`, and clears the old attempt's child-table rows
+  (skill-answers/secondary-skills/accident-history/work-samples) first so a resubmission doesn't
+  pile up duplicates. `checkPhoneExists` no longer blocks re-registration through a rejected
+  worker's phone (that's the resubmission path, not a duplicate).
+- **E7-iii, staff-assisted completion**: new section on Sub-Coordinator's Workers page listing
+  every `returned_for_correction`/`returned_to_subcoordinator` worker, with a
+  `CompleteReturnedWorkerCard` letting staff fill in corrected fields from a phone/WhatsApp/
+  email intake, upload one evidence photo/PDF (bucket widened to accept PDF), and record how the
+  data was obtained -- submitting re-enters the worker at `sub_coordinator_reviewed`, the normal
+  pipeline step, not a second competing path.
+- **E6/Part B, Competency Matrix + Schedule Assessment built for real**: new
+  `CompetencyAssessmentPanel` on Admin's own WorkerCard shows the real `worker_competency`
+  matrix (M1-M6, genuinely distinct from the `competency_m1..m6` badges already shown above it)
+  with a live Schedule Assessment booking flow. The "worker detail side panel" half of Part B
+  (E2) was deliberately NOT rebuilt separately -- in the dead file it existed because that
+  screen's main view was a compact row list; the live WorkerCard IS already the full detail
+  view, so a second panel would duplicate it, not add anything.
+- **Real bug found and fixed while porting, not copied forward**: neither the dead
+  `WorkersTable.tsx`'s own double-booking check nor its `scheduleAssessment` action
+  (`app/admin/dashboard/actions.ts`) match the real `assessment_slots` migration
+  (`20260622_assessment_slots.sql`: `id/slot_date/time_slot/assessor_name/created_at` only) --
+  both query/insert `slot_time`/`sector`/`module_code`/`max_candidates`/`booked_count`/`status`,
+  none of which exist there, confirmed by repo-wide grep with no later migration adding them.
+  Since that dead code was never wired to any page, this was never caught live. The new
+  `getWorkerCompetency`/`getTrainersForModule`/`scheduleAssessmentForWorker`
+  (`app/admin/workers/actions.ts`) are built against the real migration's columns instead --
+  still flagged for a live `information_schema` check before being called frozen.
+- Also addressed from the same review: the Worker Onboarding All-Trades template's Screen 1
+  Sector column (row 26) was filled in per-trade by the project owner for all 9 trades (not a
+  code change, a data decision for the next trade-expansion pass).
+
+**Still open from the same review, deliberately not guessed at, flagged for the project owner**:
+(1) the All-Trades Section C Skill Qs sheet has real, written questions for Mason/Plumber/
+Electrician/Waterproofer/Painter/Supervisor, but Carpenter/False Ceiling Installer/Helper are
+still placeholder text ("Do you know reply of Q1? (i) a (ii) b...") -- these need real questions
+before being seeded into `trade_skill_questions`, not guessed at; (2) the Remarks sheet flags
+rows 114-115 (`ownsMeasuringTape5m`/`ownsSpiritLevel600mm`, currently hardcoded Mason-specific
+boolean checkboxes) as needing to become worker-self-filled TEXT content instead -- the exact
+replacement field design (one generic "other tools" text field? per-trade tool list?) needs the
+project owner's call before touching the schema.
+
+**NOT live-verified, NOT safe to fast-forward `master` yet**: this sandbox has no Supabase
+network access (same standing constraint every session), so neither of this session's 2 new
+migrations has been run -- `20261001_worker_onboarding_adhoc_credential_provisional.sql`
+(adhoc/credential/provisional/resubmission columns) and
+`20261001_worker_selfies_allow_pdf_evidence.sql` (widens the storage bucket's allowed MIME
+types). **Also found this session**: `origin/master` is actually still at `f2c7135` ("Build the
+real Sub-Coordinator -> Coordinator -> Admin onboarding chain"), NOT at `d4e03de` as the Session
+68 entry above claims was pushed -- that fast-forward evidently never landed (or landed in a
+session/sandbox with master access this one didn't have). `master` needs a real status check
+next session before anything more is pushed to it.
+
+## NEXT SESSION — START HERE (Updated 1 Oct 2026, Session 69)
+- **Confirm `origin/master`'s real state** (found stale at `f2c7135` this session, contradicting
+  the prior entry's claim) before pushing anything to it.
+- **Run this session's 2 new migrations in Supabase, then fast-forward `master`** to
+  `e2136ba` (or later) once confirmed -- `20261001_worker_onboarding_adhoc_credential_
+  provisional.sql` first (needed by the adhoc/credential/provisional/resubmission features),
+  then `20261001_worker_selfies_allow_pdf_evidence.sql`.
+- **Live-test this session's builds** once the migration is run: Coordinator's "Mark Deployable
+  (Adhoc)" button + its ADHOC badge showing up in deployment pickers; Screen 12's new credential
+  fields persisting and surfacing on review cards; Admin's "Approve — Provisional" button; a real
+  rejected-worker resubmission (register, get rejected, re-register with the same phone, confirm
+  it updates the SAME worker row rather than creating a new one); Sub-Coordinator's "Complete
+  From Phone/WhatsApp/Email" screen + evidence upload; the new Competency Matrix + Schedule
+  Assessment panel on Admin's WorkerCard (and confirm `assessment_slots`' real live columns
+  actually match what this session assumed from the migration file).
+- **Get real content for Carpenter/False Ceiling Installer/Helper's Section C skill questions**
+  (still placeholder text in the All-Trades workbook) before seeding `trade_skill_questions` for
+  those 3 trades.
+- **Decide the replacement design for rows 114-115** (`ownsMeasuringTape5m`/
+  `ownsSpiritLevel600mm`) per the All-Trades workbook's Remarks sheet -- flagged as needing to
+  become worker-self-filled text, exact field shape not yet decided.
 - **Live-test the new routing/Confirm-for-Execution build** before calling it frozen: set zone
   coverage for the real `coordinator@`/`subcoordinator@` accounts on `/admin/coordinators`
   (remember `subcoordinator@proengineering.in`'s login is still broken -- test via the `coordinator`
