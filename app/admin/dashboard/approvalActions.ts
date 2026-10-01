@@ -1,5 +1,13 @@
 'use server'
 
+// DEAD CODE -- called only by app/admin/dashboard/WorkersTable.tsx, itself never imported
+// by any page (confirmed by repo-wide grep, project owner decision 1 Oct 2026). Also has a
+// real design flaw independent of being unreachable: every step below overwrites the same
+// approved_by/approved_at columns Admin's live final-approval screen (app/admin/workers/
+// WorkerCard.tsx) uses to show "Approved by X on date" -- do not wire this back in as-is.
+// The live, correct chain is app/sub-coordinator/actions.ts + app/coordinator/workers/
+// actions.ts + app/admin/workers/actions.ts, each with its own dedicated remark column.
+
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { recommendWorkerOnboarding, returnWorkerOnboarding } from '../actions'
+import { WORKER_RETURN_REASONS } from '@/lib/workerReturnReasons'
 
 export type PendingWorker = {
   id: string
@@ -26,8 +27,16 @@ export default function OnboardingReviewCard({ worker }: { worker: PendingWorker
   const router = useRouter()
   const [mode, setMode] = useState<null | 'recommend' | 'return'>(null)
   const [text, setText] = useState('')
+  const [reasonIdx, setReasonIdx] = useState(-1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isOtherReason = reasonIdx >= 0 && WORKER_RETURN_REASONS[reasonIdx].label === 'Other'
+
+  function pickReason(idx: number) {
+    setReasonIdx(idx)
+    setText(idx >= 0 && WORKER_RETURN_REASONS[idx].label !== 'Other' ? WORKER_RETURN_REASONS[idx].action : '')
+  }
 
   async function submit() {
     setBusy(true)
@@ -39,6 +48,7 @@ export default function OnboardingReviewCard({ worker }: { worker: PendingWorker
     if (res.error) { setError(res.error); return }
     setMode(null)
     setText('')
+    setReasonIdx(-1)
     router.refresh()
   }
 
@@ -69,11 +79,23 @@ export default function OnboardingReviewCard({ worker }: { worker: PendingWorker
 
         {mode ? (
           <div className="space-y-2">
+            {mode === 'return' && (
+              <select
+                value={reasonIdx}
+                onChange={(e) => pickReason(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg p-2 text-xs"
+              >
+                <option value={-1}>Select a reason…</option>
+                {WORKER_RETURN_REASONS.map((r, i) => (
+                  <option key={r.label} value={i}>{r.label}</option>
+                ))}
+              </select>
+            )}
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={2}
-              placeholder={mode === 'recommend' ? 'Remark for Coordinator (optional)…' : 'What needs correcting?'}
+              placeholder={mode === 'recommend' ? 'Remark for Coordinator (optional)…' : isOtherReason ? 'Describe what needs correcting…' : 'What needs correcting?'}
               className="w-full border border-gray-300 rounded-lg p-2 text-xs resize-none"
             />
             <div className="flex gap-2">

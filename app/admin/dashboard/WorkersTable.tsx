@@ -1,5 +1,15 @@
 'use client'
 
+// DEAD CODE -- NEVER IMPORTED BY ANY PAGE (confirmed by repo-wide grep, project owner
+// decision 1 Oct 2026, WorkersTable_Review workbook): left in place deliberately for
+// reference, not deleted. Its approval-workflow half (Part A: reviewWorker/approveWorker/
+// sendToAdmin/returnForCorrection from ./approvalActions) is SUPERSEDED by the live chain --
+// app/sub-coordinator/workers/OnboardingReviewCard.tsx, app/coordinator/workers/
+// CoordinatorReviewActions.tsx, app/admin/workers/WorkerCard.tsx -- do not wire this file
+// back in. Its competency-matrix/schedule-assessment half (Part B: scheduleAssessment
+// from ./actions) is being rebuilt for real on app/admin/workers/ -- see that build before
+// reviving anything here.
+
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'

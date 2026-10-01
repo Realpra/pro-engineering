@@ -3,13 +3,22 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { approveWorkerToAdmin, returnWorkerToSubCoordinator } from './actions'
+import { WORKER_RETURN_REASONS } from '@/lib/workerReturnReasons'
 
 export default function CoordinatorReviewActions({ workerId }: { workerId: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<null | 'approve' | 'return'>(null)
   const [text, setText] = useState('')
+  const [reasonIdx, setReasonIdx] = useState(-1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isOtherReason = reasonIdx >= 0 && WORKER_RETURN_REASONS[reasonIdx].label === 'Other'
+
+  function pickReason(idx: number) {
+    setReasonIdx(idx)
+    setText(idx >= 0 && WORKER_RETURN_REASONS[idx].label !== 'Other' ? WORKER_RETURN_REASONS[idx].action : '')
+  }
 
   async function submit() {
     setBusy(true)
@@ -21,17 +30,30 @@ export default function CoordinatorReviewActions({ workerId }: { workerId: strin
     if (res.error) { setError(res.error); return }
     setMode(null)
     setText('')
+    setReasonIdx(-1)
     router.refresh()
   }
 
   if (mode) {
     return (
       <div className="space-y-2">
+        {mode === 'return' && (
+          <select
+            value={reasonIdx}
+            onChange={(e) => pickReason(Number(e.target.value))}
+            className="w-full border border-gray-300 rounded-lg p-2 text-xs"
+          >
+            <option value={-1}>Select a reason…</option>
+            {WORKER_RETURN_REASONS.map((r, i) => (
+              <option key={r.label} value={i}>{r.label}</option>
+            ))}
+          </select>
+        )}
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={2}
-          placeholder={mode === 'approve' ? 'Remark forwarded with this worker to Admin (optional)…' : 'What needs correcting?'}
+          placeholder={mode === 'approve' ? 'Remark forwarded with this worker to Admin (optional)…' : isOtherReason ? 'Describe what needs correcting…' : 'What needs correcting?'}
           className="w-full border border-gray-300 rounded-lg p-2 text-xs resize-none"
         />
         {error && <p className="text-xs text-red-600">{error}</p>}
