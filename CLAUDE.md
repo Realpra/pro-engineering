@@ -2286,27 +2286,64 @@ real Sub-Coordinator -> Coordinator -> Admin onboarding chain"), NOT at `d4e03de
 session/sandbox with master access this one didn't have). `master` needs a real status check
 next session before anything more is pushed to it.
 
-## NEXT SESSION — START HERE (Updated 1 Oct 2026, Session 69)
-- **Confirm `origin/master`'s real state** (found stale at `f2c7135` this session, contradicting
-  the prior entry's claim) before pushing anything to it.
-- **Run this session's 2 new migrations in Supabase, then fast-forward `master`** to
-  `e2136ba` (or later) once confirmed -- `20261001_worker_onboarding_adhoc_credential_
-  provisional.sql` first (needed by the adhoc/credential/provisional/resubmission features),
-  then `20261001_worker_selfies_allow_pdf_evidence.sql`.
-- **Live-test this session's builds** once the migration is run: Coordinator's "Mark Deployable
-  (Adhoc)" button + its ADHOC badge showing up in deployment pickers; Screen 12's new credential
-  fields persisting and surfacing on review cards; Admin's "Approve — Provisional" button; a real
-  rejected-worker resubmission (register, get rejected, re-register with the same phone, confirm
-  it updates the SAME worker row rather than creating a new one); Sub-Coordinator's "Complete
-  From Phone/WhatsApp/Email" screen + evidence upload; the new Competency Matrix + Schedule
-  Assessment panel on Admin's WorkerCard (and confirm `assessment_slots`' real live columns
-  actually match what this session assumed from the migration file).
-- **Get real content for Carpenter/False Ceiling Installer/Helper's Section C skill questions**
-  (still placeholder text in the All-Trades workbook) before seeding `trade_skill_questions` for
-  those 3 trades.
-- **Decide the replacement design for rows 114-115** (`ownsMeasuringTape5m`/
-  `ownsSpiritLevel600mm`) per the All-Trades workbook's Remarks sheet -- flagged as needing to
-  become worker-self-filled text, exact field shape not yet decided.
+## SESSION 69 CONTINUED — 2 Oct 2026 — BOTH MIGRATIONS CONFIRMED, `master` CAUGHT UP, QUESTION BANK BUILT
+Both of Session 69's migrations confirmed run live by the project owner ("both success").
+`origin/master` was confirmed still stale at `f2c7135` (per Session 69's own finding) and
+fast-forwarded cleanly to `64213c6` -- the entire Session 69 build (and everything that had been
+stuck behind the stale alias since Session 68) is now genuinely live on
+`pro-engineering.vercel.app`, not just on the working branch.
+
+Project owner then gave explicit decisions on both remaining All-Trades workbook items (replying
+"to item 1" -- read as covering both open items together):
+- **Rows 114-115, closed**: "We can frame a question with fill box where he can fill text. for
+  both question subject row 114, row 115." Screen 10's `ownsMeasuringTape5m`/
+  `ownsSpiritLevel600mm` YesNo toggles replaced with two free-text fields --
+  `essentialTool1`/`essentialTool2` ("A Measuring Tool You Own for Your Trade" / "A
+  Leveling/Precision Tool You Own for Your Trade") -- trade-generic rather than Mason-specific.
+  New `workers.essential_tool_1`/`essential_tool_2` columns added alongside the old booleans
+  (commented as superseded, not dropped, since real Mason data may already sit under them).
+- **Carpenter/False Ceiling Installer/Helper's placeholder questions, closed**: "i have prepared
+  questions. some are just for format... let us use what is given in table" -- seeded verbatim
+  from the workbook for all 8 remaining trades (Mason's own 10 live questions untouched), the
+  placeholder-format Carpenter/FCI/Helper rows included as-is, to be refined later now that
+  there's a real editing mechanism for them (next point).
+- **New requirement surfaced in the same reply, not previously flagged**: "the question bank
+  shall be editable by admin... the question reply/selection of option is not mandatory... 10
+  questions could be 5 each on a page. below SKIP tab also which takes to next 5 questions which
+  also can be skipped. back to first questions or screen shall be there." Built all three:
+  (1) `trade_skill_questions` got its first authenticated WRITE RLS policy (read-only until now,
+  written only by the service-role seed), backing a new `/admin/trade-questions` screen (tabbed
+  by trade, add/edit/reorder/activate-deactivate/delete) -- Admin can now actually fix
+  Plumber/Electrician's workbook-sourced `display_order` gaps or Carpenter/FCI/Helper's
+  placeholder text without another migration each time. (2) Screen 4 (Trade Skill Assessment)
+  rebuilt to paginate 5 questions per page, each page's forward button labeled SKIP, plus a
+  "Back to First" link past page 1 -- answering was already optional (no validation existed in
+  `next()`), this only fixes the navigability of a 10+ question trade.
+
+**3 new migrations this entry, all confirmed run live**: `20261002_worker_onboarding_tools_
+text_and_question_bank.sql` (essential_tool_1/2 columns + trade_skill_questions write policy),
+`20261002_seed_trade_skill_questions_all_trades.sql` (the 8-trade seed), and no third migration
+was actually needed beyond those two -- `/admin/trade-questions` itself needed no new schema.
+`npx tsc --noEmit` clean on every commit.
+
+**NOT yet live-tested**: the new Screen 4 pagination, Screen 10's two new text fields, and
+`/admin/trade-questions`' CRUD actions haven't been clicked through on production yet -- do that
+before calling the Worker Onboarding full-spec build (still only live-tested for Mason, per
+PENDING #40) ready to extend to the other 8 trades for real.
+
+## NEXT SESSION — START HERE (Updated 2 Oct 2026, Session 69 continued)
+- **Live-test this entry's build**: register a worker (any of the 8 newly-seeded trades) through
+  Screen 4's new 5-per-page/SKIP pagination and Screen 10's two new tool text fields; confirm
+  `essential_tool_1`/`essential_tool_2` persist; open `/admin/trade-questions`, edit a question's
+  text/order, add one, deactivate one, delete one, confirm each change actually sticks and
+  Screen 4 reflects it on the next registration.
+- Still carried from Session 69 (not yet live-tested): Coordinator's "Mark Deployable (Adhoc)"
+  button + ADHOC badge in deployment pickers; Screen 12's credential fields; Admin's "Approve —
+  Provisional" button; a real rejected-worker resubmission (register, get rejected, re-register
+  with the same phone, confirm it updates the SAME row); Sub-Coordinator's "Complete From Phone/
+  WhatsApp/Email" screen + evidence upload; the Competency Matrix + Schedule Assessment panel on
+  Admin's WorkerCard (confirm `assessment_slots`' real live columns match what was assumed from
+  the migration file).
 - **Live-test the new routing/Confirm-for-Execution build** before calling it frozen: set zone
   coverage for the real `coordinator@`/`subcoordinator@` accounts on `/admin/coordinators`
   (remember `subcoordinator@proengineering.in`'s login is still broken -- test via the `coordinator`
