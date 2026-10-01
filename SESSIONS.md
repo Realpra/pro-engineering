@@ -1405,3 +1405,86 @@ Admin/Superadmin's existing universal, unscoped job visibility is explicitly unc
   the migration is confirmed run live (same standing rule as the Session 67 `service_model_title`
   incident). `master` stays at `025be12` for now.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 69 — 1 Oct 2026 — WORKERSTABLE_REVIEW WORKBOOK BUILT OUT IN FULL (E3/E5/E6/E7)
+Project owner uploaded two filled-in review workbooks (Worker_Onboarding_All_Trades_Field_
+Template__30Sep26.xlsx, WorkersTable_Review__01Oct26.xlsx) with explicit per-cell decisions, then
+confirmed via AskUserQuestion + "the build as clarified be built... agreed means do it as told...
+sure, do it fully" to proceed. Built every item from the WorkersTable_Review workbook (Part A/B +
+File Disposition), each its own commit with a clean `npx tsc --noEmit`:
+- File disposition: `app/admin/dashboard/WorkersTable.tsx`/`approvalActions.ts` kept as dead code
+  (not deleted, per explicit instruction), deprecation comments added.
+- E6: the dead file's 10 preset return reasons + auto-filled correction message ported into
+  `lib/workerReturnReasons.ts`, wired into Sub-Coordinator's, Coordinator's, and Admin's return
+  actions.
+- E3: Coordinator's two independent actions -- new `coordinator_deployable_at/by/remark` +
+  `markWorkerDeployableAdhoc`, a second action alongside the existing "recommend to Admin" flow.
+  An adhoc-deployable worker is immediately usable in every deployment picker (SubstageCard,
+  daily-log crew check-in, coordinator/allocate), tagged ADHOC.
+- E5: credential validity captured on Screen 12 itself (`credential_type`/`credential_other_
+  detail`/`credential_valid_upto`), flowing upward to every review role -- coexists with, does
+  not replace, the pre-existing admin_renewal_flag mechanism.
+- E7-i: Admin's 4th action, `adminApproveProvisional` (approve now, compliance item remarked),
+  distinct from the renewal flag.
+- E7-ii: fully-automatic resubmission linking -- `submitWorkerRegistration` now matches a new
+  submission's phone/Aadhaar-last-4 against an existing REJECTED worker and UPDATES that same
+  row (same id/worker_code) instead of inserting a new one, clearing the old attempt's child-
+  table rows first. `checkPhoneExists` no longer blocks re-registration through a rejected
+  worker's phone.
+- E7-iii: new "Complete From Phone/WhatsApp/Email" section on Sub-Coordinator's Workers page for
+  returned_for_correction/returned_to_subcoordinator workers, with evidence photo/PDF upload and
+  a "how obtained" remark trail, re-entering the pipeline at sub_coordinator_reviewed.
+- E6/Part B: real Competency Matrix + Schedule Assessment built on Admin's WorkerCard
+  (`worker_competency`, M1-M6, genuinely distinct from the competency_m1..m6 badges already
+  shown). Real bug found and fixed while porting: neither the dead file's own double-booking
+  check nor its `scheduleAssessment` action matched the real `assessment_slots` migration
+  columns (`slot_time`/`sector`/`module_code`/etc. don't exist there) -- rebuilt against the
+  real migration schema instead, flagged for a live confirm.
+- 2 migrations shipped, confirmed run live: `20261001_worker_onboarding_adhoc_credential_
+  provisional.sql`, `20261001_worker_selfies_allow_pdf_evidence.sql`.
+- Flagged, not guessed at: Carpenter/False Ceiling Installer/Helper's Section C skill questions
+  were still workbook placeholder text; rows 114-115 (ownsMeasuringTape5m/ownsSpiritLevel600mm)
+  needed a replacement design per the Remarks sheet.
+- `origin/master` found stale at `f2c7135`, contradicting Session 68's own claimed fast-forward
+  to `d4e03de` -- confirmed it never actually landed.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 69 CONTINUED — 2 Oct 2026 — QUESTION BANK BUILT, ROWS 114-115 CLOSED, `master` CAUGHT UP
+Both of Session 69's migrations confirmed run live ("both success"). `origin/master` fast-
+forwarded from the stale `f2c7135` to `64213c6` -- the entire Session 69 build reached production
+for the first time in this pass.
+
+Project owner then closed both remaining All-Trades workbook items in one reply:
+- Rows 114-115 closed: Screen 10's `ownsMeasuringTape5m`/`ownsSpiritLevel600mm` YesNo toggles
+  replaced with two free-text fields -- `essentialTool1`/`essentialTool2` ("A Measuring Tool You
+  Own for Your Trade" / "A Leveling/Precision Tool You Own for Your Trade"), trade-generic
+  rather than Mason-specific. New `workers.essential_tool_1`/`essential_tool_2` columns added
+  alongside the old booleans (commented superseded, not dropped).
+- Carpenter/False Ceiling Installer/Helper's placeholder questions closed: seeded verbatim from
+  the workbook for all 8 remaining trades ("let us use what is given in table") -- Mason's own
+  10 live questions untouched. Placeholder-format Carpenter/FCI/Helper rows included as-is, to
+  be refined through the new editable mechanism below.
+- New requirement surfaced in the same reply: the question bank must be admin-editable, answering
+  must stay optional, and Screen 4 should paginate 5 questions per page with a SKIP button and a
+  Back-to-First link. Built all three: `trade_skill_questions` got its first authenticated WRITE
+  RLS policy, backing a new `/admin/trade-questions` CRUD screen (tabbed by trade, add/edit/
+  reorder/activate-deactivate/delete); Screen 4 rebuilt to paginate 5-per-page with a SKIP-
+  labeled forward button and a Back-to-First link past page 1 (answering was already optional).
+- 2 new migrations shipped and confirmed run live: `20261002_worker_onboarding_tools_text_and_
+  question_bank.sql`, `20261002_seed_trade_skill_questions_all_trades.sql`.
+- `master` fast-forwarded again, first to `9f53ac1` (this build) then to `c2b037f` (the doc-only
+  commit recording it) -- `master` is current and this session is closed with a clean working
+  tree, nothing uncommitted.
+
+**Carried forward, not yet live-tested, for the next session**: this entry's own build (Screen 4
+pagination, Screen 10's two new tool fields, `/admin/trade-questions`' CRUD); Session 69's
+earlier build (Mark Deployable Adhoc + ADHOC badge, Screen 12 credential fields, Admin's Approve
+-- Provisional, a real rejected-worker resubmission round-trip, the Complete-Returned-Worker
+screen + evidence upload, the Competency Matrix + Schedule Assessment panel, and confirming
+`assessment_slots`' real live columns match what was assumed from the migration file); Session
+68's Coordinator/Sub-Coordinator zone-based routing + Confirm-for-Execution build (still never
+live-clicked -- no real coverage set, no real job routed or confirmed for execution yet). Full
+detail, PENDING list, and exact next-session checklist live in CLAUDE.md -- that file, not this
+one, is the authoritative live reference; SESSIONS.md is kept in sync alongside it per the
+standing rule set 30 Sep 2026.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
