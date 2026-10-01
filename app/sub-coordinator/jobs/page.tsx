@@ -18,11 +18,20 @@ export default async function JobsPage() {
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Sub-Coordinator'
 
+  // Sub-Coordinator is scoped to jobs actually routed to them (project
+  // owner's decision, 1 Oct 2026) -- "sub-coordinator dashboard limits to
+  // job assigned till handed over." Unlike Coordinator/Admin/Superadmin,
+  // whose existing universal view of every job is explicitly unchanged,
+  // this is the one role with real per-job scoping on this table besides
+  // Supervisor/Site Incharge's supervisor_id.
   const { data: allJobs } = await supabase
     .from('guest_enquiries')
     .select(`id, booking_ref, job_title, job_type, zone, district,
       status, is_active, preferred_start_date, estimate_total,
-      supervisor_id, contact_name, scope_description`)
+      supervisor_id, contact_name, scope_description,
+      driving_role, driving_user_id, sub_coordinator_handoff_at`)
+    .eq('driving_role', 'sub_coordinator')
+    .eq('driving_user_id', user.id)
     .order('created_at', { ascending: false })
 
   const { data: substages } = await supabase
@@ -41,8 +50,12 @@ export default async function JobsPage() {
     (supervisors ?? []).map(s => [s.id, s.full_name])
   )
 
-  const activeJobs = (allJobs ?? []).filter(j => j.is_active)
-  const completedJobs = (allJobs ?? []).filter(j => !j.is_active)
+  // "Driving Now" = not yet handed off to a Coordinator -- Sub-Coordinator is
+  // actively running this job's survey/estimate/client-negotiation flow.
+  // "Handed Off" = client consented and Admin confirmed it for execution;
+  // Sub-Coordinator keeps read-only visibility but no further action here.
+  const activeJobs = (allJobs ?? []).filter(j => !j.sub_coordinator_handoff_at)
+  const completedJobs = (allJobs ?? []).filter(j => !!j.sub_coordinator_handoff_at)
 
   const getJobStats = (bookingRef: string) => {
     const jobSubstages = (substages ?? []).filter(s => s.booking_ref === bookingRef)
@@ -98,11 +111,11 @@ export default async function JobsPage() {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-white font-bold text-2xl">{activeJobs.length}</p>
-              <p className="text-blue-300 text-xs">Active Jobs</p>
+              <p className="text-blue-300 text-xs">Driving Now</p>
             </div>
             <div>
               <p className="text-green-400 font-bold text-2xl">{completedJobs.length}</p>
-              <p className="text-blue-300 text-xs">Completed</p>
+              <p className="text-blue-300 text-xs">Handed Off</p>
             </div>
             <div>
               <p className="text-orange-400 font-bold text-2xl">
@@ -113,10 +126,10 @@ export default async function JobsPage() {
           </div>
         </div>
 
-        {/* ACTIVE JOBS */}
+        {/* DRIVING NOW -- not yet handed off to a Coordinator */}
         <section>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Active Jobs — {activeJobs.length}
+            Driving Now — {activeJobs.length}
           </p>
           <div className="space-y-4">
             {activeJobs.map(job => {
@@ -214,7 +227,9 @@ export default async function JobsPage() {
                       )}
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions -- Estimate Console is the same survey/estimate/
+                        negotiation flow Coordinator runs; this job's row is
+                        gated to this Sub-Coordinator until handoff. */}
                     <div className="flex gap-2 pt-1">
                       <Link
                         href={`/sub-coordinator/approvals`}
@@ -223,10 +238,10 @@ export default async function JobsPage() {
                         View Approvals
                       </Link>
                       <Link
-                        href={`/sub-coordinator/route`}
+                        href={`/admin/estimate/${job.booking_ref}`}
                         className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl text-center"
                       >
-                        Plan Route →
+                        Survey / Estimate →
                       </Link>
                     </div>
                   </div>
@@ -241,24 +256,29 @@ export default async function JobsPage() {
           </div>
         </section>
 
-        {/* COMPLETED JOBS */}
+        {/* HANDED OFF -- client consented, Admin confirmed for execution;
+            read-only history, Coordinator owns everything from here. */}
         {completedJobs.length > 0 && (
           <section>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Completed Jobs — {completedJobs.length}
+              Handed Off — Closed — {completedJobs.length}
             </p>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {completedJobs.map(job => (
-                <div key={job.booking_ref} className="px-5 py-3 flex items-start justify-between gap-3">
+                <Link
+                  key={job.booking_ref}
+                  href={`/admin/estimate/${job.booking_ref}`}
+                  className="px-5 py-3 flex items-start justify-between gap-3 hover:bg-gray-50"
+                >
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">{job.booking_ref}</p>
                     <p className="text-sm font-semibold text-gray-700">{job.job_title ?? job.job_type}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{[job.zone, job.district].filter(Boolean).join(', ')}</p>
                   </div>
                   <span className="shrink-0 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                    ✓ Done
+                    ✓ Handed Off
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           </section>

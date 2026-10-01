@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
-import { assignWorkerToJob } from '../actions'
 
 export default async function WorkersPage() {
   const supabase = await createClient()
@@ -48,11 +47,6 @@ export default async function WorkersPage() {
     return 'bg-gray-100 text-gray-500 border-gray-300'
   }
 
-  async function assignWorkerToJobAction(formData: FormData) {
-    'use server'
-    await assignWorkerToJob(formData)
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
 
@@ -96,77 +90,16 @@ export default async function WorkersPage() {
           </div>
         </div>
 
-        {/* WORKER ASSIGNMENT PANEL */}
-        <section>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Assign Worker to Site
+        {/* Worker-to-job assignment moved to Coordinator (project owner's decision,
+            1 Oct 2026) -- Sub-Coordinator's job is driving a job's intake/estimate
+            to client consent, not allocating workers once it's in execution. */}
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4">
+          <p className="text-sm text-blue-900">
+            Worker assignment to jobs is now handled by Coordinator (<code>/admin/coordinators</code> job
+            routing, then the Estimate Console&apos;s Confirm-for-Execution step). This page stays
+            read-only for worker availability.
           </p>
-          <div className="bg-white rounded-2xl border border-[#1F3864]/20 shadow-sm overflow-hidden">
-            <div className="bg-[#1F3864] px-5 py-3">
-              <p className="text-white font-bold text-sm">Worker Assignment</p>
-              <p className="text-blue-300 text-xs mt-0.5">Zone-based · Gap window detection · Multi-skill substitution</p>
-            </div>
-            <form action={assignWorkerToJobAction} className="px-5 py-4 space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Select Worker</p>
-                <select name="worker_id" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  <option value="">Select worker...</option>
-                  {availableWorkers.map(w => (
-                    <option key={w.id} value={w.id}>
-                      {w.full_name} — {w.trade} ({w.district})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Assign to Site</p>
-                <select name="booking_ref" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  <option value="">Select site...</option>
-                  {(activeJobs ?? []).map(job => (
-                    <option key={job.booking_ref} value={job.booking_ref}>
-                      {job.booking_ref} — {job.job_title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Start Date</p>
-                  <input name="shift_date" type="date" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Start Time</p>
-                  <select className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                    <option>07:00 AM</option>
-                    <option>08:00 AM</option>
-                    <option>09:00 AM</option>
-                    <option>10:00 AM</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Role on Site</p>
-                <select name="role" required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50">
-                  <option>Primary Trade Worker</option>
-                  <option>Helper / Assistant</option>
-                  <option>Site Head Designate</option>
-                  <option>Substitute — Multi-skill</option>
-                </select>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-1.5">Notes</p>
-                <textarea
-                  rows={2}
-                  placeholder="Any special instructions for this assignment..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gray-50 resize-none"
-                />
-              </div>
-              <button type="submit" className="w-full bg-[#1F3864] text-white font-bold py-4 rounded-2xl text-sm">
-                Assign Worker
-              </button>
-            </form>
-          </div>
-        </section>
+        </div>
 
         {/* AVAILABLE WORKERS */}
         <section>

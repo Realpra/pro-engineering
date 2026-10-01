@@ -30,7 +30,7 @@ export async function sendInstruction(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
-  const { data: userData } = await supabase.from('users').select('id').eq('auth_user_id', user.id).single()
+  const { data: userData } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle()
   const booking_ref = formData.get('booking_ref') as string
   const substage_code = formData.get('substage_code') as string | null
   const instruction_type = formData.get('instruction_type') as string
@@ -136,7 +136,7 @@ export async function chaseSiteHead(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
-  const { data: userData } = await supabase.from('users').select('id').eq('auth_user_id', user.id).single()
+  const { data: userData } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle()
   const booking_ref = formData.get('booking_ref') as string
   const issued_to = formData.get('issued_to') as string
   const { error } = await supabase.from('site_instructions').insert({
@@ -160,7 +160,7 @@ export async function notifyCoordinator(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
-  const { data: userData } = await supabase.from('users').select('id').eq('auth_user_id', user.id).single()
+  const { data: userData } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle()
   const booking_ref = formData.get('booking_ref') as string
   const message = formData.get('message') as string
   const coordinator_id = formData.get('coordinator_id') as string
@@ -213,7 +213,7 @@ export async function assignWorkerToJob(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
-  const { data: userData } = await supabase.from('users').select('id').eq('auth_user_id', user.id).single()
+  const { data: userData } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle()
   const worker_id = formData.get('worker_id') as string
   const booking_ref = formData.get('booking_ref') as string
   const shift_date = formData.get('shift_date') as string

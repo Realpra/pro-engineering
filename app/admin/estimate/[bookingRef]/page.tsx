@@ -65,6 +65,15 @@ export default async function EstimatePage({
 
   if (!job) notFound()
 
+  // Sub-Coordinator gets real, scoped ownership of specific jobs (project
+  // owner's decision, 1 Oct 2026) -- unlike Coordinator/Admin/Superadmin,
+  // whose existing universal access to every job is explicitly unchanged,
+  // Sub-Coordinator may only open a job actually routed to them and not yet
+  // handed off. This is the one access restriction this page has ever had.
+  if (userData?.platform_role === 'sub_coordinator' && job.driving_user_id !== user.id) {
+    redirect('/sub-coordinator/jobs')
+  }
+
   const today = new Date().toLocaleDateString('en-CA')
 
   // Step 2: parallel fetches
