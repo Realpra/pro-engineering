@@ -267,3 +267,62 @@ export async function returnWorkerOnboarding(workerId: string, reason: string): 
   revalidatePath('/sub-coordinator/workers')
   return {}
 }
+
+// E7-iii (WorkersTable_Review workbook, 1 Oct 2026, "Completing an existing returned
+// worker"): staff fill in missing fields for a worker reached by phone/WhatsApp/email
+// after a return, upload one evidence photo/PDF, and record how the data was obtained.
+// Re-enters the normal onboarding pipeline at sub_coordinator_reviewed, same as a fresh
+// recommend -- not a second, competing approval path.
+export type CompleteReturnedWorkerInput = {
+  phone?: string; aadhaarLast4?: string; bocwRegistered?: boolean; bocwNumber?: string
+  bankAccount?: string; ifscCode?: string; reference1Name?: string; reference1Phone?: string
+  otherCorrections?: string
+}
+
+export async function uploadCorrectionEvidence(workerId: string, base64Data: string, fileName: string): Promise<{ error?: string; path?: string }> {
+  const supabase = await createClient()
+  const matches = base64Data.match(/^data:(.+);base64,(.+)$/)
+  if (!matches) return { error: 'Invalid file data' }
+  const contentType = matches[1]
+  const buffer = Buffer.from(matches[2], 'base64')
+  const ext = fileName.split('.').pop() || 'jpg'
+  const path = `${workerId}/correction-evidence-${Date.now()}.${ext}`
+
+  const { error: uploadError } = await supabase.storage.from('worker-selfies').upload(path, buffer, { contentType, upsert: true })
+  if (uploadError) return { error: uploadError.message }
+  return { path }
+}
+
+export async function completeReturnedWorker(
+  workerId: string,
+  fields: CompleteReturnedWorkerInput,
+  howObtained: string,
+  evidencePath: string | null,
+  staffUserId: string,
+): Promise<{ error?: string }> {
+  if (!howObtained.trim()) return { error: 'Record how this information was obtained (WhatsApp/phone/email).' }
+  const supabase = await createClient()
+
+  const updates: Record<string, unknown> = {
+    approval_status: 'sub_coordinator_reviewed',
+    correction_evidence_note: howObtained.trim(),
+    correction_completed_by: staffUserId,
+    correction_completed_at: new Date().toISOString(),
+  }
+  if (evidencePath) updates.correction_evidence_url = evidencePath
+  if (fields.phone) updates.phone = fields.phone
+  if (fields.aadhaarLast4) updates.aadhaar_last4 = fields.aadhaarLast4
+  if (fields.bocwRegistered !== undefined) updates.is_bocw_registered = fields.bocwRegistered
+  if (fields.bocwNumber) updates.bocw_registration_number = fields.bocwNumber
+  if (fields.bankAccount) updates.bank_account_number = fields.bankAccount
+  if (fields.ifscCode) updates.ifsc_code = fields.ifscCode
+  if (fields.reference1Name) updates.reference_1_name = fields.reference1Name
+  if (fields.reference1Phone) updates.reference_1_phone = fields.reference1Phone
+  if (fields.otherCorrections) updates.sub_coordinator_recommendation = fields.otherCorrections.trim()
+
+  const { error } = await supabase.from('workers').update(updates).eq('id', workerId)
+  if (error) return { error: error.message }
+  revalidatePath('/sub-coordinator/workers')
+  revalidatePath('/coordinator/workers')
+  return {}
+}

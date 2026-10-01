@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
 import OnboardingReviewCard from './OnboardingReviewCard'
+import CompleteReturnedWorkerCard from './CompleteReturnedWorkerCard'
 
 export default async function WorkersPage() {
   const supabase = await createClient()
@@ -25,7 +26,8 @@ export default async function WorkersPage() {
       skill_level, daily_wage_inr, current_job_id, phone,
       average_rating, total_deployments, approval_status,
       is_bocw_registered, height_restriction, dust_restriction,
-      credential_type, credential_other_detail, credential_valid_upto`)
+      credential_type, credential_other_detail, credential_valid_upto,
+      correction_action`)
     .eq('is_active', true)
     .order('trade', { ascending: true })
     .order('full_name', { ascending: true })
@@ -33,6 +35,7 @@ export default async function WorkersPage() {
   // Onboarding approval chain, step 1: self-onboarded workers waiting on
   // Sub-Coordinator's recommendation before Coordinator's ad hoc approval.
   const pendingReview = (workers ?? []).filter(w => w.approval_status === 'pending')
+  const needsCompletion = (workers ?? []).filter(w => ['returned_for_correction', 'returned_to_subcoordinator'].includes(w.approval_status ?? ''))
 
   const { data: activeJobs } = await supabase
     .from('guest_enquiries')
@@ -105,6 +108,20 @@ export default async function WorkersPage() {
             </p>
             <div className="space-y-3">
               {pendingReview.map(w => <OnboardingReviewCard key={w.id} worker={w} />)}
+            </div>
+          </section>
+        )}
+
+        {/* E7-iii (WorkersTable_Review workbook, 1 Oct 2026): workers returned for
+            correction, reachable here for staff to complete from a phone/WhatsApp/
+            email intake rather than leaving the worker to self-correct unassisted. */}
+        {needsCompletion.length > 0 && (
+          <section>
+            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-3">
+              📞 Returned — Complete On Worker&apos;s Behalf ({needsCompletion.length})
+            </p>
+            <div className="space-y-3">
+              {needsCompletion.map(w => <CompleteReturnedWorkerCard key={w.id} worker={w} currentUserId={user.id} />)}
             </div>
           </section>
         )}
