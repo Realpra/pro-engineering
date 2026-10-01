@@ -2331,6 +2331,11 @@ was actually needed beyond those two -- `/admin/trade-questions` itself needed n
 before calling the Worker Onboarding full-spec build (still only live-tested for Mason, per
 PENDING #40) ready to extend to the other 8 trades for real.
 
+Both migrations confirmed run live by the project owner ("success") -- `master` fast-forwarded
+from `64213c6` to `9f53ac1` to match. Everything in this entry (essential_tool_1/2, the 8-trade
+question seed, `/admin/trade-questions`, Screen 4's SKIP pagination) is now genuinely live on
+`pro-engineering.vercel.app`, not just on the working branch.
+
 ## NEXT SESSION — START HERE (Updated 2 Oct 2026, Session 69 continued)
 - **Live-test this entry's build**: register a worker (any of the 8 newly-seeded trades) through
   Screen 4's new 5-per-page/SKIP pagination and Screen 10's two new tool text fields; confirm
