@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateCoverage, routeJobToDriver } from './actions'
+import { updateCoverage, routeJobToDriver, resolveEscalation } from './actions'
 
 export type DriverUser = {
   id: string
@@ -22,6 +22,25 @@ export type UnroutedJob = {
   zone: string | null
   district: string | null
   created_at: string
+}
+
+export type Escalation = {
+  id: string
+  booking_ref: string
+  substage_id: string
+  trade: string
+  skill_level_needed: string | null
+  remark: string | null
+  raised_at: string
+}
+
+export type WorkerOption = {
+  id: string
+  full_name: string | null
+  trade: string | null
+  skill_level: string | null
+  zones: string[] | null
+  daily_wage_inr: number | null
 }
 
 function roleLabel(r: string): string {
@@ -170,27 +189,92 @@ function RouteJobRow({ job, drivers }: { job: UnroutedJob; drivers: DriverUser[]
   )
 }
 
+function EscalationRow({
+  escalation,
+  substageName,
+  allWorkers,
+}: {
+  escalation: Escalation
+  substageName: string
+  allWorkers: WorkerOption[]
+}) {
+  const router = useRouter()
+  const candidates = allWorkers
+    .filter((w) => w.trade === escalation.trade)
+    .sort((a, b) => (a.daily_wage_inr ?? 0) - (b.daily_wage_inr ?? 0))
+  const [workerId, setWorkerId] = useState('')
+  const [slotDate, setSlotDate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function resolve() {
+    if (!workerId || !slotDate) { setError('Pick a worker and a date.'); return }
+    setBusy(true)
+    setError(null)
+    const res = await resolveEscalation(escalation.id, escalation.booking_ref, substageName, workerId, slotDate)
+    setBusy(false)
+    if (res.error) { setError(res.error); return }
+    router.refresh()
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-orange-200 shadow-sm p-5 space-y-3">
+      <div>
+        <p className="text-sm font-bold text-gray-800">{escalation.booking_ref} — {escalation.trade}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{substageName}</p>
+        {escalation.remark && (
+          <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-3 py-2 mt-2 italic">"{escalation.remark}"</p>
+        )}
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={workerId} onChange={(e) => setWorkerId(e.target.value)} className="flex-1 min-w-[180px] border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50">
+          <option value="">Pick any {escalation.trade} platform-wide…</option>
+          {candidates.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.full_name} — {w.skill_level} — {(w.zones ?? []).join(', ') || 'no zone'} — ₹{w.daily_wage_inr ?? '—'}/day
+            </option>
+          ))}
+        </select>
+        <input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50" />
+        <button type="button" onClick={resolve} disabled={busy || !workerId} className="bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50">
+          {busy ? 'Resolving…' : 'Resolve'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function CoordinatorsTabs({
   drivers,
   geo,
   unroutedJobs,
+  escalations,
+  substageById,
+  allWorkers,
 }: {
   drivers: DriverUser[]
   geo: GeoNode[]
   unroutedJobs: UnroutedJob[]
+  escalations: Escalation[]
+  substageById: Record<string, { id: string; substage_code: string; substage_name: string }>
+  allWorkers: WorkerOption[]
 }) {
-  const [tab, setTab] = useState<'routing' | 'coverage'>('routing')
+  const [tab, setTab] = useState<'routing' | 'coverage' | 'escalations'>('routing')
   const states = geo.filter((g) => g.level === 'state')
   const zones = geo.filter((g) => g.level === 'zone')
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Chip active={tab === 'routing'} onClick={() => setTab('routing')}>
           New-Job Routing {unroutedJobs.length > 0 && `(${unroutedJobs.length})`}
         </Chip>
         <Chip active={tab === 'coverage'} onClick={() => setTab('coverage')}>
           Zone Coverage
+        </Chip>
+        <Chip active={tab === 'escalations'} onClick={() => setTab('escalations')}>
+          Allocation Escalations {escalations.length > 0 && `(${escalations.length})`}
         </Chip>
       </div>
 
@@ -222,6 +306,31 @@ export default function CoordinatorsTabs({
           ) : (
             <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-6 py-10 text-center">
               <p className="text-sm text-gray-400">No Coordinator or Sub-Coordinator accounts found.</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'escalations' && (
+        <section>
+          <p className="text-xs text-gray-500 mb-3">
+            A Coordinator found nobody suitable in a job's zone for one of these trades and asked
+            you to pick from every worker of that trade, platform-wide.
+          </p>
+          {escalations.length > 0 ? (
+            <div className="space-y-3">
+              {escalations.map((e) => (
+                <EscalationRow
+                  key={e.id}
+                  escalation={e}
+                  substageName={substageById[e.substage_id]?.substage_code ?? e.substage_id}
+                  allWorkers={allWorkers}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-6 py-10 text-center">
+              <p className="text-sm text-gray-400">No pending allocation escalations.</p>
             </div>
           )}
         </section>

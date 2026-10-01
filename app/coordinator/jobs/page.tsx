@@ -236,9 +236,14 @@ export default async function CoordinatorJobsPage() {
                             </Link>
                           )}
                           {(job.status === 'milestone_review' || job.status === 'confirmed') && (
-                            <Link href="/coordinator/payments" className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl text-center">
-                              Payments →
-                            </Link>
+                            <>
+                              <Link href={`/coordinator/allocate/${job.booking_ref}`} className="flex-1 bg-green-700 text-white text-xs font-bold py-2.5 rounded-xl text-center">
+                                Allocate →
+                              </Link>
+                              <Link href="/coordinator/payments" className="flex-1 bg-[#1F3864] text-white text-xs font-bold py-2.5 rounded-xl text-center">
+                                Payments →
+                              </Link>
+                            </>
                           )}
                           {(!['scope_report_submitted','approved_for_estimate','estimate_sent','milestone_review','confirmed'].includes(job.status)) && (
                             <div className="flex-1 border border-gray-200 text-gray-400 text-xs font-semibold py-2.5 rounded-xl text-center">

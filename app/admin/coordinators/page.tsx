@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import CoordinatorsTabs, { type DriverUser, type GeoNode, type UnroutedJob } from './CoordinatorsTabs'
+import CoordinatorsTabs, { type DriverUser, type GeoNode, type UnroutedJob, type Escalation, type WorkerOption } from './CoordinatorsTabs'
 
 export default async function AdminCoordinatorsPage() {
   const supabase = await createClient()
@@ -17,7 +17,7 @@ export default async function AdminCoordinatorsPage() {
 
   if (!['admin', 'super_admin'].includes(profile?.platform_role ?? '')) redirect('/admin/dashboard')
 
-  const [{ data: driversData }, { data: geoData }, { data: jobsData }] = await Promise.all([
+  const [{ data: driversData }, { data: geoData }, { data: jobsData }, { data: escalationsData }, { data: allWorkersData }] = await Promise.all([
     supabase
       .from('users')
       .select('id, full_name, email, platform_role, coverage_states, coverage_zones')
@@ -37,11 +37,33 @@ export default async function AdminCoordinatorsPage() {
       .is('driving_role', null)
       .eq('is_active', true)
       .order('created_at', { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('worker_allocation_escalations')
+      .select('id, booking_ref, substage_id, trade, skill_level_needed, remark, raised_at')
+      .eq('status', 'pending')
+      .order('raised_at', { ascending: true }),
+    supabase
+      .from('workers')
+      .select('id, full_name, trade, skill_level, zones, daily_wage_inr')
+      .eq('is_active', true)
+      .eq('approval_status', 'admin_approved'),
   ])
 
   const drivers = (driversData ?? []) as DriverUser[]
   const geo = (geoData ?? []) as GeoNode[]
   const unroutedJobs = (jobsData ?? []) as UnroutedJob[]
+  const escalations = (escalationsData ?? []) as Escalation[]
+  const allWorkers = (allWorkersData ?? []) as WorkerOption[]
+
+  const substageIds = [...new Set(escalations.map(e => e.substage_id))]
+  const { data: substagesForEscalations } = substageIds.length > 0
+    ? await supabase
+        .from('job_milestone_substages')
+        .select('id, substage_code, substage_name')
+        .in('id', substageIds)
+    : { data: [] as { id: string; substage_code: string; substage_name: string }[] }
+  const substageById = Object.fromEntries((substagesForEscalations ?? []).map(s => [s.id, s]))
 
   const adminName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Admin'
 
@@ -63,7 +85,14 @@ export default async function AdminCoordinatorsPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <CoordinatorsTabs drivers={drivers} geo={geo} unroutedJobs={unroutedJobs} />
+        <CoordinatorsTabs
+          drivers={drivers}
+          geo={geo}
+          unroutedJobs={unroutedJobs}
+          escalations={escalations}
+          substageById={substageById}
+          allWorkers={allWorkers}
+        />
       </main>
     </div>
   )
