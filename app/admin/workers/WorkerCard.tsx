@@ -13,6 +13,7 @@ import {
   adminTriggerReassessment,
 } from './actions'
 import { WORKER_RETURN_REASONS } from '@/lib/workerReturnReasons'
+import CompetencyAssessmentPanel from './CompetencyAssessmentPanel'
 
 export type WorkerCardMode =
   | 'pending'
@@ -997,6 +998,10 @@ export default function WorkerCard({
             <p className="text-xs text-gray-500 mt-2">
               Last Job: {fmtDate(worker.last_job_date)} · Jobs Completed: {worker.jobs_completed_total != null ? String(worker.jobs_completed_total) : '—'}
             </p>
+            {/* Distinct from the competency_m1..m6 badges above (Track 2/zone-registry's own
+                mechanism) -- this is the separate worker_competency table (declared/MCQ/score
+                per module) + real trainer-slot booking, WorkersTable_Review Part B, 1 Oct 2026. */}
+            <CompetencyAssessmentPanel workerId={worker.id} />
           </div>
         )}
       </div>

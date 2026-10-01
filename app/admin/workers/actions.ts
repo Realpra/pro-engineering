@@ -191,3 +191,88 @@ export async function adminTriggerReassessment(
   revalidatePath('/admin/workers')
   return { success: true }
 }
+
+// ─── Part B: Competency Matrix + Schedule Assessment (WorkersTable_Review workbook,
+// 1 Oct 2026, decision E6: "BUILD WHAT IS STATED FULL FOR REAL LIVE CASE") ──────────
+//
+// Rebuilt here, not ported verbatim: the dead app/admin/dashboard/WorkersTable.tsx's
+// own double-booking check and its scheduleAssessment action (app/admin/dashboard/
+// actions.ts) both query/insert columns (slot_time, sector, module_code, max_candidates,
+// booked_count, status on assessment_slots) that do not exist in the real migration
+// (supabase/migrations/20260622_assessment_slots.sql: id/slot_date/time_slot/
+// assessor_name/created_at only) -- confirmed by repo-wide grep, there is no later
+// migration that adds them. Since that dead code was never run against the live
+// database (its only caller, WorkersTable.tsx, has zero imports), this was never
+// caught. Built here against the real migration's columns instead -- still flagged
+// for a live information_schema check before being called frozen, per this project's
+// own "never guess live-only schema" rule.
+
+export type CompetencyRow = { module_code: string; declared: boolean; mcq_passed: boolean | null; score: number | null }
+
+export async function getWorkerCompetency(workerId: string): Promise<CompetencyRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('worker_competency')
+    .select('module_code, declared, mcq_passed, score')
+    .eq('worker_id', workerId)
+  return data ?? []
+}
+
+export async function getTrainersForModule(moduleCode: string): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient()
+  const { data: specialised } = await supabase
+    .from('trainers')
+    .select('id, name')
+    .eq('is_active', true)
+    .contains('specialisation', [moduleCode])
+  if (specialised && specialised.length > 0) return specialised
+  const { data: anyActive } = await supabase.from('trainers').select('id, name').eq('is_active', true)
+  return anyActive ?? []
+}
+
+export async function scheduleAssessmentForWorker(
+  workerId: string,
+  moduleCode: string,
+  slotDate: string,
+  timeSlot: 'morning' | 'afternoon',
+  trainerName: string,
+): Promise<{ error?: string }> {
+  if (!slotDate || !trainerName) return { error: 'Date and trainer are required.' }
+  const supabase = await createClient()
+
+  const { data: dup } = await supabase
+    .from('assessment_bookings')
+    .select('id, assessment_slots!inner(slot_date)')
+    .eq('worker_id', workerId)
+    .eq('module_code', moduleCode)
+    .gte('assessment_slots.slot_date', new Date().toISOString().slice(0, 10))
+  if (dup && dup.length > 0) return { error: 'This worker already has a pending assessment booked for this module.' }
+
+  const { data: existingSlot, error: findErr } = await supabase
+    .from('assessment_slots')
+    .select('id')
+    .eq('slot_date', slotDate)
+    .eq('time_slot', timeSlot)
+    .eq('assessor_name', trainerName)
+    .maybeSingle()
+  if (findErr) return { error: findErr.message }
+
+  let slotId = existingSlot?.id as string | undefined
+  if (!slotId) {
+    const { data: newSlot, error: slotError } = await supabase
+      .from('assessment_slots')
+      .insert({ slot_date: slotDate, time_slot: timeSlot, assessor_name: trainerName })
+      .select('id')
+      .single()
+    if (slotError) return { error: slotError.message }
+    slotId = newSlot.id
+  }
+
+  const { error: bookingError } = await supabase
+    .from('assessment_bookings')
+    .insert({ worker_id: workerId, slot_id: slotId, module_code: moduleCode })
+  if (bookingError) return { error: bookingError.message }
+
+  revalidatePath('/admin/workers')
+  return {}
+}
