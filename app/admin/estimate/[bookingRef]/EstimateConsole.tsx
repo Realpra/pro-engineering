@@ -7,6 +7,7 @@ import { approveBoqField } from './actions'
 import type { BOQLineItem } from './actions'
 import ClientRemarksPanel from './ClientRemarksPanel'
 import MilestonePlanTab from './MilestonePlanTab'
+import ConfirmExecutionPanel, { type SupervisorOption, type CoordinatorOption } from './ConfirmExecutionPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,10 @@ type Job = {
   zone: string | null
   district: string | null
   job_type: string | null
+  status?: string | null
+  driving_role?: 'coordinator' | 'sub_coordinator' | null
+  driving_user_id?: string | null
+  confirmed_for_execution_at?: string | null
 }
 
 type LabourConfig = {
@@ -304,6 +309,8 @@ type Props = {
   latestClientResponse: any
   platformRole: string
   adminUserId: string
+  supervisors: SupervisorOption[]
+  coordinators: CoordinatorOption[]
 }
 
 export default function EstimateConsole({
@@ -317,6 +324,8 @@ export default function EstimateConsole({
   latestClientResponse,
   platformRole,
   adminUserId,
+  supervisors,
+  coordinators,
 }: Props) {
   const router = useRouter()
 
@@ -575,6 +584,16 @@ export default function EstimateConsole({
   const riskItems = lineItems.filter(i => i.isRiskFlag)
 
   return (
+    <>
+      {job.status === 'estimate_accepted' && !job.confirmed_for_execution_at && (
+        <ConfirmExecutionPanel
+          bookingRef={bookingRef}
+          zone={job.zone}
+          drivingRole={job.driving_role}
+          supervisors={supervisors}
+          coordinators={coordinators}
+        />
+      )}
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
 
       {/* ── Tab Switcher ── */}
@@ -1088,6 +1107,7 @@ export default function EstimateConsole({
       )}
 
     </div>
+    </>
   )
 }
 

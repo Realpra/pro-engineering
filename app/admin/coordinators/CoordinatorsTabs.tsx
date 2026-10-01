@@ -1,0 +1,231 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { updateCoverage, routeJobToDriver } from './actions'
+
+export type DriverUser = {
+  id: string
+  full_name: string | null
+  email: string | null
+  platform_role: 'coordinator' | 'sub_coordinator'
+  coverage_states: string[] | null
+  coverage_zones: string[] | null
+}
+
+export type GeoNode = { id: string; name: string; level: string | null; is_active: boolean }
+
+export type UnroutedJob = {
+  booking_ref: string
+  job_title: string | null
+  contact_name: string | null
+  zone: string | null
+  district: string | null
+  created_at: string
+}
+
+function roleLabel(r: string): string {
+  return r === 'sub_coordinator' ? 'Sub-Coordinator' : 'Coordinator'
+}
+
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+        active
+          ? 'bg-[#1F3864] text-white border-[#1F3864]'
+          : 'bg-white text-gray-600 border-gray-300 hover:border-[#1F3864]'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CoverageEditor({ driver, states, zones }: { driver: DriverUser; states: GeoNode[]; zones: GeoNode[] }) {
+  const router = useRouter()
+  const [selStates, setSelStates] = useState<string[]>(driver.coverage_states ?? [])
+  const [selZones, setSelZones] = useState<string[]>(driver.coverage_zones ?? [])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  function toggle(list: string[], set: (v: string[]) => void, name: string) {
+    set(list.includes(name) ? list.filter((x) => x !== name) : [...list, name])
+  }
+
+  async function save() {
+    setSaving(true)
+    setSaved(false)
+    await updateCoverage(driver.id, selStates, selZones)
+    setSaving(false)
+    setSaved(true)
+    router.refresh()
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-gray-800">{driver.full_name ?? driver.email ?? 'Unnamed'}</p>
+          <p className="text-xs text-gray-400">{roleLabel(driver.platform_role)} · {driver.email}</p>
+        </div>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="bg-[#1F3864] text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Coverage'}
+        </button>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-500 mb-1.5">Covered States</p>
+        <div className="flex flex-wrap gap-1.5">
+          {states.map((s) => (
+            <Chip key={s.id} active={selStates.includes(s.name)} onClick={() => toggle(selStates, setSelStates, s.name)}>
+              {s.name}
+            </Chip>
+          ))}
+          {states.length === 0 && <p className="text-xs text-gray-400">No states found in geo_hierarchy.</p>}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-500 mb-1.5">
+          Covered Zones <span className="text-gray-400 font-normal">(independent of states above — an NCR zone can cross a state line)</span>
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {zones.map((z) => (
+            <Chip key={z.id} active={selZones.includes(z.name)} onClick={() => toggle(selZones, setSelZones, z.name)}>
+              {z.name}
+            </Chip>
+          ))}
+          {zones.length === 0 && <p className="text-xs text-gray-400">No zones found in geo_hierarchy.</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RouteJobRow({ job, drivers }: { job: UnroutedJob; drivers: DriverUser[] }) {
+  const router = useRouter()
+  const matching = drivers.filter((d) => job.zone && (d.coverage_zones ?? []).includes(job.zone))
+  const others = drivers.filter((d) => !matching.includes(d))
+  const [choice, setChoice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function assign() {
+    if (!choice) return
+    const driver = drivers.find((d) => d.id === choice)
+    if (!driver) return
+    setBusy(true)
+    setError(null)
+    const res = await routeJobToDriver(job.booking_ref, driver.id, driver.platform_role)
+    setBusy(false)
+    if (res.error) { setError(res.error); return }
+    router.refresh()
+  }
+
+  return (
+    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-gray-800">{job.booking_ref} — {job.job_title ?? 'Untitled job'}</p>
+        <p className="text-xs text-gray-500">{job.contact_name ?? 'No contact'} · {job.zone ?? 'Zone TBC'}{job.district ? `, ${job.district}` : ''}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <select
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-gray-50"
+        >
+          <option value="">Assign to…</option>
+          {matching.length > 0 && (
+            <optgroup label={`Covers ${job.zone}`}>
+              {matching.map((d) => (
+                <option key={d.id} value={d.id}>{roleLabel(d.platform_role)} — {d.full_name ?? d.email}</option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label="All (no zone match confirmed)">
+            {others.map((d) => (
+              <option key={d.id} value={d.id}>{roleLabel(d.platform_role)} — {d.full_name ?? d.email}</option>
+            ))}
+          </optgroup>
+        </select>
+        <button
+          type="button"
+          onClick={assign}
+          disabled={busy || !choice}
+          className="bg-[#1F3864] text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50"
+        >
+          {busy ? 'Assigning…' : 'Assign'}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600 w-full">{error}</p>}
+    </div>
+  )
+}
+
+export default function CoordinatorsTabs({
+  drivers,
+  geo,
+  unroutedJobs,
+}: {
+  drivers: DriverUser[]
+  geo: GeoNode[]
+  unroutedJobs: UnroutedJob[]
+}) {
+  const [tab, setTab] = useState<'routing' | 'coverage'>('routing')
+  const states = geo.filter((g) => g.level === 'state')
+  const zones = geo.filter((g) => g.level === 'zone')
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2">
+        <Chip active={tab === 'routing'} onClick={() => setTab('routing')}>
+          New-Job Routing {unroutedJobs.length > 0 && `(${unroutedJobs.length})`}
+        </Chip>
+        <Chip active={tab === 'coverage'} onClick={() => setTab('coverage')}>
+          Zone Coverage
+        </Chip>
+      </div>
+
+      {tab === 'routing' && (
+        <section>
+          <p className="text-xs text-gray-500 mb-3">
+            Every new job needs a Coordinator or Sub-Coordinator before anyone can act on it. The dropdown groups
+            drivers who already cover the job's zone first — picking from the second group means that driver's
+            coverage doesn't list this zone yet.
+          </p>
+          {unroutedJobs.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+              {unroutedJobs.map((j) => (
+                <RouteJobRow key={j.booking_ref} job={j} drivers={drivers} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-6 py-10 text-center">
+              <p className="text-sm text-gray-400">No new jobs waiting for routing.</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'coverage' && (
+        <section className="space-y-4">
+          {drivers.length > 0 ? (
+            drivers.map((d) => <CoverageEditor key={d.id} driver={d} states={states} zones={zones} />)
+          ) : (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-300 px-6 py-10 text-center">
+              <p className="text-sm text-gray-400">No Coordinator or Sub-Coordinator accounts found.</p>
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  )
+}

@@ -140,7 +140,7 @@ export default async function AdminDashboardPage() {
       ),
     ),
     safeSelect(
-      sb.from('guest_enquiries').select('id, booking_ref, status, job_type, zone, contact_name, is_active, created_at'),
+      sb.from('guest_enquiries').select('id, booking_ref, status, job_type, zone, contact_name, is_active, created_at, driving_role'),
     ),
     safeSelect(sb.from('site_instructions').select('id, booking_ref, instruction_type, admin_acknowledged_at, issued_at')),
     safeSelect(sb.from('daily_site_logs').select('id, booking_ref, escalate_to_admin, decision_on_log, log_date')),
@@ -201,6 +201,10 @@ export default async function AdminDashboardPage() {
   const completedThisWeekSum = completedThisWeekMilestones.reduce((s, m) => s + (Number(m.payment_amount) || 0), 0)
 
   // ── 3. guest_enquiries ───────────────────────────────────────────────────────
+  // Jobs with no driving_role yet need Admin/Superadmin to route them to a
+  // Coordinator or Sub-Coordinator (zone-based) before anyone can act on them --
+  // see app/admin/coordinators/.
+  const unroutedJobs = enquiriesRaw.filter((e) => e.is_active && !e.driving_role).length
   const pipelineCounts: Record<string, number> = Object.fromEntries(PIPELINE_STAGES.map((s) => [s, 0]))
   for (const e of enquiriesRaw) pipelineCounts[stageForStatus(e.status)] += 1
   const activeJobs = enquiriesRaw.filter((e) => {
@@ -401,6 +405,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/reports', icon: '📋', label: 'Reports', desc: 'Safety · directives · audit', count: unacknowledgedInstructions + escalatedLogs },
     { href: '/admin/scope', icon: '📐', label: 'Scope', desc: 'Pre-delivery · PI tracker', count: pendingHandovers + scopeChangesPending },
     { href: '/admin/milestones', icon: '🏗️', label: 'Milestones', desc: 'Stages · scope changes', count: undecidedLogs },
+    { href: '/admin/coordinators', icon: '🧭', label: 'Coordinators', desc: 'Zone coverage · job routing', count: unroutedJobs },
   ]
 
   return (

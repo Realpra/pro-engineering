@@ -59,7 +59,7 @@ export default async function EstimatePage({
   // visit). Not just a display miss -- the columns weren't even selected.
   const { data: job } = await supabase
     .from('guest_enquiries')
-    .select('booking_ref, job_title, zone, district, job_type, contact_name, contact_phone, contact_email')
+    .select('booking_ref, job_title, zone, district, job_type, contact_name, contact_phone, contact_email, status, driving_role, driving_user_id, confirmed_for_execution_at')
     .eq('booking_ref', bookingRef)
     .maybeSingle()
 
@@ -68,7 +68,7 @@ export default async function EstimatePage({
   const today = new Date().toLocaleDateString('en-CA')
 
   // Step 2: parallel fetches
-  const [reportResult, rateCardsResult, labourConfigResult, existingEstimateResult] =
+  const [reportResult, rateCardsResult, labourConfigResult, existingEstimateResult, supervisorsResult, coordinatorsResult] =
     await Promise.all([
       // scope report — coordinator-approved reports have status='admin_review'
       supabase
@@ -109,6 +109,17 @@ export default async function EstimatePage({
         .order('version', { ascending: false })
         .limit(1)
         .maybeSingle(),
+
+      // "Confirm Job for Execution" gate needs a real Supervisor picker --
+      // the only prior writer of guest_enquiries.status='confirmed'
+      // (assignSupervisor, app/admin/dashboard/actions.ts) is orphaned dead
+      // code (its only caller, BookingsTable.tsx, is never imported by
+      // admin/dashboard/page.tsx), so this is the first reachable path.
+      supabase.from('workers').select('id, full_name, district').eq('trade', 'Supervisor').eq('is_active', true).order('full_name'),
+
+      // Coordinators, for the Sub-Coordinator-driven handoff sub-step (a
+      // Sub-Coordinator-driven job has no Coordinator yet until this gate).
+      supabase.from('users').select('id, full_name, email, coverage_zones').eq('platform_role', 'coordinator').order('full_name'),
     ])
 
   const report = reportResult.data ?? null
@@ -291,6 +302,8 @@ export default async function EstimatePage({
         latestClientResponse={latestClientResponse}
         platformRole={userData?.platform_role ?? 'coordinator'}
         adminUserId={adminUserId}
+        supervisors={supervisorsResult.data ?? []}
+        coordinators={coordinatorsResult.data ?? []}
       />
     </div>
   )
