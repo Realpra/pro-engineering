@@ -2192,10 +2192,19 @@ access (same standing constraint as every prior session), so
 same class of blocker as the `service_model_title` incident, Session 67). `master` is left at
 `ab81735`/`025be12` (the SESSIONS.md backfill) for now.
 
+`20261001_coordinator_subcoordinator_routing.sql` **confirmed run live** in Supabase ("Success.
+No rows returned") -- `master` fast-forwarded to `d4e03de` to match. The new `/admin/coordinators`
+screen, zone-coverage management, and the Confirm-for-Execution gate on the Estimate Console are
+now live on `pro-engineering.vercel.app`, not just code-complete. None of this has been clicked
+through live yet though (no real Coordinator/Sub-Coordinator coverage has been set, no real job
+has been routed or confirmed for execution) -- that live-run + Amendment 2 check is still open.
+
 ## NEXT SESSION — START HERE (Updated 1 Oct 2026)
-- **Run `20261001_coordinator_subcoordinator_routing.sql` in Supabase, then fast-forward `master`
-  immediately** (no further authorization needed, same standing delegation as before) -- until
-  then the new Coordinators/routing/Confirm-for-Execution screens must not be relied on live.
+- **Live-test the new routing/Confirm-for-Execution build** before calling it frozen: set zone
+  coverage for the real `coordinator@`/`subcoordinator@` accounts on `/admin/coordinators`
+  (remember `subcoordinator@proengineering.in`'s login is still broken -- test via the `coordinator`
+  account and code review for the Sub-Coordinator side until that's fixed), route a real job, and
+  once a client accepts an estimate, click through "Confirm Job for Execution."
 - Next build items, in the order the project owner confirmed them: Sub-Coordinator's scoped
   job/estimate screens; the ordinary/premium/highest skill-substitution ranking + Admin's
   platform-wide manual-allocation escalation UI; the premium/rebate en-bloc write-back into
