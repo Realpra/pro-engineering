@@ -9,7 +9,7 @@ type AttendanceStatus = 'present' | 'absent' | 'late'
 type Props = {
   supervisorId: string
   bookingRef: string
-  crew: { id: string; full_name: string; trade: string }[]
+  crew: { id: string; full_name: string; trade: string; coordinator_deployable_at?: string | null; approval_status?: string | null }[]
   onComplete: () => void
 }
 
@@ -96,7 +96,12 @@ export default function MorningForm({ supervisorId, bookingRef, crew, onComplete
       <div className="space-y-3 mb-6">
         {crew.map(worker => (
           <div key={worker.id} className="bg-white border border-gray-200 rounded-lg p-3">
-            <p className="font-bold text-base">{worker.full_name}</p>
+            <p className="font-bold text-base">
+              {worker.full_name}
+              {worker.coordinator_deployable_at && !['admin_approved', 'coordinator_approved'].includes(worker.approval_status ?? '') && (
+                <span className="ml-2 align-middle text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5">ADHOC</span>
+              )}
+            </p>
             <p className="text-sm text-gray-500 mb-2">{worker.trade}</p>
             <div className="flex gap-2">
               <button

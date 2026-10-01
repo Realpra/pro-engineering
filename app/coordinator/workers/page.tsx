@@ -22,7 +22,7 @@ export default async function CoordinatorWorkersPage() {
     .from('workers')
     .select(`id, full_name, trade, district, is_available, is_active,
       skill_level, daily_wage_inr, phone, average_rating,
-      total_deployments, approval_status, created_at`)
+      total_deployments, approval_status, created_at, coordinator_deployable_at`)
     .order('approval_status', { ascending: true })
     .order('trade', { ascending: true })
 
@@ -197,7 +197,7 @@ export default async function CoordinatorWorkersPage() {
                       </div>
                     </div>
 
-                    <CoordinatorReviewActions workerId={w.id} />
+                    <CoordinatorReviewActions workerId={w.id} currentUserId={user.id} deployableAdhocAt={w.coordinator_deployable_at} />
                   </div>
                 </div>
               ))}

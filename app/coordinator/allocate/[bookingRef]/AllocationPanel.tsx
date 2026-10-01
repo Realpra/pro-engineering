@@ -26,6 +26,7 @@ export type WorkerOption = {
   zones: string[] | null
   daily_wage_inr: number | null
   is_available: boolean | null
+  coordinator_deployable_at?: string | null
 }
 
 export type ExistingSlot = { worker_id: string; slot_date: string; substage_code: string; status: string }
@@ -146,14 +147,14 @@ function SubstageRow({
             {inZone.length > 0 && (
               <optgroup label={zone ? `In ${zone}` : 'Zone match'}>
                 {inZone.map(w => (
-                  <option key={w.id} value={w.id}>{w.full_name} — {w.skill_level} — ₹{w.daily_wage_inr ?? '—'}/day</option>
+                  <option key={w.id} value={w.id}>{w.full_name} — {w.skill_level} — ₹{w.daily_wage_inr ?? '—'}/day{w.coordinator_deployable_at ? ' · ADHOC' : ''}</option>
                 ))}
               </optgroup>
             )}
             {otherZones.length > 0 && (
               <optgroup label="Other zones">
                 {otherZones.map(w => (
-                  <option key={w.id} value={w.id}>{w.full_name} — {w.skill_level} — ₹{w.daily_wage_inr ?? '—'}/day</option>
+                  <option key={w.id} value={w.id}>{w.full_name} — {w.skill_level} — ₹{w.daily_wage_inr ?? '—'}/day{w.coordinator_deployable_at ? ' · ADHOC' : ''}</option>
                 ))}
               </optgroup>
             )}

@@ -55,11 +55,15 @@ export default async function DailyLogPage() {
   // worker actually covers, not workers.district (a different concept).
   let crewQuery = supabase
     .from('workers')
-    .select('id, full_name, trade')
+    .select('id, full_name, trade, coordinator_deployable_at, approval_status')
     .eq('is_active', true)
     // coordinator_approved is also deployable, per the onboarding approval
-    // chain's confirmed design (1 Oct 2026) -- not just admin_approved.
-    .in('approval_status', ['admin_approved', 'coordinator_approved'])
+    // chain's confirmed design (1 Oct 2026) -- not just admin_approved. A
+    // coordinator_deployable_at timestamp (Coordinator's independent "Mark
+    // Deployable (Adhoc)" action, E3, 1 Oct 2026) also counts, regardless of
+    // approval_status, since it's a separate action from the recommend-to-
+    // Admin flow.
+    .or('approval_status.in.(admin_approved,coordinator_approved),coordinator_deployable_at.not.is.null')
     .eq('is_available', true)
     .neq('trade', 'Supervisor')
     .order('full_name', { ascending: true })

@@ -82,11 +82,18 @@ export default function SubstageCard({ substage: s, supervisorId, workersPool, z
     }
   }
 
+  // A worker Coordinator marked "Deployable (Adhoc)" via coordinator_deployable_at is
+  // immediately usable too -- a separate, independent action from the coordinator_approved
+  // "recommend to Admin" flow (E3, WorkersTable_Review workbook, 1 Oct 2026). Fields set by
+  // Coordinator on an adhoc worker are provisional until final Admin approval.
+  const isAdhoc = (w: AnyRecord) => !!w.coordinator_deployable_at && !['admin_approved', 'coordinator_approved'].includes(w.approval_status ?? '')
+
   const availableWorkers = workersPool.filter(w => {
     // coordinator_approved is also deployable -- the worker's own Coordinator
     // ad hoc approval already makes it immediately usable, per the onboarding
     // approval chain's confirmed design (1 Oct 2026), not just admin_approved.
-    if (!['admin_approved', 'coordinator_approved'].includes(w.approval_status ?? '') || w.is_available !== true) return false
+    const deployable = ['admin_approved', 'coordinator_approved'].includes(w.approval_status ?? '') || isAdhoc(w)
+    if (!deployable || w.is_available !== true) return false
     if (selectedZone && !(Array.isArray(w.zones) && w.zones.includes(selectedZone))) return false
     if (selectedTrade && w.trade !== selectedTrade) return false
     if (selectedSkill && w.skill_level !== selectedSkill) return false
@@ -309,7 +316,7 @@ export default function SubstageCard({ substage: s, supervisorId, workersPool, z
                       <option value="">Select worker...</option>
                       {availableWorkers.map(w => (
                         <option key={w.id} value={w.id}>
-                          {w.full_name} — {w.trade} · {w.skill_level}
+                          {w.full_name} — {w.trade} · {w.skill_level}{isAdhoc(w) ? ' · ADHOC (pending final approval)' : ''}
                         </option>
                       ))}
                     </select>

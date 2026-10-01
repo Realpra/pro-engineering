@@ -66,7 +66,7 @@ export default async function MilestoneTrackerPage() {
     bookingRefs.length > 0
       ? supabase
           .from('workers')
-          .select('id, full_name, trade, skill_level, zones, is_available, approval_status, current_job_booking_ref')
+          .select('id, full_name, trade, skill_level, zones, is_available, approval_status, current_job_booking_ref, coordinator_deployable_at')
           .in('current_job_booking_ref', bookingRefs)
       : Promise.resolve({ data: [] as never[] }),
     supabase.from('geo_hierarchy').select('id, name, level'),

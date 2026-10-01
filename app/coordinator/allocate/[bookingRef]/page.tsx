@@ -37,9 +37,11 @@ export default async function CoordinatorAllocatePage({
       .order('sequence_order', { ascending: true }),
     supabase
       .from('workers')
-      .select('id, full_name, trade, skill_level, zones, daily_wage_inr, is_available')
+      .select('id, full_name, trade, skill_level, zones, daily_wage_inr, is_available, coordinator_deployable_at')
       .eq('is_active', true)
-      .in('approval_status', ['admin_approved', 'coordinator_approved'])
+      // coordinator_deployable_at (Coordinator's independent "Mark Deployable
+      // (Adhoc)" action, E3, 1 Oct 2026) also counts, regardless of approval_status.
+      .or('approval_status.in.(admin_approved,coordinator_approved),coordinator_deployable_at.not.is.null')
       .order('daily_wage_inr', { ascending: true }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
