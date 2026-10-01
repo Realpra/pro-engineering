@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import LogoutButton from './LogoutButton'
+import PremiumApprovalsPanel from './PremiumApprovalsPanel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -128,6 +129,7 @@ export default async function AdminDashboardPage() {
     zonesRaw,
     usersRaw,
     clientResponsesRaw,
+    premiumApprovalsRaw,
   ] = await Promise.all([
     safeSelect(
       sb.from('workers').select(
@@ -140,7 +142,7 @@ export default async function AdminDashboardPage() {
       ),
     ),
     safeSelect(
-      sb.from('guest_enquiries').select('id, booking_ref, status, job_type, zone, contact_name, is_active, created_at, driving_role'),
+      sb.from('guest_enquiries').select('id, booking_ref, job_title, status, job_type, zone, contact_name, is_active, created_at, driving_role'),
     ),
     safeSelect(sb.from('site_instructions').select('id, booking_ref, instruction_type, admin_acknowledged_at, issued_at')),
     safeSelect(sb.from('daily_site_logs').select('id, booking_ref, escalate_to_admin, decision_on_log, log_date')),
@@ -156,17 +158,46 @@ export default async function AdminDashboardPage() {
     safeSelect(sb.from('geo_hierarchy').select('id, name, level, is_active').eq('is_active', true)),
     safeSelect(sb.from('users').select('id, full_name, platform_role, updated_at')),
     safeSelect(sb.from('estimate_client_responses').select('id, booking_ref, response_type, responded_at')),
+    // PremiumApprovalsPanel.tsx was fully written and functional but never
+    // rendered by this page -- confirmed orphaned (Session 63), closed here
+    // alongside the PENDING #15 re-link, since an unreachable approval UI
+    // made the re-link meaningless for Admin's own (below-threshold) queue.
+    // Superadmin's own panel (above boq_total>100000) was already reachable.
+    safeSelect(
+      sb.from('premium_approval_requests').select(
+        'id, booking_ref, requested_pct, policy_pct, boq_total, reason, status, created_at',
+      ).eq('status', 'pending'),
+    ),
   ])
 
   // ── lookups ──────────────────────────────────────────────────────────────────
   const contactNameByBooking: Record<string, string> = {}
   const zoneByBooking: Record<string, string> = {}
+  const jobTitleByBooking: Record<string, string> = {}
   for (const e of enquiriesRaw) {
     if (e.booking_ref) {
       contactNameByBooking[e.booking_ref] = e.contact_name ?? '—'
       zoneByBooking[e.booking_ref] = e.zone ?? '—'
+      jobTitleByBooking[e.booking_ref] = e.job_title ?? null
     }
   }
+
+  // Admin's own tier -- Superadmin's dashboard already filters its queue to
+  // boq_total > 100000 (contingency_policy.admin_approval_limit_pct), so
+  // Admin's queue is the complementary below-threshold set, same hierarchy.
+  const premiumApprovals = premiumApprovalsRaw
+    .filter((p: AnyRecord) => (Number(p.boq_total) || 0) <= 100000)
+    .map((p: AnyRecord) => ({
+      id: p.id,
+      booking_ref: p.booking_ref,
+      requested_pct: p.requested_pct,
+      policy_pct: p.policy_pct,
+      boq_total: p.boq_total,
+      reason: p.reason,
+      status: p.status,
+      created_at: p.created_at,
+      jobTitle: jobTitleByBooking[p.booking_ref] ?? null,
+    }))
 
   // ── 1. workers ───────────────────────────────────────────────────────────────
   const totalWorkers = workersRaw.length
@@ -500,6 +531,17 @@ export default async function AdminDashboardPage() {
             </div>
           )}
         </section>
+
+        {/* PREMIUM/REBATE APPROVALS -- PremiumApprovalsPanel.tsx was fully
+            written and functional but never rendered anywhere (confirmed
+            orphaned, Session 63) -- closed out alongside the PENDING #15
+            re-link so an approval here actually reaches the live estimate. */}
+        {premiumApprovals.length > 0 && (
+          <section>
+            <h2 className="text-[#1F3864] font-bold text-lg mb-3">Premium/Rebate Approvals</h2>
+            <PremiumApprovalsPanel approvals={premiumApprovals} />
+          </section>
+        )}
 
         {/* SECTION 4 — MILESTONE HEALTH */}
         <section>
