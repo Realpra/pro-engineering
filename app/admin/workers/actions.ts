@@ -26,6 +26,37 @@ export async function adminApproveWorker(
   return { success: true }
 }
 
+// ACTION 1b — final approval, but flagged for a safety-license/government-
+// certificate renewal (project owner's confirmed design, 1 Oct 2026): the
+// worker IS admin_approved (deployable) like a plain approval, with an
+// overlay flag for follow-up -- a genuinely new, separate concept from the
+// pre-existing literal 'approved' value on 3 rows (Session 66's confirmed
+// data-sanity canary, left untouched deliberately) and from the "Previously
+// Approved" tab this repoints at these columns instead.
+export async function adminApproveWorkerWithRenewalFlag(
+  workerId: string,
+  adminUserId: string,
+  renewalReason: string,
+): Promise<WorkerActionResult> {
+  if (!renewalReason.trim()) return { error: 'State what needs renewal (e.g. safety license expiring, BOCW renewal due).' }
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('workers')
+    .update({
+      approval_status: 'admin_approved',
+      approved_by: adminUserId,
+      approved_at: new Date().toISOString(),
+      admin_renewal_flag_reason: renewalReason.trim(),
+      admin_renewal_flagged_at: new Date().toISOString(),
+    })
+    .eq('id', workerId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/workers')
+  return { success: true }
+}
+
 // ACTION 2 — return to coordinator for correction
 export async function adminReturnWorker(
   workerId: string,

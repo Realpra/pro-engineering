@@ -57,7 +57,9 @@ export default async function DailyLogPage() {
     .from('workers')
     .select('id, full_name, trade')
     .eq('is_active', true)
-    .eq('approval_status', 'admin_approved')
+    // coordinator_approved is also deployable, per the onboarding approval
+    // chain's confirmed design (1 Oct 2026) -- not just admin_approved.
+    .in('approval_status', ['admin_approved', 'coordinator_approved'])
     .eq('is_available', true)
     .neq('trade', 'Supervisor')
     .order('full_name', { ascending: true })

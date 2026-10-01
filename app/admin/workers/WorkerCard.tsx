@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   adminApproveWorker,
+  adminApproveWorkerWithRenewalFlag,
   adminReturnWorker,
   adminRejectWorker,
   adminUpdateCompetency,
@@ -74,6 +75,9 @@ export type Worker = {
   worker_willingness_zone: string | null
   supervisor_recommendation: string | null
   coordinator_recommendation: string | null
+  sub_coordinator_recommendation: string | null
+  admin_renewal_flag_reason: string | null
+  admin_renewal_flagged_at: string | null
   assessed_for: string | null
   [key: string]: unknown
 }
@@ -430,7 +434,7 @@ function JobHistorySection({ worker }: { worker: Worker }) {
 
 function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: string }) {
   const router = useRouter()
-  const [open, setOpen] = useState<null | 'approve' | 'return' | 'reject'>(null)
+  const [open, setOpen] = useState<null | 'approve' | 'renewal' | 'return' | 'reject'>(null)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -450,6 +454,12 @@ function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: 
     setBusy(true)
     setError(null)
     finish(await adminApproveWorker(worker.id, adminUserId))
+  }
+
+  async function approveWithRenewalFlag() {
+    setBusy(true)
+    setError(null)
+    finish(await adminApproveWorkerWithRenewalFlag(worker.id, adminUserId, text.trim()))
   }
 
   async function doReturn() {
@@ -497,6 +507,53 @@ function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: 
               className="flex-1 py-2 rounded-lg text-xs font-bold bg-white border border-gray-300 text-gray-600"
             >
               NO
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open !== 'renewal' ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpen('renewal')
+            setText('')
+            setError(null)
+          }}
+          disabled={busy}
+          className="w-full py-2.5 rounded-xl text-sm font-bold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+        >
+          APPROVE — FLAG FOR RENEWAL
+        </button>
+      ) : (
+        <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 space-y-2">
+          <p className="text-xs text-teal-800">
+            Approves the worker (deployable immediately) but flags a pending safety-license or
+            government-certificate renewal for follow-up.
+          </p>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={2}
+            placeholder="What needs renewal, and by when?"
+            className="w-full border border-teal-300 rounded-lg p-2 text-sm resize-none bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={approveWithRenewalFlag}
+              disabled={busy || !text.trim()}
+              className="flex-1 py-2 rounded-lg text-xs font-bold bg-teal-600 text-white disabled:opacity-50"
+            >
+              {busy ? 'Working…' : 'CONFIRM — APPROVE WITH FLAG'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(null)}
+              disabled={busy}
+              className="px-3 py-2 rounded-lg text-xs font-bold bg-white border border-gray-300 text-gray-600"
+            >
+              Cancel
             </button>
           </div>
         </div>
@@ -808,6 +865,9 @@ export default function WorkerCard({
         )}
 
         <div className="mt-3 space-y-2">
+          {notEmpty(worker.sub_coordinator_recommendation) && (
+            <InfoBox label="Sub-Coordinator Recommendation" value={asText(worker.sub_coordinator_recommendation)} color="grey" />
+          )}
           {notEmpty(worker.supervisor_recommendation) && (
             <InfoBox label="Supervisor Recommendation" value={asText(worker.supervisor_recommendation)} color="blue" />
           )}
@@ -816,6 +876,9 @@ export default function WorkerCard({
           )}
           {notEmpty(worker.coordinator_forwarding_remarks) && (
             <InfoBox label="Coordinator Forwarding Remarks" value={asText(worker.coordinator_forwarding_remarks)} color="grey" />
+          )}
+          {notEmpty(worker.admin_renewal_flag_reason) && (
+            <InfoBox label={`Flagged for Renewal${notEmpty(worker.admin_renewal_flagged_at) ? ` (${fmtDate(worker.admin_renewal_flagged_at)})` : ''}`} value={asText(worker.admin_renewal_flag_reason)} color="amber" />
           )}
         </div>
 

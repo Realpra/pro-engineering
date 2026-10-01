@@ -83,7 +83,10 @@ export default function SubstageCard({ substage: s, supervisorId, workersPool, z
   }
 
   const availableWorkers = workersPool.filter(w => {
-    if (w.approval_status !== 'admin_approved' || w.is_available !== true) return false
+    // coordinator_approved is also deployable -- the worker's own Coordinator
+    // ad hoc approval already makes it immediately usable, per the onboarding
+    // approval chain's confirmed design (1 Oct 2026), not just admin_approved.
+    if (!['admin_approved', 'coordinator_approved'].includes(w.approval_status ?? '') || w.is_available !== true) return false
     if (selectedZone && !(Array.isArray(w.zones) && w.zones.includes(selectedZone))) return false
     if (selectedTrade && w.trade !== selectedTrade) return false
     if (selectedSkill && w.skill_level !== selectedSkill) return false

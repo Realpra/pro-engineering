@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import CoordinatorReviewActions from './CoordinatorReviewActions'
 
 export default async function CoordinatorWorkersPage() {
   const supabase = await createClient()
@@ -196,14 +197,7 @@ export default async function CoordinatorWorkersPage() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <button className="flex-1 border border-red-300 text-red-600 text-xs font-bold py-2.5 rounded-xl">
-                        Return to Sub-Coord
-                      </button>
-                      <button className="flex-1 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                        ✓ Approve → Admin
-                      </button>
-                    </div>
+                    <CoordinatorReviewActions workerId={w.id} />
                   </div>
                 </div>
               ))}

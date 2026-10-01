@@ -38,11 +38,18 @@ export default async function AdminWorkersPage() {
   const countBy = (statuses: string[]) =>
     workers.filter((w) => w.approval_status != null && statuses.includes(w.approval_status)).length
 
+  // "Previously Approved" repointed from the dead legacy 'approved' value
+  // (never written by any live code, confirmed PENDING #37) to the real
+  // renewal-flag overlay built alongside this chain -- an admin_approved
+  // worker flagged for a pending safety-license/certificate renewal.
+  const adminApprovedWorkers = workers.filter((w) => w.approval_status === 'admin_approved')
+  const renewalFlaggedCount = adminApprovedWorkers.filter((w) => !!w.admin_renewal_flag_reason).length
+
   const stats: { label: string; count: number; className: string }[] = [
     { label: 'Pending Approval', count: countBy(['coordinator_approved']), className: 'text-[#F97316]' },
-    { label: 'Admin Approved', count: countBy(['admin_approved']), className: 'text-green-600' },
-    { label: 'Previously Approved', count: countBy(['approved']), className: 'text-blue-600' },
-    { label: 'Returned / Rejected', count: countBy(['returned_for_correction', 'rejected']), className: 'text-red-600' },
+    { label: 'Admin Approved', count: adminApprovedWorkers.length - renewalFlaggedCount, className: 'text-green-600' },
+    { label: 'Flagged for Renewal', count: renewalFlaggedCount, className: 'text-teal-600' },
+    { label: 'Returned / Rejected', count: countBy(['returned_for_correction', 'returned_to_subcoordinator', 'rejected']), className: 'text-red-600' },
   ]
 
   return (

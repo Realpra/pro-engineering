@@ -238,3 +238,32 @@ export async function assignWorkerToJob(formData: FormData) {
   revalidatePath('/sub-coordinator/workers')
   return { success: true }
 }
+
+// Worker onboarding approval chain, Sub-Coordinator's first step (project
+// owner's confirmed design, 1 Oct 2026): recommend a newly self-onboarded
+// worker forward to Coordinator, or return it for correction. "Returning is
+// open to all" reviewing roles -- this is the same returned_for_correction
+// value Admin's own return action already writes, so any role's return
+// lands in the same, single returned queue.
+export async function recommendWorkerOnboarding(workerId: string, remark: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('workers').update({
+    approval_status: 'sub_coordinator_reviewed',
+    sub_coordinator_recommendation: remark || null,
+  }).eq('id', workerId)
+  if (error) return { error: error.message }
+  revalidatePath('/sub-coordinator/workers')
+  return {}
+}
+
+export async function returnWorkerOnboarding(workerId: string, reason: string): Promise<{ error?: string }> {
+  if (!reason.trim()) return { error: 'Explain what needs correcting.' }
+  const supabase = await createClient()
+  const { error } = await supabase.from('workers').update({
+    approval_status: 'returned_for_correction',
+    correction_action: reason.trim(),
+  }).eq('id', workerId)
+  if (error) return { error: error.message }
+  revalidatePath('/sub-coordinator/workers')
+  return {}
+}

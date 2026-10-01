@@ -9,19 +9,27 @@ type TabDef = {
   statuses: string[]
   mode: WorkerCardMode
   showBadge?: boolean
+  // Optional extra predicate beyond approval_status -- used by
+  // "Flagged for Renewal", which is an overlay on admin_approved, not a
+  // separate status (project owner's confirmed design, 1 Oct 2026; replaces
+  // the "Previously Approved" tab that keyed on a legacy 'approved' value
+  // never written by any live code -- PENDING #37, resolved here).
+  extra?: (w: Worker) => boolean
 }
 
 const TABS: TabDef[] = [
   { key: 'pending', label: 'Pending Approval', statuses: ['coordinator_approved'], mode: 'pending', showBadge: true },
-  { key: 'admin_approved', label: 'Admin Approved', statuses: ['admin_approved'], mode: 'approved' },
-  { key: 'previously_approved', label: 'Previously Approved', statuses: ['approved'], mode: 'approved' },
-  { key: 'returned', label: 'Returned / Rejected', statuses: ['returned_for_correction', 'rejected'], mode: 'returned' },
-  { key: 'pending_coordinator', label: 'Pending Coordinator', statuses: ['pending'], mode: 'pending_coordinator' },
+  { key: 'admin_approved', label: 'Admin Approved', statuses: ['admin_approved'], mode: 'approved', extra: (w) => !w.admin_renewal_flag_reason },
+  { key: 'renewal_flagged', label: 'Flagged for Renewal', statuses: ['admin_approved'], mode: 'approved', extra: (w) => !!w.admin_renewal_flag_reason },
+  { key: 'returned', label: 'Returned / Rejected', statuses: ['returned_for_correction', 'returned_to_subcoordinator', 'rejected'], mode: 'returned' },
+  { key: 'pending_coordinator', label: 'Pending Coordinator', statuses: ['pending', 'sub_coordinator_reviewed'], mode: 'pending_coordinator' },
   { key: 'reassessment', label: 'Re-Assessment', statuses: ['returned_for_reassessment'], mode: 'reassessment' },
 ]
 
-function inTab(worker: Worker, statuses: string[]): boolean {
-  return worker.approval_status != null && statuses.includes(worker.approval_status)
+function inTab(worker: Worker, tab: TabDef): boolean {
+  if (worker.approval_status == null || !tab.statuses.includes(worker.approval_status)) return false
+  if (tab.extra && !tab.extra(worker)) return false
+  return true
 }
 
 export default function WorkerTabs({
@@ -35,14 +43,14 @@ export default function WorkerTabs({
 }) {
   const [activeTab, setActiveTab] = useState('pending')
   const active = TABS.find((t) => t.key === activeTab) ?? TABS[0]
-  const visible = workers.filter((w) => inTab(w, active.statuses))
+  const visible = workers.filter((w) => inTab(w, active))
 
   return (
     <div>
       {/* Tab bar */}
       <div className="flex flex-wrap gap-2 mb-5">
         {TABS.map((t) => {
-          const count = workers.filter((w) => inTab(w, t.statuses)).length
+          const count = workers.filter((w) => inTab(w, t)).length
           const isActive = t.key === activeTab
           return (
             <button

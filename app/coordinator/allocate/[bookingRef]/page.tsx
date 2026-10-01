@@ -39,7 +39,7 @@ export default async function CoordinatorAllocatePage({
       .from('workers')
       .select('id, full_name, trade, skill_level, zones, daily_wage_inr, is_available')
       .eq('is_active', true)
-      .eq('approval_status', 'admin_approved')
+      .in('approval_status', ['admin_approved', 'coordinator_approved'])
       .order('daily_wage_inr', { ascending: true }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)

@@ -47,7 +47,7 @@ export default async function AdminCoordinatorsPage() {
       .from('workers')
       .select('id, full_name, trade, skill_level, zones, daily_wage_inr')
       .eq('is_active', true)
-      .eq('approval_status', 'admin_approved'),
+      .in('approval_status', ['admin_approved', 'coordinator_approved']),
   ])
 
   const drivers = (driversData ?? []) as DriverUser[]

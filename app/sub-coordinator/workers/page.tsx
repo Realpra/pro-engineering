@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import OnboardingReviewCard from './OnboardingReviewCard'
 
 export default async function WorkersPage() {
   const supabase = await createClient()
@@ -22,10 +23,15 @@ export default async function WorkersPage() {
     .from('workers')
     .select(`id, full_name, trade, district, is_available, is_active,
       skill_level, daily_wage_inr, current_job_id, phone,
-      average_rating, total_deployments`)
+      average_rating, total_deployments, approval_status,
+      is_bocw_registered, height_restriction, dust_restriction`)
     .eq('is_active', true)
     .order('trade', { ascending: true })
     .order('full_name', { ascending: true })
+
+  // Onboarding approval chain, step 1: self-onboarded workers waiting on
+  // Sub-Coordinator's recommendation before Coordinator's ad hoc approval.
+  const pendingReview = (workers ?? []).filter(w => w.approval_status === 'pending')
 
   const { data: activeJobs } = await supabase
     .from('guest_enquiries')
@@ -89,6 +95,18 @@ export default async function WorkersPage() {
             </p>
           </div>
         </div>
+
+        {/* ONBOARDING -- PENDING MY REVIEW */}
+        {pendingReview.length > 0 && (
+          <section>
+            <p className="text-xs font-bold text-orange-500 uppercase tracking-widest mb-3">
+              ⚡ Onboarding — Pending My Review ({pendingReview.length})
+            </p>
+            <div className="space-y-3">
+              {pendingReview.map(w => <OnboardingReviewCard key={w.id} worker={w} />)}
+            </div>
+          </section>
+        )}
 
         {/* Worker-to-job assignment moved to Coordinator (project owner's decision,
             1 Oct 2026) -- Sub-Coordinator's job is driving a job's intake/estimate
