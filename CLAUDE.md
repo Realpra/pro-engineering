@@ -2117,3 +2117,90 @@ no live breakage observed).
   storing a role string.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
+
+## SESSION 68 — 1 Oct 2026 — COORDINATOR/SUB-COORDINATOR ZONE-BASED ROUTING + CONFIRM-FOR-EXECUTION GATE
+Multi-round design discussion with the project owner (full detail in this session's own chat
+transcript, not repeated here) produced a confirmed design for two standing gaps flagged in
+earlier sessions: the worker-allocation-to-job triplication (PENDING #20) and the
+"job approved and taken up" status ambiguity (flagged repeatedly, most recently 30 Sep). Key
+decisions, each explicitly confirmed by the project owner before being built:
+- **Worker non-availability**: a zone-adjacency-table/ranking-algorithm proposal was rejected in
+  favour of a simpler escalation -- Coordinator's zone-scoped match (with an ordinary/premium/
+  highest-category skill-substitution rule, still to be built) escalates to Admin, who sees every
+  worker of that trade platform-wide and allocates manually with a remark. New
+  `worker_allocation_escalations` table built for this (migration only so far -- the Coordinator
+  allocation screen itself, and the actual escalation UI, are a separate, not-yet-built pass).
+- **Sub-Coordinator gets real, scoped early-stage ownership of specific jobs** (not removed, as
+  an earlier proposal in this same session first suggested for worker-job-assignment specifically
+  -- that removal stands, this is a different concern: who drives a JOB's intake/estimate, not who
+  assigns workers). Admin/Superadmin routes a brand-new job to either a Coordinator or a
+  Sub-Coordinator via a new zone-filtered assign screen. A Sub-Coordinator-driven job runs the
+  exact same survey->estimate->client-negotiation steps Coordinator would, under Sub-Coordinator
+  instead, until the client consents -- at that single point it hands fully to a Coordinator
+  (picked at the same gate) for everything from worker assignment through handover.
+  Sub-Coordinator keeps read-only access to everything up to handoff, nothing after.
+  Coordinator/Admin/Superadmin's own existing universal, unscoped view of every job is
+  explicitly UNCHANGED by this -- confirmed by the project owner, so none of their 13+ existing
+  pages were touched.
+- **One canonical "ready for execution" signal, project-wide**: confirmed that
+  `guest_enquiries.status='confirmed'` (previously only ever set by `assignSupervisor`,
+  `app/admin/dashboard/actions.ts`) had NO reachable live path at all -- its only caller,
+  `BookingsTable.tsx`, is never imported by `admin/dashboard/page.tsx` or anywhere else (same
+  orphaned-panel pattern Session 63 already found for `WorkersTable`/`MilestoneApprovalsPanel`/
+  `PendingPaymentsPanel`/`PremiumApprovalsPanel`). Built a single real "Confirm Job for Execution"
+  gate on the Estimate Console instead, firing once `guest_enquiries.status='estimate_accepted'`
+  (client has consented): picks a real Supervisor (making `assignSupervisor`'s job reachable for
+  the first time) and, only when the job was Sub-Coordinator-driven, picks the Coordinator who
+  takes over, stamping the handoff in the same step. This is now the one place the whole system
+  marks a job ready for execution, resolving the standing two-signals ambiguity
+  (`estimate_accepted`/`work_started` vs. `confirmed`) as a side effect.
+- **Premium/rebate (PENDING #15)**: project owner clarified the real mechanism -- per-line-item
+  BOQ correction (Coordinator/Admin/Superadmin, already live) happens first and can happen at any
+  stage; the role holding premium/rebate authority then applies ONE en-bloc percentage on top of
+  the corrected total for the final client figure. Confirmed this is exactly what
+  `premium_approval_requests` -> `boq_generated` should do -- the actual write-back is a separate,
+  not-yet-built pass (not done this entry).
+
+**Built and pushed this entry** (commit `825b415`, `npx tsc --noEmit` exit 0 -- real compiler run,
+`node_modules` present this session): migration `20261001_coordinator_subcoordinator_routing.sql`
+(`users.coverage_states`/`coverage_zones` -- two independent multi-selects, not nested, since
+NCR-type zones can cross state lines; `guest_enquiries.driving_role`/`driving_user_id`/
+`driving_assigned_at`/`driving_assigned_by`/`sub_coordinator_handoff_at`/
+`confirmed_for_execution_at`/`confirmed_for_execution_by`; `worker_allocation_escalations`); new
+`app/admin/coordinators` screen (manage each Coordinator/Sub-Coordinator's zone coverage, and
+route any new unrouted job to one of them, zone-matches grouped first in the dropdown); new
+`app/admin/estimate/[bookingRef]/ConfirmExecutionPanel.tsx` + `confirmExecutionActions.ts` wired
+into `EstimateConsole.tsx`, appearing exactly when a job is client-accepted and not yet confirmed.
+`admin/dashboard`'s Quick Navigation grid gets a new "Coordinators" tile with a live unrouted-job
+count badge.
+
+**NOT done this entry, explicitly deferred to a follow-up pass**: Sub-Coordinator's actual scoped
+job/estimate screens (the survey->estimate->negotiation flow under Sub-Coordinator, mirroring
+Coordinator's own, filtered to `driving_user_id`=self) -- the routing/handoff plumbing is built,
+but Sub-Coordinator has no UI yet that uses it; the ordinary/premium/highest-category worker
+skill-substitution ranking and the Admin platform-wide escalation UI itself (only the record
+table exists so far); the premium/rebate en-bloc write-back. Also not done: the 12-task
+onboarding-approval-chain rebuild from earlier in this same session (Sub-Coordinator onboarding
+review, Coordinator ad hoc approval, Admin renewal-flag overlay, staff-initiated onboarding,
+BOCW/proforma remarks trail) -- still queued, unstarted as of this entry.
+
+**NOT live-verified, and NOT safe to reach production yet**: this sandbox has no Supabase network
+access (same standing constraint as every prior session), so
+`20261001_coordinator_subcoordinator_routing.sql` has not been run. `routeJobToDriver` and
+`confirmJobForExecution` both write to columns this migration creates -- **do not fast-forward
+`master` until the migration is confirmed run live**, per this project's own standing rule (the
+same class of blocker as the `service_model_title` incident, Session 67). `master` is left at
+`ab81735`/`025be12` (the SESSIONS.md backfill) for now.
+
+## NEXT SESSION — START HERE (Updated 1 Oct 2026)
+- **Run `20261001_coordinator_subcoordinator_routing.sql` in Supabase, then fast-forward `master`
+  immediately** (no further authorization needed, same standing delegation as before) -- until
+  then the new Coordinators/routing/Confirm-for-Execution screens must not be relied on live.
+- Next build items, in the order the project owner confirmed them: Sub-Coordinator's scoped
+  job/estimate screens; the ordinary/premium/highest skill-substitution ranking + Admin's
+  platform-wide manual-allocation escalation UI; the premium/rebate en-bloc write-back into
+  `boq_generated`; then resume the still-queued onboarding-approval-chain rebuild (Sub-Coordinator
+  review, Coordinator ad hoc approval, Admin renewal-flag, staff-initiated onboarding, BOCW
+  remarks trail).
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3

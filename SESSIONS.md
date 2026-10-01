@@ -1373,3 +1373,35 @@ own "Read CLAUDE.md and SESSIONS.md" standing instruction treating both as live.
 full above rather than retiring this file, per the project's own "never silently drop a record"
 discipline. Going forward: update SESSIONS.md alongside CLAUDE.md at the end of every session,
 not CLAUDE.md alone.
+
+## SESSION 68 — 1 Oct 2026 — COORDINATOR/SUB-COORDINATOR ZONE-BASED ROUTING + CONFIRM-FOR-EXECUTION GATE
+Multi-round design discussion confirmed a new routing model: Admin/Superadmin routes every new
+job to a Coordinator or Sub-Coordinator via a zone-filtered assign screen (new
+`users.coverage_states`/`coverage_zones`, kept independent since NCR zones can cross state
+lines). A Sub-Coordinator-driven job runs the same survey/estimate/negotiation steps Coordinator
+would, until client consent, then hands fully to a Coordinator at one new gate. Coordinator/
+Admin/Superadmin's existing universal, unscoped job visibility is explicitly unchanged.
+- Real finding along the way: `guest_enquiries.status='confirmed'` had NO reachable live path at
+  all -- its only writer, `assignSupervisor`, was called solely from `BookingsTable.tsx`, never
+  imported anywhere (same orphaned-panel pattern as `WorkersTable`/`MilestoneApprovalsPanel`).
+  Built a real "Confirm Job for Execution" gate on the Estimate Console to replace it, also
+  resolving the standing `estimate_accepted`/`work_started` vs `confirmed` ambiguity.
+- Shipped (commit `825b415`, clean `tsc`): migration `20261001_coordinator_subcoordinator_
+  routing.sql` (coverage columns, `guest_enquiries.driving_role`/`driving_user_id`/handoff/
+  confirmed-for-execution columns, `worker_allocation_escalations`); new `app/admin/coordinators`
+  screen (coverage management + new-job routing); `ConfirmExecutionPanel`/`confirmExecutionActions`
+  wired into the Estimate Console; a new dashboard nav tile with a live unrouted-job count.
+- Also confirmed: worker non-availability escalates to Admin seeing all workers of that trade
+  platform-wide (replacing an earlier zone-adjacency-table proposal the project owner rejected as
+  unnecessary complexity); premium/rebate's real mechanism (per-line correction first, then one
+  en-bloc premium/rebate on the corrected total) -- write-back not built yet.
+- **Not done, explicitly deferred**: Sub-Coordinator's actual scoped job/estimate screens (routing
+  plumbing exists, no UI consumes it yet); the ordinary/premium/highest skill-substitution ranking
+  + the escalation UI itself; the premium/rebate en-bloc write-back; the full onboarding-approval-
+  chain rebuild queued earlier this same session (Sub-Coordinator review, Coordinator ad hoc
+  approval, Admin renewal-flag, staff-initiated onboarding, BOCW remarks trail) -- unstarted.
+- **Not live-verified**: no Supabase access from this sandbox, migration not run. `routeJobToDriver`/
+  `confirmJobForExecution` both write to brand-new columns -- do not fast-forward `master` until
+  the migration is confirmed run live (same standing rule as the Session 67 `service_model_title`
+  incident). `master` stays at `025be12` for now.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
