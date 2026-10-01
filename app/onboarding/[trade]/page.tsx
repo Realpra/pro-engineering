@@ -234,6 +234,8 @@ type Form = {
   team_name: string; teamNumber: string
   bocwRegistered: boolean; bocw_number: string; pf_uan: string; esic_ip: string
   bank_account: string; ifsc_code: string; emergency_name: string; emergency_phone: string
+  credentialType: 'registration' | 'permit_license' | 'not_applicable' | 'other' | ''
+  credentialOtherDetail: string; credentialValidUpto: string
 
   reference1Name: string; reference1Phone: string; reference2Name: string; reference2Phone: string
   consentReferenceCheck: boolean; consentProfileSharing: boolean
@@ -301,6 +303,7 @@ const INIT: Form = {
   team_name:'', teamNumber:'',
   bocwRegistered:false, bocw_number:'', pf_uan:'', esic_ip:'',
   bank_account:'', ifsc_code:'', emergency_name:'', emergency_phone:'',
+  credentialType:'', credentialOtherDetail:'', credentialValidUpto:'',
 
   reference1Name:'', reference1Phone:'', reference2Name:'', reference2Phone:'',
   consentReferenceCheck:false, consentProfileSharing:false,
@@ -521,6 +524,9 @@ export default function TradeOnboardingPage() {
         pf_uan: form.pf_uan || undefined, esic_ip: form.esic_ip || undefined,
         bank_account: form.bank_account || undefined, ifsc_code: form.ifsc_code || undefined,
         emergency_name: form.emergency_name || undefined, emergency_phone: form.emergency_phone || undefined,
+        credentialType: form.credentialType || undefined,
+        credentialOtherDetail: form.credentialType === 'other' ? (form.credentialOtherDetail || undefined) : undefined,
+        credentialValidUpto: form.credentialType === 'not_applicable' || !form.credentialType ? undefined : (form.credentialValidUpto || undefined),
 
         reference1Name: form.reference1Name || undefined, reference1Phone: form.reference1Phone || undefined,
         reference2Name: form.reference2Name || undefined, reference2Phone: form.reference2Phone || undefined,
@@ -1034,6 +1040,22 @@ export default function TradeOnboardingPage() {
             <Text label="Team Name (if part of a team)" value={form.team_name} onChange={v=>set('team_name',v)} placeholder="Team or contractor name" />
             <Text label="Team Number" value={form.teamNumber} onChange={v=>set('teamNumber',v)} placeholder="Team / sub-contract code"
               help="If you're onboarding through a sub-contractor, or as part of a whole team ready for full job deployment, enter the team's number here to link every team member together." />
+            <div className="bg-amber-50 rounded-xl p-4 space-y-3">
+              <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">Trade Credential Validity</div>
+              <div className="text-xs text-gray-500">
+                If your trade requires a government registration, permit, or license, record it here
+                so its validity is tracked for you and for whoever approves your onboarding.
+              </div>
+              <Sel label="Credential Type" value={form.credentialType} onChange={v=>set('credentialType', v as Form['credentialType'])}
+                options={[{v:'registration',l:'Registration'},{v:'permit_license',l:'Permit / License'},{v:'not_applicable',l:'Not Applicable'},{v:'other',l:'Other'}]}
+                placeholder="Select…" />
+              {form.credentialType === 'other' && (
+                <Text label="Describe the Credential" value={form.credentialOtherDetail} onChange={v=>set('credentialOtherDetail',v)} />
+              )}
+              {(form.credentialType === 'registration' || form.credentialType === 'permit_license' || form.credentialType === 'other') && (
+                <Text label="Valid Upto" type="date" value={form.credentialValidUpto} onChange={v=>set('credentialValidUpto',v)} />
+              )}
+            </div>
             <div className="flex gap-3">
               <button className={btnOut} onClick={()=>setScreen(11)}>← Back</button>
               <button className={btn} onClick={next}>Next: References →</button>

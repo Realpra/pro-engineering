@@ -15,6 +15,15 @@ export type PendingWorker = {
   is_bocw_registered: boolean | null
   height_restriction: boolean | null
   dust_restriction: boolean | null
+  credential_type: string | null
+  credential_other_detail: string | null
+  credential_valid_upto: string | null
+}
+
+function credentialLabel(w: PendingWorker): string | null {
+  if (!w.credential_type || w.credential_type === 'not_applicable') return null
+  const kind = w.credential_type === 'other' ? (w.credential_other_detail || 'Other') : w.credential_type === 'permit_license' ? 'Permit/License' : 'Registration'
+  return w.credential_valid_upto ? `${kind} — valid upto ${w.credential_valid_upto}` : kind
 }
 
 // First step of the onboarding approval chain (project owner's confirmed
@@ -74,6 +83,11 @@ export default function OnboardingReviewCard({ worker }: { worker: PendingWorker
             <p className="font-semibold">{restrictions.length > 0 ? restrictions.join(', ') : 'None'}</p>
           </div>
         </div>
+        {credentialLabel(worker) && (
+          <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1.5">
+            🪪 {credentialLabel(worker)}
+          </p>
+        )}
 
         {error && <p className="text-xs text-red-600">{error}</p>}
 

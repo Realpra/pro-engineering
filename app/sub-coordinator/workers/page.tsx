@@ -24,7 +24,8 @@ export default async function WorkersPage() {
     .select(`id, full_name, trade, district, is_available, is_active,
       skill_level, daily_wage_inr, current_job_id, phone,
       average_rating, total_deployments, approval_status,
-      is_bocw_registered, height_restriction, dust_restriction`)
+      is_bocw_registered, height_restriction, dust_restriction,
+      credential_type, credential_other_detail, credential_valid_upto`)
     .eq('is_active', true)
     .order('trade', { ascending: true })
     .order('full_name', { ascending: true })

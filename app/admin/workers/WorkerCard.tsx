@@ -78,6 +78,13 @@ export type Worker = {
   sub_coordinator_recommendation: string | null
   admin_renewal_flag_reason: string | null
   admin_renewal_flagged_at: string | null
+  credential_type: string | null
+  credential_other_detail: string | null
+  credential_valid_upto: string | null
+  coordinator_deployable_at: string | null
+  coordinator_deployable_remark: string | null
+  admin_provisional_remarks: string | null
+  admin_provisional_at: string | null
   assessed_for: string | null
   [key: string]: unknown
 }
@@ -824,6 +831,12 @@ export default function WorkerCard({
           <Cell label="Daily Wage" value={inr(worker.daily_wage_inr)} />
           <Cell label="Hourly Rate" value={worker.hourly_rate != null ? `₹${worker.hourly_rate}` : '—'} />
           <Cell label="BOCW Registered" value={worker.is_bocw_registered ? 'Yes' : 'No'} />
+          {worker.credential_type && worker.credential_type !== 'not_applicable' && (
+            <Cell
+              label="Trade Credential"
+              value={`${worker.credential_type === 'other' ? (worker.credential_other_detail || 'Other') : worker.credential_type === 'permit_license' ? 'Permit/License' : 'Registration'}${worker.credential_valid_upto ? ` — valid upto ${worker.credential_valid_upto}` : ''}`}
+            />
+          )}
           <Cell label="Restrictions" value={restrictions.length > 0 ? restrictions.join(', ') : 'None'} />
           <Cell label="Performance Rating" value={worker.performance_rating != null ? String(worker.performance_rating) : '—'} />
           <Cell label="Efficiency Multiplier" value={worker.efficiency_multiplier != null ? String(worker.efficiency_multiplier) : '—'} />
@@ -873,6 +886,16 @@ export default function WorkerCard({
           )}
           {notEmpty(worker.coordinator_recommendation) && (
             <InfoBox label="Coordinator Recommendation" value={asText(worker.coordinator_recommendation)} color="amber" />
+          )}
+          {notEmpty(worker.coordinator_deployable_at) && (
+            <InfoBox
+              label={`Marked Deployable (Adhoc) by Coordinator — ${fmtDate(worker.coordinator_deployable_at)}`}
+              value={notEmpty(worker.coordinator_deployable_remark) ? asText(worker.coordinator_deployable_remark) : 'Already working off adhoc fields — pending this final approval.'}
+              color="amber"
+            />
+          )}
+          {notEmpty(worker.admin_provisional_remarks) && (
+            <InfoBox label={`Approved Provisional${notEmpty(worker.admin_provisional_at) ? ` (${fmtDate(worker.admin_provisional_at)})` : ''}`} value={asText(worker.admin_provisional_remarks)} color="amber" />
           )}
           {notEmpty(worker.coordinator_forwarding_remarks) && (
             <InfoBox label="Coordinator Forwarding Remarks" value={asText(worker.coordinator_forwarding_remarks)} color="grey" />

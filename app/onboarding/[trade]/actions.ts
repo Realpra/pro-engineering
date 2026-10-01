@@ -114,6 +114,10 @@ export type RegistrationInput = {
   bocwRegistered: boolean; bocw_number?: string; pf_uan?: string; esic_ip?: string
   bank_account?: string; ifsc_code?: string
   emergency_name?: string; emergency_phone?: string
+  // Trade credential validity (E5, WorkersTable_Review workbook, 1 Oct 2026) -- captured
+  // on the form itself, flows upward unchanged to every review role.
+  credentialType?: 'registration' | 'permit_license' | 'not_applicable' | 'other'
+  credentialOtherDetail?: string; credentialValidUpto?: string
   // Section K
   reference1Name?: string; reference1Phone?: string; reference2Name?: string; reference2Phone?: string
   consentReferenceCheck?: boolean; consentProfileSharing?: boolean
@@ -214,6 +218,8 @@ export async function submitWorkerRegistration(trade: string, data: Registration
       pf_uan: data.pf_uan ?? null, esic_ip_number: data.esic_ip ?? null,
       bank_account_number: data.bank_account ?? null, ifsc_code: data.ifsc_code ?? null,
       emergency_contact_name: data.emergency_name ?? null, emergency_contact_phone: data.emergency_phone ?? null,
+      credential_type: data.credentialType ?? null, credential_other_detail: data.credentialOtherDetail ?? null,
+      credential_valid_upto: data.credentialValidUpto ?? null,
       reference_1_name: data.reference1Name ?? null, reference_1_phone: data.reference1Phone ?? null,
       reference_2_name: data.reference2Name ?? null, reference_2_phone: data.reference2Phone ?? null,
       consent_reference_check: data.consentReferenceCheck ?? false,

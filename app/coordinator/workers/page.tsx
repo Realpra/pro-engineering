@@ -22,7 +22,8 @@ export default async function CoordinatorWorkersPage() {
     .from('workers')
     .select(`id, full_name, trade, district, is_available, is_active,
       skill_level, daily_wage_inr, phone, average_rating,
-      total_deployments, approval_status, created_at, coordinator_deployable_at`)
+      total_deployments, approval_status, created_at, coordinator_deployable_at,
+      credential_type, credential_other_detail, credential_valid_upto`)
     .order('approval_status', { ascending: true })
     .order('trade', { ascending: true })
 
@@ -33,6 +34,14 @@ export default async function CoordinatorWorkersPage() {
   const activeWorkers = (allWorkers ?? []).filter(w => w.approval_status === 'coordinator_approved')
   const approaching120 = (allWorkers ?? []).filter(w => (w.total_deployments ?? 0) >= 100 && w.is_active)
   const bocwPending = (allWorkers ?? []).filter(w => w.is_active && w.approval_status !== 'approved')
+
+  // E5 (WorkersTable_Review workbook, 1 Oct 2026): credential type + valid-upto date,
+  // captured on the onboarding form, flows upward unchanged to every review role.
+  const credentialLabel = (w: { credential_type: string | null; credential_other_detail: string | null; credential_valid_upto: string | null }) => {
+    if (!w.credential_type || w.credential_type === 'not_applicable') return null
+    const kind = w.credential_type === 'other' ? (w.credential_other_detail || 'Other') : w.credential_type === 'permit_license' ? 'Permit/License' : 'Registration'
+    return w.credential_valid_upto ? `${kind} — valid upto ${w.credential_valid_upto}` : kind
+  }
 
   const skillBadge = (level: string) => {
     if (level === 'highly_skilled') return 'bg-green-100 text-green-700 border-green-300'
@@ -165,6 +174,11 @@ export default async function CoordinatorWorkersPage() {
                         <div><p className="text-gray-400">Rating</p><p className="font-semibold">⭐ {Number(w.average_rating).toFixed(1)}</p></div>
                       )}
                     </div>
+                    {credentialLabel(w) && (
+                      <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1.5">
+                        🪪 {credentialLabel(w)}
+                      </p>
+                    )}
 
                     {/* COMPETENCY ASSESSMENT PANEL */}
                     <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-3">
