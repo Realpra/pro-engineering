@@ -103,7 +103,7 @@ export type RegistrationInput = {
   // Section I
   ownsBasicTools?: boolean; toolsList?: string; toolsCalibrated?: boolean
   ownsPowerTools?: boolean; powerToolsList?: string; ownsPpe?: string[]
-  ownsSmartphone?: string; ownsMeasuringTape5m?: boolean; ownsSpiritLevel600mm?: boolean
+  ownsSmartphone?: string; essentialTool1?: string; essentialTool2?: string
   hasReliableTransport1hr?: boolean
   // Section J
   ratingTechnicalAccuracy?: number; ratingSpeed?: number; ratingDrawingComprehension?: number
@@ -223,8 +223,8 @@ export async function submitWorkerRegistration(trade: string, data: Registration
       owns_basic_tools: data.ownsBasicTools ?? null, tools_list: data.toolsList ?? null,
       tools_calibrated: data.toolsCalibrated ?? null, owns_power_tools: data.ownsPowerTools ?? null,
       power_tools_list: data.powerToolsList ?? null, owns_ppe: data.ownsPpe ?? null,
-      owns_smartphone: data.ownsSmartphone ?? null, owns_measuring_tape_5m: data.ownsMeasuringTape5m ?? null,
-      owns_spirit_level_600mm: data.ownsSpiritLevel600mm ?? null, has_reliable_transport_1hr: data.hasReliableTransport1hr ?? null,
+      owns_smartphone: data.ownsSmartphone ?? null, essential_tool_1: data.essentialTool1 ?? null,
+      essential_tool_2: data.essentialTool2 ?? null, has_reliable_transport_1hr: data.hasReliableTransport1hr ?? null,
       rating_technical_accuracy: data.ratingTechnicalAccuracy ?? null, rating_speed: data.ratingSpeed ?? null,
       rating_drawing_comprehension: data.ratingDrawingComprehension ?? null,
       rating_unsupervised_delivery: data.ratingUnsupervisedDelivery ?? null,

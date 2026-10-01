@@ -224,7 +224,7 @@ type Form = {
 
   ownsBasicTools: boolean; toolsList: string; toolsCalibrated: boolean
   ownsPowerTools: boolean; powerToolsList: string; ownsPpe: string[]
-  ownsSmartphone: string; ownsMeasuringTape5m: boolean; ownsSpiritLevel600mm: boolean
+  ownsSmartphone: string; essentialTool1: string; essentialTool2: string
   hasReliableTransport1hr: boolean
 
   ratingTechnicalAccuracy: number; ratingSpeed: number; ratingDrawingComprehension: number
@@ -293,7 +293,7 @@ const INIT: Form = {
 
   ownsBasicTools:true, toolsList:'', toolsCalibrated:false,
   ownsPowerTools:false, powerToolsList:'', ownsPpe:[],
-  ownsSmartphone:'yes', ownsMeasuringTape5m:false, ownsSpiritLevel600mm:false,
+  ownsSmartphone:'yes', essentialTool1:'', essentialTool2:'',
   hasReliableTransport1hr:true,
 
   ratingTechnicalAccuracy:0, ratingSpeed:0, ratingDrawingComprehension:0,
@@ -326,6 +326,7 @@ export default function TradeOnboardingPage() {
   const tName = tradeName(trade)
 
   const [screen, setScreen] = useState(1)
+  const [skillPage, setSkillPage] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [workerCode, setWorkerCode] = useState('')
@@ -336,6 +337,11 @@ export default function TradeOnboardingPage() {
 
   const [geo, setGeo] = useState<GeoNode[]>([])
   const [skillQuestions, setSkillQuestions] = useState<{id:string; question_code:string; question_text:string; display_order:number}[]>([])
+  const skillChunks: typeof skillQuestions[] = []
+  for (let i = 0; i < skillQuestions.length; i += 5) skillChunks.push(skillQuestions.slice(i, i + 5))
+  const skillPageSafe = Math.min(skillPage, Math.max(skillChunks.length - 1, 0))
+  const skillPageVisible = skillChunks[skillPageSafe] ?? []
+  const skillIsLastPage = skillPageSafe >= skillChunks.length - 1
   const [districtId, setDistrictId] = useState('')
   const [regionId, setRegionId] = useState('')
   const [sectorCoverage, setSectorCoverage] = useState<Record<string, {id:string; name:string}[]>>({})
@@ -508,8 +514,8 @@ export default function TradeOnboardingPage() {
         ownsBasicTools: form.ownsBasicTools, toolsList: form.toolsList || undefined,
         toolsCalibrated: form.toolsCalibrated, ownsPowerTools: form.ownsPowerTools,
         powerToolsList: form.powerToolsList || undefined, ownsPpe: form.ownsPpe.length ? form.ownsPpe : undefined,
-        ownsSmartphone: form.ownsSmartphone || undefined, ownsMeasuringTape5m: form.ownsMeasuringTape5m,
-        ownsSpiritLevel600mm: form.ownsSpiritLevel600mm, hasReliableTransport1hr: form.hasReliableTransport1hr,
+        ownsSmartphone: form.ownsSmartphone || undefined, essentialTool1: form.essentialTool1 || undefined,
+        essentialTool2: form.essentialTool2 || undefined, hasReliableTransport1hr: form.hasReliableTransport1hr,
 
         ratingTechnicalAccuracy: form.ratingTechnicalAccuracy || undefined, ratingSpeed: form.ratingSpeed || undefined,
         ratingDrawingComprehension: form.ratingDrawingComprehension || undefined,
@@ -770,21 +776,34 @@ export default function TradeOnboardingPage() {
           </div>
         )}
 
-        {/* SCREEN 4 — Trade Skill Assessment */}
+        {/* SCREEN 4 — Trade Skill Assessment (paginated 5-per-page, project owner's decision,
+            2 Oct 2026: every page is skippable, none of these answers are mandatory) */}
         {screen === 4 && (
           <div className={card}>
             <div className={secHead}>Trade Skill Assessment — {tName}</div>
-            <p className={hint}>Answer briefly in your own words. Your answers help coordinators gauge real hands-on knowledge.</p>
+            <p className={hint}>Answer briefly in your own words if you can. None of these are required — skip any or all.</p>
+            {skillChunks.length > 1 && (
+              <p className="text-xs text-gray-400">
+                Questions {skillPageSafe * 5 + 1}–{skillPageSafe * 5 + skillPageVisible.length} of {skillQuestions.length}
+              </p>
+            )}
             {skillQuestions.length === 0 && (
               <p className="text-sm text-gray-400">No skill questions are set up for {tName} yet — you can continue without answering.</p>
             )}
-            {skillQuestions.map(q => (
+            {skillPageVisible.map(q => (
               <Area key={q.id} label={q.question_text} value={form.skillAnswers[q.question_code] || ''}
                 onChange={v => setForm(f => ({...f, skillAnswers: {...f.skillAnswers, [q.question_code]: v}}))} rows={2} />
             ))}
-            <div className="flex gap-3">
-              <button className={btnOut} onClick={()=>setScreen(3)}>← Back</button>
-              <button className={btn} onClick={next}>Next: Multi-Skilling →</button>
+            <div className="flex gap-3 flex-wrap">
+              <button className={btnOut} onClick={() => skillPageSafe > 0 ? setSkillPage(skillPageSafe - 1) : setScreen(3)}>← Back</button>
+              {skillPageSafe > 0 && (
+                <button className={btnOut} onClick={() => setSkillPage(0)}>⟲ Back to First</button>
+              )}
+              <button className={btn} onClick={() => skillIsLastPage ? next() : setSkillPage(skillPageSafe + 1)}>
+                {skillIsLastPage
+                  ? 'SKIP — Next: Multi-Skilling →'
+                  : `SKIP — Next ${Math.min(5, skillQuestions.length - (skillPageSafe + 1) * 5)} Questions →`}
+              </button>
             </div>
           </div>
         )}
@@ -983,8 +1002,10 @@ export default function TradeOnboardingPage() {
             {form.ownsPowerTools && <Text label="List Your Power Tools" value={form.powerToolsList} onChange={v=>set('powerToolsList',v)} />}
             <CheckGroup label="PPE You Own" options={PPE_ITEMS} selected={form.ownsPpe} onToggle={v=>toggleArr('ownsPpe',v)} />
             <Sel label="Smartphone?" value={form.ownsSmartphone} onChange={v=>set('ownsSmartphone',v)} options={SMARTPHONE_OPTS} />
-            <YesNo label="Own a 5m Measuring Tape?" value={form.ownsMeasuringTape5m} onChange={v=>set('ownsMeasuringTape5m',v)} />
-            <YesNo label="Own a 600mm Spirit Level?" value={form.ownsSpiritLevel600mm} onChange={v=>set('ownsSpiritLevel600mm',v)} />
+            <Text label="A Measuring Tool You Own for Your Trade" value={form.essentialTool1} onChange={v=>set('essentialTool1',v)}
+              placeholder="e.g. 5m measuring tape, vernier calipers, laser distance meter…" />
+            <Text label="A Leveling/Precision Tool You Own for Your Trade" value={form.essentialTool2} onChange={v=>set('essentialTool2',v)}
+              placeholder="e.g. 600mm spirit level, plumb bob, multimeter…" />
             <YesNo label="Reliable Transport Within 1 Hour of Site?" value={form.hasReliableTransport1hr} onChange={v=>set('hasReliableTransport1hr',v)} />
             <div className="flex gap-3">
               <button className={btnOut} onClick={()=>setScreen(9)}>← Back</button>
