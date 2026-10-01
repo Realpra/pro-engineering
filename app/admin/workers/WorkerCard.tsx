@@ -87,6 +87,8 @@ export type Worker = {
   coordinator_deployable_remark: string | null
   admin_provisional_remarks: string | null
   admin_provisional_at: string | null
+  resubmission_count: number | null
+  resubmitted_at: string | null
   assessed_for: string | null
   [key: string]: unknown
 }
@@ -971,6 +973,13 @@ export default function WorkerCard({
           )}
           {notEmpty(worker.admin_provisional_remarks) && (
             <InfoBox label={`Approved Provisional${notEmpty(worker.admin_provisional_at) ? ` (${fmtDate(worker.admin_provisional_at)})` : ''}`} value={asText(worker.admin_provisional_remarks)} color="amber" />
+          )}
+          {(worker.resubmission_count ?? 0) > 0 && (
+            <InfoBox
+              label="Resubmission"
+              value={`Resubmitted ${worker.resubmission_count}x (same worker ID carried forward from a prior rejection)${notEmpty(worker.resubmitted_at) ? ` — last ${fmtDate(worker.resubmitted_at)}` : ''}`}
+              color="grey"
+            />
           )}
           {notEmpty(worker.coordinator_forwarding_remarks) && (
             <InfoBox label="Coordinator Forwarding Remarks" value={asText(worker.coordinator_forwarding_remarks)} color="grey" />

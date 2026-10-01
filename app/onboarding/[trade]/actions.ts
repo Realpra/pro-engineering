@@ -127,12 +127,31 @@ export type RegistrationInput = {
 export async function submitWorkerRegistration(trade: string, data: RegistrationInput) {
   try {
     const supabase = adminClient()
-    const code = tradeCode(trade)
-    const year = new Date().getFullYear()
-    const rand = Math.floor(1000 + Math.random() * 9000)
-    const workerCode = `WRK-${code}-${year}-${rand}`
 
-    const { data: row, error } = await supabase.from('workers').insert({
+    // E7-ii (WorkersTable_Review workbook, 1 Oct 2026, "Fully automatic"): a new
+    // registration matching a previously REJECTED worker's phone and/or Aadhaar-last-4
+    // updates that same row (same id/worker_code) instead of creating a new, orphaned
+    // one -- a genuine resubmission, not a duplicate. Matched on phone OR Aadhaar so
+    // either identifier alone is enough (Aadhaar is optional at registration).
+    const matchFilters = [`phone.eq.${data.phone}`]
+    if (data.aadhaarLast4) matchFilters.push(`aadhaar_last4.eq.${data.aadhaarLast4}`)
+    const { data: priorRejected } = await supabase
+      .from('workers')
+      .select('id, worker_code, resubmission_count')
+      .eq('approval_status', 'rejected')
+      .or(matchFilters.join(','))
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const workerCode = priorRejected?.worker_code ?? (() => {
+      const code = tradeCode(trade)
+      const year = new Date().getFullYear()
+      const rand = Math.floor(1000 + Math.random() * 9000)
+      return `WRK-${code}-${year}-${rand}`
+    })()
+
+    const row = {
       full_name: data.fullName, phone: data.phone, email: data.email ?? null,
       aadhaar_last4: data.aadhaarLast4 ?? null, pan: data.pan ?? null,
       gender: data.gender ?? null, dob: data.dob ?? null,
@@ -227,11 +246,33 @@ export async function submitWorkerRegistration(trade: string, data: Registration
       declared: data.declared, agreed: data.agreed,
       declaration_confirmed_at: (data.declared && data.agreed) ? new Date().toISOString() : null,
       approval_status: 'pending', is_active: true, worker_code: workerCode, profile_complete: false,
-    }).select('id, worker_code').single()
+    }
+
+    const { data: result, error } = priorRejected
+      ? await supabase.from('workers').update({
+          ...row,
+          resubmission_count: (priorRejected.resubmission_count ?? 0) + 1,
+          resubmitted_at: new Date().toISOString(),
+        }).eq('id', priorRejected.id).select('id, worker_code').single()
+      : await supabase.from('workers').insert(row).select('id, worker_code').single()
 
     if (error) return { error: error.message }
+
+    // Resubmission: clear the rejected attempt's own child-table rows before the
+    // caller re-saves fresh ones for the same worker_id, so a resubmission doesn't
+    // leave stale skill-answer/secondary-skill/accident-history/work-sample rows
+    // sitting alongside the new submission's.
+    if (priorRejected) {
+      await Promise.all([
+        supabase.from('worker_skill_answers').delete().eq('worker_id', priorRejected.id),
+        supabase.from('worker_secondary_skills').delete().eq('worker_id', priorRejected.id),
+        supabase.from('worker_accident_history').delete().eq('worker_id', priorRejected.id),
+        supabase.from('worker_work_samples').delete().eq('worker_id', priorRejected.id),
+      ])
+    }
+
     revalidatePath('/onboarding')
-    return { success: true, workerId: row.id, workerCode: row.worker_code }
+    return { success: true, workerId: result.id, workerCode: result.worker_code }
   } catch (e: any) {
     return { error: e.message }
   }
@@ -343,6 +384,9 @@ export async function createWorkerAuthAccount(trade: string, fullName: string, w
 
 export async function checkPhoneExists(phone: string) {
   const supabase = adminClient()
-  const { data } = await supabase.from('workers').select('id').eq('phone', phone).maybeSingle()
-  return { exists: !!data }
+  const { data } = await supabase.from('workers').select('id, approval_status').eq('phone', phone).maybeSingle()
+  // A REJECTED worker's phone is not a blocking duplicate -- E7-ii's automatic
+  // resubmission (submitWorkerRegistration) is meant to let them re-register through
+  // that same phone, updating the old row rather than being told it's taken.
+  return { exists: !!data && data.approval_status !== 'rejected' }
 }
