@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation'
 import {
   adminApproveWorker,
   adminApproveWorkerWithRenewalFlag,
+  adminApproveProvisional,
   adminReturnWorker,
   adminRejectWorker,
   adminUpdateCompetency,
   adminTriggerReassessment,
 } from './actions'
+import { WORKER_RETURN_REASONS } from '@/lib/workerReturnReasons'
 
 export type WorkerCardMode =
   | 'pending'
@@ -441,10 +443,18 @@ function JobHistorySection({ worker }: { worker: Worker }) {
 
 function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: string }) {
   const router = useRouter()
-  const [open, setOpen] = useState<null | 'approve' | 'renewal' | 'return' | 'reject'>(null)
+  const [open, setOpen] = useState<null | 'approve' | 'renewal' | 'provisional' | 'return' | 'reject'>(null)
   const [text, setText] = useState('')
+  const [reasonIdx, setReasonIdx] = useState(-1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isOtherReason = reasonIdx >= 0 && WORKER_RETURN_REASONS[reasonIdx].label === 'Other'
+
+  function pickReason(idx: number) {
+    setReasonIdx(idx)
+    setText(idx >= 0 && WORKER_RETURN_REASONS[idx].label !== 'Other' ? WORKER_RETURN_REASONS[idx].action : '')
+  }
 
   function finish(res: { success: true } | { error: string }) {
     setBusy(false)
@@ -454,6 +464,7 @@ function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: 
     }
     setOpen(null)
     setText('')
+    setReasonIdx(-1)
     router.refresh()
   }
 
@@ -467,6 +478,12 @@ function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: 
     setBusy(true)
     setError(null)
     finish(await adminApproveWorkerWithRenewalFlag(worker.id, adminUserId, text.trim()))
+  }
+
+  async function approveProvisional() {
+    setBusy(true)
+    setError(null)
+    finish(await adminApproveProvisional(worker.id, adminUserId, text.trim()))
   }
 
   async function doReturn() {
@@ -566,12 +583,60 @@ function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: 
         </div>
       )}
 
+      {open !== 'provisional' ? (
+        <button
+          type="button"
+          onClick={() => {
+            setOpen('provisional')
+            setText('')
+            setError(null)
+          }}
+          disabled={busy}
+          className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          APPROVE — PROVISIONAL (COMPLIANCE PENDING)
+        </button>
+      ) : (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+          <p className="text-xs text-indigo-800">
+            Approves the worker (deployable now) with a specific compliance item still open
+            (distinct from a credential-renewal flag above).
+          </p>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={2}
+            placeholder="What compliance item is this approval provisional on?"
+            className="w-full border border-indigo-300 rounded-lg p-2 text-sm resize-none bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={approveProvisional}
+              disabled={busy || !text.trim()}
+              className="flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white disabled:opacity-50"
+            >
+              {busy ? 'Working…' : 'CONFIRM — APPROVE PROVISIONAL'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(null)}
+              disabled={busy}
+              className="px-3 py-2 rounded-lg text-xs font-bold bg-white border border-gray-300 text-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {open !== 'return' ? (
         <button
           type="button"
           onClick={() => {
             setOpen('return')
             setText('')
+            setReasonIdx(-1)
             setError(null)
           }}
           disabled={busy}
@@ -581,11 +646,21 @@ function OverallActions({ worker, adminUserId }: { worker: Worker; adminUserId: 
         </button>
       ) : (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+          <select
+            value={reasonIdx}
+            onChange={(e) => pickReason(Number(e.target.value))}
+            className="w-full border border-amber-300 rounded-lg p-2 text-sm bg-white"
+          >
+            <option value={-1}>Select a reason…</option>
+            {WORKER_RETURN_REASONS.map((r, i) => (
+              <option key={r.label} value={i}>{r.label}</option>
+            ))}
+          </select>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
-            placeholder="Correction action required…"
+            placeholder={isOtherReason ? 'Describe what needs correcting…' : 'Correction action required…'}
             className="w-full border border-amber-300 rounded-lg p-2 text-sm resize-none bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
           />
           <div className="flex gap-2">

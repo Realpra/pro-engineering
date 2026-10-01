@@ -57,6 +57,35 @@ export async function adminApproveWorkerWithRenewalFlag(
   return { success: true }
 }
 
+// ACTION 1c — approve provisionally, subject to remarked compliance (E7-i,
+// WorkersTable_Review workbook, 1 Oct 2026): a 4th, distinct admin action alongside
+// plain approve/approve-with-renewal-flag/return/reject -- the worker is deployable
+// now, with a specific compliance item still open (not a credential-expiry renewal,
+// which has its own mechanism above).
+export async function adminApproveProvisional(
+  workerId: string,
+  adminUserId: string,
+  complianceRemarks: string,
+): Promise<WorkerActionResult> {
+  if (!complianceRemarks.trim()) return { error: 'State the compliance item this approval is provisional on.' }
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('workers')
+    .update({
+      approval_status: 'admin_approved',
+      approved_by: adminUserId,
+      approved_at: new Date().toISOString(),
+      admin_provisional_remarks: complianceRemarks.trim(),
+      admin_provisional_at: new Date().toISOString(),
+    })
+    .eq('id', workerId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/workers')
+  return { success: true }
+}
+
 // ACTION 2 — return to coordinator for correction
 export async function adminReturnWorker(
   workerId: string,
