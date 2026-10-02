@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   updatePremiumPolicy,
   updateContingencyPolicy,
@@ -604,6 +605,13 @@ export default function SuperAdminDashboard({
 
   return (
     <div className="space-y-6">
+      <Link href="/superadmin/allocation" className="block bg-[#1F3864] rounded-xl px-5 py-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-white font-bold text-sm">Allocation Overview →</p>
+          <p className="text-blue-200 text-xs">Trade × Day capacity matrix, platform-wide — escalations &amp; client closure</p>
+        </div>
+      </Link>
+
       {/* Tab bar */}
       <div className="flex gap-1 p-1 bg-[#1F3864]/8 rounded-xl border border-[#1F3864]/10 w-fit flex-wrap">
         {([

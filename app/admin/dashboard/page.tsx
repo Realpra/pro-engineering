@@ -437,6 +437,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/scope', icon: '📐', label: 'Scope', desc: 'Pre-delivery · PI tracker', count: pendingHandovers + scopeChangesPending },
     { href: '/admin/milestones', icon: '🏗️', label: 'Milestones', desc: 'Stages · scope changes', count: undecidedLogs },
     { href: '/admin/coordinators', icon: '🧭', label: 'Coordinators', desc: 'Zone coverage · job routing', count: unroutedJobs },
+    { href: '/admin/allocation', icon: '📊', label: 'Allocation Overview', desc: 'Capacity matrix · escalations · client closure', count: 0 },
     { href: '/admin/trade-questions', icon: '📝', label: 'Question Bank', desc: 'Per-trade skill assessment questions', count: 0 },
   ]
 
