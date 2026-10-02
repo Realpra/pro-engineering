@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getJobTiers } from '@/lib/allocationPriority'
+import { getSectorNamesServedByZones } from '@/lib/zoneCoverage'
 import CoordinatorsTabs, { type DriverUser, type GeoNode, type UnroutedJob, type Escalation, type WorkerOption } from './CoordinatorsTabs'
 
 export default async function AdminCoordinatorsPage() {
@@ -71,6 +72,18 @@ export default async function AdminCoordinatorsPage() {
   // as the Coordinator's own Command Center.
   const escalationTiers = await getJobTiers(supabase, [...new Set(escalations.map(e => e.booking_ref))])
 
+  // coverage_zones holds ZONE-level names; guest_enquiries.zone holds
+  // SECTOR-level names -- resolved here, once per driver, through the real
+  // geo_zone_sector_coverage table, instead of the plain-string
+  // coverage_zones.includes(job.zone) comparison RouteJobRow used to make
+  // (confirmed real bug, same root cause as the Coordinator Command Center
+  // fix, 2 Oct 2026).
+  const coveredSectorsByDriver: Record<string, string[]> = Object.fromEntries(
+    await Promise.all(
+      drivers.map(async (d): Promise<[string, string[]]> => [d.id, [...(await getSectorNamesServedByZones(supabase, d.coverage_zones ?? []))]]),
+    ),
+  )
+
   const adminName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Admin'
 
   return (
@@ -99,6 +112,7 @@ export default async function AdminCoordinatorsPage() {
           escalationTiers={escalationTiers}
           substageById={substageById}
           allWorkers={allWorkers}
+          coveredSectorsByDriver={coveredSectorsByDriver}
         />
       </main>
     </div>

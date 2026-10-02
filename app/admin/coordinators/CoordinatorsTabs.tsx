@@ -130,9 +130,12 @@ function CoverageEditor({ driver, states, zones }: { driver: DriverUser; states:
   )
 }
 
-function RouteJobRow({ job, drivers }: { job: UnroutedJob; drivers: DriverUser[] }) {
+function RouteJobRow({ job, drivers, coveredSectorsByDriver }: { job: UnroutedJob; drivers: DriverUser[]; coveredSectorsByDriver: Record<string, string[]> }) {
   const router = useRouter()
-  const matching = drivers.filter((d) => job.zone && (d.coverage_zones ?? []).includes(job.zone))
+  // job.zone is a SECTOR-level name; coverage_zones is ZONE-level -- matched
+  // here via the real zone->sector resolution computed server-side
+  // (coveredSectorsByDriver), not a direct string comparison.
+  const matching = drivers.filter((d) => job.zone && (coveredSectorsByDriver[d.id] ?? []).includes(job.zone))
   const others = drivers.filter((d) => !matching.includes(d))
   const [choice, setChoice] = useState('')
   const [busy, setBusy] = useState(false)
@@ -285,6 +288,7 @@ export default function CoordinatorsTabs({
   escalationTiers,
   substageById,
   allWorkers,
+  coveredSectorsByDriver,
 }: {
   drivers: DriverUser[]
   geo: GeoNode[]
@@ -292,6 +296,7 @@ export default function CoordinatorsTabs({
   escalations: Escalation[]
   escalationTiers: Record<string, string>
   substageById: Record<string, { id: string; substage_code: string; substage_name: string }>
+  coveredSectorsByDriver: Record<string, string[]>
   allWorkers: WorkerOption[]
 }) {
   const [tab, setTab] = useState<'routing' | 'coverage' | 'escalations'>('routing')
@@ -327,7 +332,7 @@ export default function CoordinatorsTabs({
           {unroutedJobs.length > 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {unroutedJobs.map((j) => (
-                <RouteJobRow key={j.booking_ref} job={j} drivers={drivers} />
+                <RouteJobRow key={j.booking_ref} job={j} drivers={drivers} coveredSectorsByDriver={coveredSectorsByDriver} />
               ))}
             </div>
           ) : (

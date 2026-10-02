@@ -13,12 +13,14 @@ export default function ConfirmExecutionPanel({
   drivingRole,
   supervisors,
   coordinators,
+  matchingCoordinatorIds,
 }: {
   bookingRef: string
   zone: string | null
   drivingRole: 'coordinator' | 'sub_coordinator' | null | undefined
   supervisors: SupervisorOption[]
   coordinators: CoordinatorOption[]
+  matchingCoordinatorIds: string[]
 }) {
   const router = useRouter()
   const wasSubCoordinatorDriven = drivingRole === 'sub_coordinator'
@@ -27,8 +29,12 @@ export default function ConfirmExecutionPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const matchingCoordinators = coordinators.filter((c) => zone && (c.coverage_zones ?? []).includes(zone))
-  const otherCoordinators = coordinators.filter((c) => !matchingCoordinators.includes(c))
+  // zone is a SECTOR-level name; a Coordinator's own coverage_zones holds
+  // ZONE-level names -- matching is resolved server-side (matchingCoordinatorIds,
+  // via the real geo_zone_sector_coverage table), never by comparing those
+  // two strings directly (confirmed real bug, 2 Oct 2026).
+  const matchingCoordinators = coordinators.filter((c) => matchingCoordinatorIds.includes(c.id))
+  const otherCoordinators = coordinators.filter((c) => !matchingCoordinatorIds.includes(c.id))
 
   async function submit() {
     if (!supervisorId) { setError('Pick a Supervisor for this job.'); return }

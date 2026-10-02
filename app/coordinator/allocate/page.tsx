@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getJobTiers } from '@/lib/allocationPriority'
+import { getSectorNamesServedByZones } from '@/lib/zoneCoverage'
 import CommandCenter, { type Job, type Substage, type WorkerOption, type SlotRow, type Escalation, type PendingPlanJob } from './CommandCenter'
 
 // Allocation Command Center -- replaces the old status-gated, one-job-at-a-
@@ -131,13 +132,21 @@ export default async function AllocationCommandCenterPage({
   const bookedTodayIds = new Set(slots.filter(s => s.slot_date === todayISO).map(s => s.worker_id))
   const idleWorkersToday = workers.filter(w => w.is_available !== false && !bookedTodayIds.has(w.id))
 
+  // coverage_zones holds ZONE-level geo_hierarchy names; guest_enquiries.zone
+  // holds SECTOR-level names -- a different level of the same hierarchy, so
+  // they must be resolved through the real geo_zone_sector_coverage
+  // many-to-many table, never compared as plain strings (confirmed real bug,
+  // live click-through 2 Oct 2026: a real Coordinator saw zero jobs despite
+  // a real job sitting in his covered zone).
+  const coveredSectors = coverageZones ? await getSectorNamesServedByZones(supabase, coverageZones) : null
+
   const allZones = [...new Set([...jobs.map(j => j.zone), ...pendingPlan.map(j => j.zone)].filter((z): z is string => !!z))].sort()
-  const zones = coverageZones ? allZones.filter(z => coverageZones.includes(z)) : allZones
+  const zones = coveredSectors ? allZones.filter(z => coveredSectors.has(z)) : allZones
 
   // A Coordinator's "All Zones" means all HIS zones, not every zone
   // platform-wide -- Admin/Superadmin stay fully unscoped.
-  const scopedJobs = coverageZones ? jobs.filter(j => j.zone && coverageZones.includes(j.zone)) : jobs
-  const scopedPendingPlan = coverageZones ? pendingPlan.filter(j => j.zone && coverageZones.includes(j.zone)) : pendingPlan
+  const scopedJobs = coveredSectors ? jobs.filter(j => j.zone && coveredSectors.has(j.zone)) : jobs
+  const scopedPendingPlan = coveredSectors ? pendingPlan.filter(j => j.zone && coveredSectors.has(j.zone)) : pendingPlan
 
   const activeZone = zoneParam && zones.includes(zoneParam) ? zoneParam : null
 
@@ -149,7 +158,7 @@ export default async function AllocationCommandCenterPage({
   const visibleIdleWorkers = idleWorkersToday.filter(w => {
     const wz = w.zones ?? []
     if (activeZone) return wz.includes(activeZone)
-    if (coverageZones) return wz.some(z => coverageZones.includes(z))
+    if (coveredSectors) return wz.some(z => coveredSectors.has(z))
     return true
   })
 

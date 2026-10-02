@@ -311,6 +311,7 @@ type Props = {
   adminUserId: string
   supervisors: SupervisorOption[]
   coordinators: CoordinatorOption[]
+  matchingCoordinatorIds: string[]
 }
 
 export default function EstimateConsole({
@@ -326,6 +327,7 @@ export default function EstimateConsole({
   adminUserId,
   supervisors,
   coordinators,
+  matchingCoordinatorIds,
 }: Props) {
   const router = useRouter()
 
@@ -592,6 +594,7 @@ export default function EstimateConsole({
           drivingRole={job.driving_role}
           supervisors={supervisors}
           coordinators={coordinators}
+          matchingCoordinatorIds={matchingCoordinatorIds}
         />
       )}
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">

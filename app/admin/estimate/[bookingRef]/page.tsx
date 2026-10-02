@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import EstimateConsole from './EstimateConsole'
 import { generateBOQ } from './actions'
+import { getSectorNamesServedByZones } from '@/lib/zoneCoverage'
 import type { BOQLineItem } from './actions'
 
 type GeneratedBOQ = {
@@ -245,6 +246,20 @@ export default async function EstimatePage({
     reviewStatus === 'admin_review'          ? 'bg-purple-300 text-purple-900' :
     report ? 'bg-blue-300 text-blue-900' : 'bg-gray-300 text-gray-700'
 
+  // job.zone is a SECTOR-level name; a Coordinator's coverage_zones holds
+  // ZONE-level names -- resolved here through the real geo_zone_sector_
+  // coverage table (never compared as plain strings; confirmed real bug,
+  // 2 Oct 2026, same root cause as the Coordinator Command Center fix).
+  const coordinatorsForHandoff = coordinatorsResult.data ?? []
+  const matchingCoordinatorIds = (
+    await Promise.all(
+      coordinatorsForHandoff.map(async (c) => {
+        const sectors = await getSectorNamesServedByZones(supabase, c.coverage_zones ?? [])
+        return job.zone && sectors.has(job.zone) ? c.id : null
+      }),
+    )
+  ).filter((id): id is string => !!id)
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -313,6 +328,7 @@ export default async function EstimatePage({
         adminUserId={adminUserId}
         supervisors={supervisorsResult.data ?? []}
         coordinators={coordinatorsResult.data ?? []}
+        matchingCoordinatorIds={matchingCoordinatorIds}
       />
     </div>
   )
