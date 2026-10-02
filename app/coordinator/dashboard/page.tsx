@@ -54,6 +54,30 @@ export default async function CoordinatorDashboardPage() {
     .select('id', { count: 'exact', head: true })
     .eq('status', 'pending')
 
+  // ALLOCATION PENDING: jobs with a real work plan (substages exist) but not
+  // a single worker_day_slots row yet for any of those substages -- genuine
+  // "plan exists, nobody staffed" jobs, not a guess. Separate from jobs that
+  // are confirmed for execution but have no work plan at all yet (surfaced
+  // on the Command Center itself with a "Build Milestone Plan" link).
+  const { data: openSubstages } = await supabase
+    .from('job_milestone_substages')
+    .select('booking_ref')
+    .not('status', 'in', '(completed,sent_back)')
+  const openBookingRefs = [...new Set((openSubstages ?? []).map(s => s.booking_ref))]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: anyStaffedRows } = openBookingRefs.length > 0
+    ? await (supabase as any).from('worker_day_slots').select('booking_ref').in('booking_ref', openBookingRefs)
+    : { data: [] as { booking_ref: string }[] }
+  const staffedRefs = new Set((anyStaffedRows ?? []).map((r: { booking_ref: string }) => r.booking_ref))
+  const allocationPendingCount = openBookingRefs.filter(r => !staffedRefs.has(r)).length
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: confirmedJobsRaw } = await (supabase as any)
+    .from('guest_enquiries')
+    .select('booking_ref')
+    .not('confirmed_for_execution_at', 'is', null)
+  const openRefSet = new Set(openBookingRefs)
+  const confirmedNoPlanCount = ((confirmedJobsRaw ?? []) as { booking_ref: string }[]).filter(j => !openRefSet.has(j.booking_ref)).length
+
   const { data: scopeReports } = await supabase
     .from('guest_enquiries')
     .select('booking_ref, job_title, job_type, zone, status')
@@ -112,8 +136,11 @@ export default async function CoordinatorDashboardPage() {
     ...clientRemarks.map(r => ({ label: `Client review remarks — ${r.booking_ref}`, link: '/coordinator/estimate' })),
   ]
 
+  const totalAllocationPending = allocationPendingCount + confirmedNoPlanCount
+
   const navItems = [
     { href: '/coordinator/jobs', icon: '🏗', label: 'Job Pipeline', count: (allJobs ?? []).length, urgent: false },
+    { href: '/coordinator/allocate', icon: '🧮', label: 'Allocate Workers', count: totalAllocationPending, urgent: totalAllocationPending > 0 },
     { href: '/coordinator/scope-reports', icon: '📋', label: 'Scope Reports', count: (scopeReports ?? []).length, urgent: (scopeReports ?? []).length > 0 },
     { href: '/coordinator/estimate', icon: '📐', label: 'Estimate Console', count: clientRemarks.length, urgent: clientRemarks.length > 0 },
     { href: '/coordinator/clients', icon: '👤', label: 'Clients', count: null, urgent: false },
@@ -241,6 +268,24 @@ export default async function CoordinatorDashboardPage() {
                 )
               })}
             </div>
+          </section>
+        )}
+
+        {/* ALLOCATION PENDING -- jobs with a real work plan but zero workers
+            booked yet, or confirmed-for-execution jobs with no work plan at
+            all. The real, code-confirmed replacement for guessing which
+            jobs need staffing by scrolling the whole pipeline. */}
+        {totalAllocationPending > 0 && (
+          <section>
+            <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-3">🧮 Allocation Pending — {totalAllocationPending}</p>
+            <Link href="/coordinator/allocate" className="block bg-white rounded-2xl border border-orange-200 shadow-sm px-5 py-3">
+              <p className="text-sm font-semibold text-gray-700">
+                {allocationPendingCount > 0 && `${allocationPendingCount} job${allocationPendingCount === 1 ? '' : 's'} with a plan but no workers booked yet`}
+                {allocationPendingCount > 0 && confirmedNoPlanCount > 0 && ' · '}
+                {confirmedNoPlanCount > 0 && `${confirmedNoPlanCount} confirmed job${confirmedNoPlanCount === 1 ? '' : 's'} with no work plan yet`}
+              </p>
+              <p className="text-xs text-orange-700 font-semibold mt-1">Open Allocation Command Center →</p>
+            </Link>
           </section>
         )}
 

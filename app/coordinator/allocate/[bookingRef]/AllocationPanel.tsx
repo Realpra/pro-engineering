@@ -53,7 +53,7 @@ function SubstageRow({
   const [workerId, setWorkerId] = useState('')
   const today = new Date().toISOString().split('T')[0]
   const [fromDate, setFromDate] = useState(substage.early_start_date ?? today)
-  const [toDate, setToDate] = useState(substage.early_start_date ?? today)
+  const [toDate, setToDate] = useState(substage.early_finish_date ?? today)
   const [skipSundays, setSkipSundays] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

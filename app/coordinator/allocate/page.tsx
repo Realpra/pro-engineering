@@ -1,30 +1,27 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import CommandCenter, { type Job, type Substage, type WorkerOption, type SlotRow, type Escalation } from './CommandCenter'
+import CommandCenter, { type Job, type Substage, type WorkerOption, type SlotRow, type Escalation, type PendingPlanJob } from './CommandCenter'
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-
-// Allocation Command Center -- replaces the old status-gated, one-job-at-a-time
-// /coordinator/allocate/[bookingRef] entry point with the industry-standard
-// order confirmed via research into ServiceTitan/Procore/Primavera P6/Deputy/
-// BuildOps (2 Oct 2026): demand (zone x day x job x trade x skill) and supply
-// (zone x skill-tagged workers) are both aggregated FIRST, on one scrollable
-// board, before any individual worker is looked at. The demand signal here is
-// job_milestone_substages' own early_start_date/early_finish_date -- the real
-// day-wise work-program dates fixed when the estimate was approved -- not a
-// guest_enquiries.status label. Any job with a substage active on the
-// selected day shows up here automatically; nothing needs its status to equal
-// a specific value first.
+// Allocation Command Center -- replaces the old status-gated, one-job-at-a-
+// time, single-day /coordinator/allocate/[bookingRef] entry point with the
+// industry-standard order confirmed via research into ServiceTitan/Procore/
+// Primavera P6/Deputy/BuildOps (2 Oct 2026): demand (zone x day x job x
+// trade x skill) and supply (zone/skill-tagged workers) are both aggregated
+// FIRST, on one board covering the job's FULL duration (not one day at a
+// time), before any individual worker is looked at. The demand signal is
+// job_milestone_substages' own early_start_date/early_finish_date -- the
+// real day-wise work-program dates fixed when the estimate was approved,
+// which already shift automatically whenever a delay/strike/LTF pushes the
+// CPM dates. Any job with a substage plan shows up here automatically, for
+// its whole span; nothing needs its status to equal a specific value first,
+// and nothing needs a single day to be picked before it becomes visible.
 export default async function AllocationCommandCenterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; zone?: string }>
+  searchParams: Promise<{ zone?: string }>
 }) {
-  const { date: dateParam, zone: zoneParam } = await searchParams
-  const date = dateParam || todayISO()
+  const { zone: zoneParam } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,23 +33,29 @@ export default async function AllocationCommandCenterPage({
     .maybeSingle()
   if (!['coordinator', 'admin', 'super_admin'].includes(profile?.platform_role ?? '')) redirect('/login')
 
-  // DEMAND: every substage active on this calendar day, across every job in
-  // the system at once -- job_milestone_substages.early_start_date/
-  // early_finish_date already shift automatically whenever a delay pushes the
-  // CPM dates, so this is always the live, current day-wise requirement, not
-  // a stale snapshot. .not('status','in',...) uses the exact same confirmed-
-  // live filter shape already proven in app/api/cron/ltf-route-compile.
+  // DEMAND, FULL DURATION: every still-open substage across every job in the
+  // system -- not filtered to "today" -- so each job's calendar covers its
+  // whole defined span and keeps extending automatically as later substages
+  // get their own CPM dates. Same confirmed-live filter shape as
+  // app/api/cron/ltf-route-compile.
   const { data: substagesData } = await supabase
     .from('job_milestone_substages')
     .select('id, booking_ref, substage_code, substage_name, milestone_code, trade_type, skilled_workers_per_day, unskilled_workers_per_day, early_start_date, early_finish_date, status')
-    .lte('early_start_date', date)
-    .gte('early_finish_date', date)
     .not('status', 'in', '(completed,sent_back)')
 
   const substages = (substagesData ?? []) as Substage[]
   const bookingRefs = [...new Set(substages.map(s => s.booking_ref))]
 
-  const [{ data: jobsData }, { data: workersData }, { data: slotsData }, { data: escalationsData }] = await Promise.all([
+  // Bound the worker_day_slots fetch window defensively (a stray bad date
+  // should never blow this query up) -- real job spans are weeks/months, not
+  // years, so clamping to a generous [-14, +180] day window around today
+  // loses nothing a real work program would ever need.
+  const today = new Date()
+  const windowStart = new Date(today); windowStart.setDate(windowStart.getDate() - 14)
+  const windowEnd = new Date(today); windowEnd.setDate(windowEnd.getDate() + 180)
+  const toISO = (d: Date) => d.toISOString().split('T')[0]
+
+  const [{ data: jobsData }, { data: workersData }, { data: slotsData }, { data: escalationsData }, { data: confirmedJobsData }] = await Promise.all([
     bookingRefs.length > 0
       ? supabase
           .from('guest_enquiries')
@@ -65,15 +68,16 @@ export default async function AllocationCommandCenterPage({
       .eq('is_active', true)
       .or('approval_status.in.(admin_approved,coordinator_approved),coordinator_deployable_at.not.is.null')
       .order('daily_wage_inr', { ascending: true }),
-    // Every slot on this date, across EVERY booking (not scoped to one job) --
-    // this is what lets a worker already on Job A show as unavailable/
-    // conflicting when you try to also assign them to Job B the same day,
-    // which the old per-job page's own-booking-only query could never catch.
+    // Every slot in the window, across EVERY booking (not scoped to one job)
+    // -- this is what lets a worker already on Job A show as booked when you
+    // try to also assign them to Job B on the same day, across the WHOLE
+    // calendar, not just a single selected day.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('worker_day_slots')
       .select('worker_id, slot_date, booking_ref, substage_code, status')
-      .eq('slot_date', date),
+      .gte('slot_date', toISO(windowStart))
+      .lte('slot_date', toISO(windowEnd)),
     bookingRefs.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (supabase as any)
@@ -82,19 +86,31 @@ export default async function AllocationCommandCenterPage({
           .in('booking_ref', bookingRefs)
           .eq('status', 'pending')
       : Promise.resolve({ data: [] as Escalation[] }),
+    // PENDING-ALLOCATION SIGNAL: jobs already confirmed for execution (the
+    // one real "ready to work" gate, built Session 68) that have no
+    // milestone/substage plan at all yet -- allocation genuinely cannot
+    // start for these, and they would otherwise just silently never appear
+    // anywhere. Surfaced below as its own banner instead of disappearing.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('guest_enquiries')
+      .select('booking_ref, job_title, zone, confirmed_for_execution_at')
+      .not('confirmed_for_execution_at', 'is', null),
   ])
 
   const jobs = (jobsData ?? []) as Job[]
   const workers = (workersData ?? []) as WorkerOption[]
   const slots = (slotsData ?? []) as SlotRow[]
   const escalations = (escalationsData ?? []) as Escalation[]
+  const pendingPlan = ((confirmedJobsData ?? []) as PendingPlanJob[]).filter(j => !bookingRefs.includes(j.booking_ref))
 
-  const zones = [...new Set(jobs.map(j => j.zone).filter((z): z is string => !!z))].sort()
+  const zones = [...new Set([...jobs.map(j => j.zone), ...pendingPlan.map(j => j.zone)].filter((z): z is string => !!z))].sort()
   const activeZone = zoneParam && zones.includes(zoneParam) ? zoneParam : null
 
   const visibleJobs = activeZone ? jobs.filter(j => j.zone === activeZone) : jobs
   const visibleRefs = new Set(visibleJobs.map(j => j.booking_ref))
   const visibleSubstages = substages.filter(s => visibleRefs.has(s.booking_ref))
+  const visiblePendingPlan = activeZone ? pendingPlan.filter(j => j.zone === activeZone) : pendingPlan
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -107,14 +123,13 @@ export default async function AllocationCommandCenterPage({
           </Link>
           <div className="min-w-0 flex-1">
             <h1 className="text-white font-bold text-lg leading-tight">Allocation Command Center</h1>
-            <p className="text-blue-200 text-xs">Zone → Day → Job → Trade → Skill → Available Worker</p>
+            <p className="text-blue-200 text-xs">Zone → Job → Full Calendar → Trade → Skill → Available Worker</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         <CommandCenter
-          date={date}
           zones={zones}
           activeZone={activeZone}
           jobs={visibleJobs}
@@ -122,6 +137,7 @@ export default async function AllocationCommandCenterPage({
           workers={workers}
           slots={slots}
           escalations={escalations}
+          pendingPlan={visiblePendingPlan}
         />
       </main>
     </div>
