@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { allocateWorker, removeAllocation, escalateAllocation } from './actions'
+import { allocateWorkerRange, removeAllocation, escalateAllocation } from './actions'
 
 export type Substage = {
   id: string
@@ -51,9 +51,13 @@ function SubstageRow({
 }) {
   const router = useRouter()
   const [workerId, setWorkerId] = useState('')
-  const [slotDate, setSlotDate] = useState(substage.early_start_date ?? '')
+  const today = new Date().toISOString().split('T')[0]
+  const [fromDate, setFromDate] = useState(substage.early_start_date ?? today)
+  const [toDate, setToDate] = useState(substage.early_start_date ?? today)
+  const [skipSundays, setSkipSundays] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
   const [showEscalate, setShowEscalate] = useState(false)
   const [remark, setRemark] = useState('')
 
@@ -63,13 +67,22 @@ function SubstageRow({
   const otherZones = candidates.filter(w => !inZone.includes(w))
   const needed = (substage.skilled_workers_per_day ?? 0) + (substage.unskilled_workers_per_day ?? 0)
 
+  function fillFullDuration() {
+    setFromDate(substage.early_start_date ?? today)
+    setToDate(substage.early_finish_date ?? today)
+  }
+
   async function assign() {
-    if (!workerId || !slotDate) { setError('Pick a worker and a date.'); return }
+    if (!workerId || !fromDate || !toDate) { setError('Pick a worker and a date range.'); return }
     setBusy(true)
     setError(null)
-    const res = await allocateWorker({ bookingRef, substageCode: substage.substage_code, workerId, slotDate })
+    setResult(null)
+    const res = await allocateWorkerRange({ bookingRef, substageCode: substage.substage_code, workerId, startDate: fromDate, endDate: toDate, skipSundays })
     setBusy(false)
     if (res.error) { setError(res.error); return }
+    const n = res.booked?.length ?? 0
+    const c = res.conflicts?.length ?? 0
+    setResult(`Booked ${n} day${n === 1 ? '' : 's'}${c > 0 ? ` · ${c} skipped — already on another job that day` : ''}`)
     setWorkerId('')
     router.refresh()
   }
@@ -135,53 +148,71 @@ function SubstageRow({
       )}
 
       {error && <p className="text-xs text-red-600">{error}</p>}
+      {result && <p className="text-xs text-green-700">{result}</p>}
 
       {!pendingEscalation && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="space-y-1.5">
           <select
             value={workerId}
             onChange={e => setWorkerId(e.target.value)}
-            className="flex-1 min-w-[160px] border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50"
           >
             <option value="">Add worker…</option>
             {inZone.length > 0 && (
               <optgroup label={zone ? `In ${zone}` : 'Zone match'}>
                 {inZone.map(w => (
-                  <option key={w.id} value={w.id}>{w.full_name} — {w.skill_level} — ₹{w.daily_wage_inr ?? '—'}/day{w.coordinator_deployable_at ? ' · ADHOC' : ''}</option>
+                  <option key={w.id} value={w.id}>
+                    {w.full_name} — {(w.zones ?? []).join(', ') || 'no zone on file'} — {(w.skill_level ?? '').replace('_', ' ')} — ₹{w.daily_wage_inr ?? '—'}/day{w.coordinator_deployable_at ? ' · ADHOC' : ''}
+                  </option>
                 ))}
               </optgroup>
             )}
             {otherZones.length > 0 && (
               <optgroup label="Other zones">
                 {otherZones.map(w => (
-                  <option key={w.id} value={w.id}>{w.full_name} — {w.skill_level} — ₹{w.daily_wage_inr ?? '—'}/day{w.coordinator_deployable_at ? ' · ADHOC' : ''}</option>
+                  <option key={w.id} value={w.id}>
+                    {w.full_name} — {(w.zones ?? []).join(', ') || 'no zone on file'} — {(w.skill_level ?? '').replace('_', ' ')} — ₹{w.daily_wage_inr ?? '—'}/day{w.coordinator_deployable_at ? ' · ADHOC' : ''}
+                  </option>
                 ))}
               </optgroup>
             )}
           </select>
-          <input
-            type="date"
-            value={slotDate}
-            onChange={e => setSlotDate(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50"
-          />
-          <button
-            type="button"
-            onClick={assign}
-            disabled={busy || !workerId}
-            className="bg-[#1F3864] text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50"
-          >
-            Assign
-          </button>
-          {candidates.length === 0 && !showEscalate && (
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs text-gray-500">From</label>
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50" />
+            <label className="text-xs text-gray-500">To</label>
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-gray-50" />
+            {substage.early_start_date && (
+              <button type="button" onClick={fillFullDuration} className="text-xs font-semibold text-[#2E74B5] underline">
+                Fill full substage duration
+              </button>
+            )}
+            <label className="flex items-center gap-1 text-xs text-gray-500">
+              <input type="checkbox" checked={skipSundays} onChange={e => setSkipSundays(e.target.checked)} />
+              Skip Sundays
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowEscalate(true)}
-              className="text-xs font-semibold text-orange-700 border border-orange-300 px-3 py-2 rounded-xl"
+              onClick={assign}
+              disabled={busy || !workerId}
+              className="bg-[#1F3864] text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50"
             >
-              Nobody available — Escalate to Admin
+              {busy ? 'Booking…' : fromDate === toDate ? 'Assign' : 'Assign for Range'}
             </button>
-          )}
+            {candidates.length === 0 && !showEscalate && (
+              <button
+                type="button"
+                onClick={() => setShowEscalate(true)}
+                className="text-xs font-semibold text-orange-700 border border-orange-300 px-3 py-2 rounded-xl"
+              >
+                Nobody available — Escalate to Admin
+              </button>
+            )}
+          </div>
         </div>
       )}
 

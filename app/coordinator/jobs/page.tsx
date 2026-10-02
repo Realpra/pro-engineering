@@ -68,6 +68,13 @@ export default async function CoordinatorJobsPage() {
     return total > 0 ? Math.round((done / total) * 100) : null
   }
 
+  // Allocation is reachable for ANY job with a real milestone plan already
+  // built (substage rows exist) -- not gated to one or two guest_enquiries
+  // status labels. A milestone plan only exists once the estimate has been
+  // approved and the work-program dates set, which is the real "this job now
+  // has day-wise demand" signal (confirmed via live code, 2 Oct 2026).
+  const hasSubstages = (ref: string) => (substages ?? []).some(x => x.booking_ref === ref)
+
   const statusGroups = [
     { key: 'new', label: 'New Enquiries', color: 'bg-gray-100 text-gray-600 border-gray-300', dot: 'bg-gray-400' },
     { key: 'scope_report_submitted', label: 'Scope Report Submitted', color: 'bg-yellow-100 text-yellow-700 border-yellow-300', dot: 'bg-yellow-500' },
@@ -110,6 +117,14 @@ export default async function CoordinatorJobsPage() {
       </header>
 
       <main className="flex-1 px-4 py-5 max-w-lg mx-auto w-full space-y-5 pb-10">
+
+        {/* ALLOCATION COMMAND CENTER -- zone/day-first demand+supply board
+            across every job at once, replacing the old job-by-job entry
+            point below as the primary way to allocate workers. */}
+        <Link href="/coordinator/allocate" className="block bg-green-700 rounded-2xl px-5 py-4 text-center">
+          <p className="text-white font-bold text-sm">Allocation Command Center →</p>
+          <p className="text-green-100 text-xs mt-0.5">Zone → Day → Job → Trade → Skill → Available Worker</p>
+        </Link>
 
         {/* SUMMARY */}
         <div className="bg-[#1F3864] rounded-2xl px-5 py-4">
@@ -235,7 +250,7 @@ export default async function CoordinatorJobsPage() {
                               Estimate Console →
                             </Link>
                           )}
-                          {(job.status === 'milestone_review' || job.status === 'confirmed') && (
+                          {hasSubstages(job.booking_ref) && (
                             <>
                               <Link href={`/coordinator/allocate/${job.booking_ref}`} className="flex-1 bg-green-700 text-white text-xs font-bold py-2.5 rounded-xl text-center">
                                 Allocate →
@@ -245,7 +260,7 @@ export default async function CoordinatorJobsPage() {
                               </Link>
                             </>
                           )}
-                          {(!['scope_report_submitted','approved_for_estimate','estimate_sent','milestone_review','confirmed'].includes(job.status)) && (
+                          {!hasSubstages(job.booking_ref) && (!['scope_report_submitted','approved_for_estimate','estimate_sent'].includes(job.status)) && (
                             <div className="flex-1 border border-gray-200 text-gray-400 text-xs font-semibold py-2.5 rounded-xl text-center">
                               {job.status?.replace(/_/g, ' ')}
                             </div>

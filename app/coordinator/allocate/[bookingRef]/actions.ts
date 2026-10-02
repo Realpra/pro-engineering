@@ -42,6 +42,7 @@ export async function allocateWorker(params: {
   })
   if (error) return { error: error.message }
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
+  revalidatePath('/coordinator/allocate')
   return {}
 }
 
@@ -60,7 +61,84 @@ export async function removeAllocation(params: {
     .eq('worker_id', params.workerId)
   if (error) return { error: error.message }
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
+  revalidatePath('/coordinator/allocate')
   return {}
+}
+
+function listWorkingDates(start: string, end: string, skipSundays: boolean): string[] {
+  const dates: string[] = []
+  const cur = new Date(`${start}T00:00:00Z`)
+  const last = new Date(`${end}T00:00:00Z`)
+  while (cur.getTime() <= last.getTime()) {
+    if (!skipSundays || cur.getUTCDay() !== 0) {
+      dates.push(cur.toISOString().split('T')[0])
+    }
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+  return dates
+}
+
+// Industry-standard pattern (ServiceTitan/BuildOps/Primavera P6, confirmed via
+// research 2 Oct 2026): assignment acts on a date RANGE, not a single date --
+// one action books a worker across a whole substage duration instead of one
+// click per day. Also closes a real correctness bug: the single-job page's
+// own existingSlots query only ever saw ITS OWN booking_ref, so the same
+// worker could be double-booked onto two different jobs the same day with
+// nothing to catch it. Checked here, across every booking, at commit time.
+export async function allocateWorkerRange(params: {
+  bookingRef: string
+  substageCode: string
+  workerId: string
+  startDate: string
+  endDate: string
+  skipSundays?: boolean
+}): Promise<{ error?: string; booked?: string[]; conflicts?: { date: string; bookingRef: string }[] }> {
+  const ctx = await requireAllocator()
+  if ('error' in ctx) return ctx
+  if (!params.startDate || !params.endDate || params.endDate < params.startDate) {
+    return { error: 'Invalid date range.' }
+  }
+  const dates = listWorkingDates(params.startDate, params.endDate, params.skipSundays ?? false)
+  if (dates.length === 0) return { error: 'No working days in that range.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (ctx.supabase as any)
+    .from('worker_day_slots')
+    .select('slot_date, booking_ref')
+    .eq('worker_id', params.workerId)
+    .in('slot_date', dates)
+
+  const takenByDate = new Map<string, string>(
+    (existing ?? []).map((r: { slot_date: string; booking_ref: string }) => [r.slot_date, r.booking_ref])
+  )
+  const conflicts: { date: string; bookingRef: string }[] = []
+  const toInsert: { worker_id: string; slot_date: string; booking_ref: string; substage_code: string; assigned_by: string; status: string }[] = []
+
+  for (const d of dates) {
+    const takenBy = takenByDate.get(d)
+    if (takenBy && takenBy !== params.bookingRef) {
+      conflicts.push({ date: d, bookingRef: takenBy })
+      continue
+    }
+    if (takenBy === params.bookingRef) continue
+    toInsert.push({
+      worker_id: params.workerId,
+      slot_date: d,
+      booking_ref: params.bookingRef,
+      substage_code: params.substageCode,
+      assigned_by: ctx.userId,
+      status: 'assigned',
+    })
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await ctx.supabase.from('worker_day_slots').insert(toInsert)
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
+  revalidatePath('/coordinator/allocate')
+  return { booked: toInsert.map(r => r.slot_date), conflicts }
 }
 
 // Escalation: Coordinator's own zone-scoped worker pool has nothing suitable
@@ -87,6 +165,7 @@ export async function escalateAllocation(params: {
   })
   if (error) return { error: error.message }
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
+  revalidatePath('/coordinator/allocate')
   revalidatePath('/admin/coordinators')
   return {}
 }
