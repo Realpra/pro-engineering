@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getJobTiers } from '@/lib/allocationPriority'
 import CoordinatorsTabs, { type DriverUser, type GeoNode, type UnroutedJob, type Escalation, type WorkerOption } from './CoordinatorsTabs'
 
 export default async function AdminCoordinatorsPage() {
@@ -65,6 +66,11 @@ export default async function AdminCoordinatorsPage() {
     : { data: [] as { id: string; substage_code: string; substage_name: string }[] }
   const substageById = Object.fromEntries((substagesForEscalations ?? []).map(s => [s.id, s]))
 
+  // Job "category" (general/premium/higher) = boq_generated.tier, reused
+  // as-is -- escalations are shown highest-tier-first, same priority rule
+  // as the Coordinator's own Command Center.
+  const escalationTiers = await getJobTiers(supabase, [...new Set(escalations.map(e => e.booking_ref))])
+
   const adminName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Admin'
 
   return (
@@ -90,6 +96,7 @@ export default async function AdminCoordinatorsPage() {
           geo={geo}
           unroutedJobs={unroutedJobs}
           escalations={escalations}
+          escalationTiers={escalationTiers}
           substageById={substageById}
           allWorkers={allWorkers}
         />

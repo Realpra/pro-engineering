@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getJobTiers } from '@/lib/allocationPriority'
 import CommandCenter, { type Job, type Substage, type WorkerOption, type SlotRow, type Escalation, type PendingPlanJob } from './CommandCenter'
 
 // Allocation Command Center -- replaces the old status-gated, one-job-at-a-
@@ -26,12 +27,24 @@ export default async function AllocationCommandCenterPage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: profile } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (supabase as any)
     .from('users')
-    .select('platform_role')
+    .select('platform_role, coverage_zones')
     .eq('id', user.id)
     .maybeSingle()
   if (!['coordinator', 'admin', 'super_admin'].includes(profile?.platform_role ?? '')) redirect('/login')
+  // Project owner's rule, 2 Oct 2026: a Coordinator works his OWN zones
+  // first, only escalating once those are exhausted -- so his zone tabs are
+  // scoped to users.coverage_zones (the same real column Admin's own
+  // zone-coverage/job-routing screen already uses). Admin/Superadmin stay
+  // unscoped (platform-wide), matching their existing universal access.
+  // An empty/unset coverage_zones falls back to unscoped rather than
+  // showing the Coordinator nothing at all.
+  const coverageZones: string[] | null =
+    profile?.platform_role === 'coordinator' && (profile?.coverage_zones?.length ?? 0) > 0
+      ? profile.coverage_zones
+      : null
 
   // DEMAND, FULL DURATION: every still-open substage across every job in the
   // system -- not filtered to "today" -- so each job's calendar covers its
@@ -104,13 +117,41 @@ export default async function AllocationCommandCenterPage({
   const escalations = (escalationsData ?? []) as Escalation[]
   const pendingPlan = ((confirmedJobsData ?? []) as PendingPlanJob[]).filter(j => !bookingRefs.includes(j.booking_ref))
 
-  const zones = [...new Set([...jobs.map(j => j.zone), ...pendingPlan.map(j => j.zone)].filter((z): z is string => !!z))].sort()
+  // Job "category" (general/premium/higher) is boq_generated.tier, already
+  // real and live -- fetched once here, used to rank which job's shortfall
+  // gets filled first without ever touching an existing assignment.
+  const jobTiers = await getJobTiers(supabase, bookingRefs)
+
+  // EXCESS/IDLE: workers on file, deployable, not marked unavailable, but
+  // with NOT ONE worker_day_slots row today -- the project owner's "keeping
+  // a worker enrolled and not giving them a job is also not good, workers
+  // drift away" case. Surfaced so the Coordinator can proactively place them
+  // rather than them silently sitting idle and invisible.
+  const todayISO = toISO(today)
+  const bookedTodayIds = new Set(slots.filter(s => s.slot_date === todayISO).map(s => s.worker_id))
+  const idleWorkersToday = workers.filter(w => w.is_available !== false && !bookedTodayIds.has(w.id))
+
+  const allZones = [...new Set([...jobs.map(j => j.zone), ...pendingPlan.map(j => j.zone)].filter((z): z is string => !!z))].sort()
+  const zones = coverageZones ? allZones.filter(z => coverageZones.includes(z)) : allZones
+
+  // A Coordinator's "All Zones" means all HIS zones, not every zone
+  // platform-wide -- Admin/Superadmin stay fully unscoped.
+  const scopedJobs = coverageZones ? jobs.filter(j => j.zone && coverageZones.includes(j.zone)) : jobs
+  const scopedPendingPlan = coverageZones ? pendingPlan.filter(j => j.zone && coverageZones.includes(j.zone)) : pendingPlan
+
   const activeZone = zoneParam && zones.includes(zoneParam) ? zoneParam : null
 
-  const visibleJobs = activeZone ? jobs.filter(j => j.zone === activeZone) : jobs
+  const visibleJobs = activeZone ? scopedJobs.filter(j => j.zone === activeZone) : scopedJobs
   const visibleRefs = new Set(visibleJobs.map(j => j.booking_ref))
   const visibleSubstages = substages.filter(s => visibleRefs.has(s.booking_ref))
-  const visiblePendingPlan = activeZone ? pendingPlan.filter(j => j.zone === activeZone) : pendingPlan
+  const visiblePendingPlan = activeZone ? scopedPendingPlan.filter(j => j.zone === activeZone) : scopedPendingPlan
+
+  const visibleIdleWorkers = idleWorkersToday.filter(w => {
+    const wz = w.zones ?? []
+    if (activeZone) return wz.includes(activeZone)
+    if (coverageZones) return wz.some(z => coverageZones.includes(z))
+    return true
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -138,6 +179,9 @@ export default async function AllocationCommandCenterPage({
           slots={slots}
           escalations={escalations}
           pendingPlan={visiblePendingPlan}
+          jobTiers={jobTiers}
+          idleWorkersToday={visibleIdleWorkers}
+          today={todayISO}
         />
       </main>
     </div>

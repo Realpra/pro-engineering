@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateCoverage, routeJobToDriver, resolveEscalation } from './actions'
+import { updateCoverage, routeJobToDriver, resolveEscalation, escalateEscalationToSuperadmin } from './actions'
+import { TIER_LABEL, tierRank } from '@/lib/allocationPriority'
 
 export type DriverUser = {
   id: string
@@ -193,10 +194,12 @@ function EscalationRow({
   escalation,
   substageName,
   allWorkers,
+  tier,
 }: {
   escalation: Escalation
   substageName: string
   allWorkers: WorkerOption[]
+  tier: string
 }) {
   const router = useRouter()
   const candidates = allWorkers
@@ -206,6 +209,8 @@ function EscalationRow({
   const [slotDate, setSlotDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSuperadminBox, setShowSuperadminBox] = useState(false)
+  const [superadminRemark, setSuperadminRemark] = useState('')
 
   async function resolve() {
     if (!workerId || !slotDate) { setError('Pick a worker and a date.'); return }
@@ -217,10 +222,23 @@ function EscalationRow({
     router.refresh()
   }
 
+  async function escalateToSuperadmin() {
+    if (!superadminRemark.trim()) { setError('Add a remark explaining why no one platform-wide can fill this.'); return }
+    setBusy(true)
+    setError(null)
+    const res = await escalateEscalationToSuperadmin(escalation.id, superadminRemark.trim())
+    setBusy(false)
+    if (res.error) { setError(res.error); return }
+    router.refresh()
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-orange-200 shadow-sm p-5 space-y-3">
       <div>
-        <p className="text-sm font-bold text-gray-800">{escalation.booking_ref} — {escalation.trade}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-bold text-gray-800">{escalation.booking_ref} — {escalation.trade}</p>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border bg-gray-100 text-gray-600 border-gray-300">{TIER_LABEL[tier] ?? tier}</span>
+        </div>
         <p className="text-xs text-gray-500 mt-0.5">{substageName}</p>
         {escalation.remark && (
           <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-3 py-2 mt-2 italic">"{escalation.remark}"</p>
@@ -240,7 +258,21 @@ function EscalationRow({
         <button type="button" onClick={resolve} disabled={busy || !workerId} className="bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50">
           {busy ? 'Resolving…' : 'Resolve'}
         </button>
+        {candidates.length === 0 && !showSuperadminBox && (
+          <button type="button" onClick={() => setShowSuperadminBox(true)} className="text-xs font-semibold text-red-700 border border-red-300 px-3 py-2 rounded-xl">
+            Nobody platform-wide — Escalate to Superadmin
+          </button>
+        )}
       </div>
+      {showSuperadminBox && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+          <textarea value={superadminRemark} onChange={(e) => setSuperadminRemark(e.target.value)} placeholder="Why can nobody platform-wide fill this?" className="w-full border border-red-200 rounded-lg px-3 py-2 text-xs bg-white" rows={2} />
+          <div className="flex gap-2">
+            <button type="button" onClick={escalateToSuperadmin} disabled={busy} className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50">Send to Superadmin</button>
+            <button type="button" onClick={() => setShowSuperadminBox(false)} className="text-xs text-gray-500 px-3 py-2">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -250,6 +282,7 @@ export default function CoordinatorsTabs({
   geo,
   unroutedJobs,
   escalations,
+  escalationTiers,
   substageById,
   allWorkers,
 }: {
@@ -257,12 +290,18 @@ export default function CoordinatorsTabs({
   geo: GeoNode[]
   unroutedJobs: UnroutedJob[]
   escalations: Escalation[]
+  escalationTiers: Record<string, string>
   substageById: Record<string, { id: string; substage_code: string; substage_name: string }>
   allWorkers: WorkerOption[]
 }) {
   const [tab, setTab] = useState<'routing' | 'coverage' | 'escalations'>('routing')
   const states = geo.filter((g) => g.level === 'state')
   const zones = geo.filter((g) => g.level === 'zone')
+  // Highest-tier job's shortfall gets Admin's attention first -- same
+  // priority rule as the Coordinator's own Command Center.
+  const sortedEscalations = [...escalations].sort(
+    (a, b) => tierRank(escalationTiers[b.booking_ref]) - tierRank(escalationTiers[a.booking_ref]),
+  )
 
   return (
     <div className="space-y-5">
@@ -317,14 +356,15 @@ export default function CoordinatorsTabs({
             A Coordinator found nobody suitable in a job's zone for one of these trades and asked
             you to pick from every worker of that trade, platform-wide.
           </p>
-          {escalations.length > 0 ? (
+          {sortedEscalations.length > 0 ? (
             <div className="space-y-3">
-              {escalations.map((e) => (
+              {sortedEscalations.map((e) => (
                 <EscalationRow
                   key={e.id}
                   escalation={e}
                   substageName={substageById[e.substage_id]?.substage_code ?? e.substage_id}
                   allWorkers={allWorkers}
+                  tier={escalationTiers[e.booking_ref] ?? 'budget'}
                 />
               ))}
             </div>

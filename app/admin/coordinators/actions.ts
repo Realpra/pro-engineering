@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { allocateWorkerRange } from '../../coordinator/allocate/[bookingRef]/actions'
 
 async function requireAdminOrAbove() {
   const supabase = await createClient()
@@ -56,15 +57,14 @@ export async function resolveEscalation(
   const ctx = await requireAdminOrAbove()
   if ('error' in ctx) return ctx
 
-  const { error: slotErr } = await ctx.supabase.from('worker_day_slots').insert({
-    worker_id: workerId,
-    slot_date: slotDate,
-    booking_ref: bookingRef,
-    substage_code: substageCode,
-    assigned_by: ctx.userId,
-    status: 'assigned',
-  })
-  if (slotErr) return { error: slotErr.message }
+  // Reuses the exact same cross-job double-booking guard the Coordinator's
+  // own Command Center uses -- Admin resolving platform-wide must not be
+  // able to double-book a worker any more than a zone-scoped Coordinator can.
+  const rangeRes = await allocateWorkerRange({ bookingRef, substageCode, workerId, startDate: slotDate, endDate: slotDate, skipSundays: false })
+  if (rangeRes.error) return { error: rangeRes.error }
+  if ((rangeRes.conflicts?.length ?? 0) > 0) {
+    return { error: `That worker is already booked on ${rangeRes.conflicts![0].bookingRef} that day.` }
+  }
 
   const { error } = await ctx.supabase
     .from('worker_allocation_escalations')
@@ -79,6 +79,31 @@ export async function resolveEscalation(
 
   revalidatePath('/admin/coordinators')
   revalidatePath(`/coordinator/allocate/${bookingRef}`)
+  revalidatePath('/coordinator/allocate')
+  return {}
+}
+
+// Admin exhausted the platform-wide pool too -- the last hop in the chain
+// the project owner specified (Coordinator -> own zones -> Admin ->
+// Superadmin). Superadmin resolves it the same way, or accepts the gap.
+export async function escalateEscalationToSuperadmin(
+  escalationId: string,
+  remark: string,
+): Promise<{ error?: string }> {
+  const ctx = await requireAdminOrAbove()
+  if ('error' in ctx) return ctx
+  const { error } = await ctx.supabase
+    .from('worker_allocation_escalations')
+    .update({
+      status: 'escalated_to_superadmin',
+      escalated_to_superadmin_at: new Date().toISOString(),
+      escalated_to_superadmin_by: ctx.userId,
+      escalated_to_superadmin_remark: remark,
+    })
+    .eq('id', escalationId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/coordinators')
+  revalidatePath('/superadmin/allocation')
   return {}
 }
 

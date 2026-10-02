@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { allocateWorkerRange, removeAllocation, escalateAllocation } from './[bookingRef]/actions'
+import { TIER_LABEL, TIER_COLOR, sortByTierDesc, tierRank } from '@/lib/allocationPriority'
 
 export type Job = {
   booking_ref: string
@@ -289,6 +290,7 @@ function SubstageCalendarRow({
 
 function JobCard({
   job,
+  tier,
   substages,
   workers,
   slots,
@@ -296,6 +298,7 @@ function JobCard({
   workerNameById,
 }: {
   job: Job
+  tier: string
   substages: Substage[]
   workers: WorkerOption[]
   slots: SlotRow[]
@@ -323,7 +326,12 @@ function JobCard({
       <div className="bg-[#1F3864] px-5 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-blue-300 text-xs font-semibold">{job.booking_ref}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-blue-300 text-xs font-semibold">{job.booking_ref}</p>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_COLOR[tier]}`} title="Job category -- decided at estimate finalization, drives shortfall/excess priority">
+                {TIER_LABEL[tier] ?? tier}
+              </span>
+            </div>
             <p className="text-white font-bold text-sm mt-0.5 leading-snug truncate">{job.job_title ?? 'Job'}</p>
             <p className="text-blue-300 text-xs mt-0.5">{[job.zone, job.district].filter(Boolean).join(', ')}{job.contact_name ? ` · ${job.contact_name}` : ''}</p>
           </div>
@@ -356,6 +364,73 @@ function JobCard({
   )
 }
 
+function IdleWorkerRow({
+  worker,
+  demandRows,
+  today,
+}: {
+  worker: WorkerOption
+  demandRows: { booking_ref: string; jobTitle: string | null; tier: string; substage_code: string; substage_name: string; trade: string | null }[]
+  today: string
+}) {
+  const router = useRouter()
+  const [target, setTarget] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  // Same trade first (the normal case); every other open substage stays
+  // pickable too, in case the Coordinator judges a cross-trade stand-in is
+  // worth it for one day rather than leaving someone idle.
+  const sameTrade = demandRows.filter(d => d.trade === worker.trade)
+  const otherTrade = demandRows.filter(d => d.trade !== worker.trade)
+
+  async function deploy() {
+    if (!target) return
+    const [bookingRef, substageCode] = target.split('::')
+    setBusy(true); setResult(null)
+    const res = await allocateWorkerRange({ bookingRef, substageCode, workerId: worker.id, startDate: today, endDate: today, skipSundays: false })
+    setBusy(false)
+    if (res.error) { setResult(res.error); return }
+    setResult((res.booked?.length ?? 0) > 0 ? 'Deployed today' : 'Already booked there today')
+    setTarget('')
+    router.refresh()
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 bg-white rounded-lg px-3 py-2 border border-sky-100">
+      <span className="text-xs text-gray-700 font-semibold min-w-[160px]">
+        {worker.full_name} <span className="text-gray-400 font-normal">· {worker.trade} · {(worker.skill_level ?? '').replace('_', ' ')} · {(worker.zones ?? []).join(', ') || 'no zone'}</span>
+      </span>
+      <select value={target} onChange={e => setTarget(e.target.value)} className="flex-1 min-w-[200px] text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50">
+        <option value="">Deploy to…</option>
+        {sameTrade.length === 0 && otherTrade.length === 0 && <option disabled>No open demand right now — flag for a non-schedule job</option>}
+        {sameTrade.length > 0 && (
+          <optgroup label={`${worker.trade} demand`}>
+            {sameTrade.map(d => (
+              <option key={`${d.booking_ref}::${d.substage_code}`} value={`${d.booking_ref}::${d.substage_code}`}>
+                {d.booking_ref} — {d.substage_name} ({TIER_LABEL[d.tier] ?? d.tier})
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {otherTrade.length > 0 && (
+          <optgroup label="Other trades (cross-deploy for the day)">
+            {otherTrade.map(d => (
+              <option key={`${d.booking_ref}::${d.substage_code}`} value={`${d.booking_ref}::${d.substage_code}`}>
+                {d.booking_ref} — {d.substage_name} · {d.trade} ({TIER_LABEL[d.tier] ?? d.tier})
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+      <button type="button" onClick={deploy} disabled={busy || !target} className="text-xs font-bold bg-sky-700 text-white px-3 py-1.5 rounded-lg disabled:opacity-50">
+        {busy ? '…' : 'Deploy Today'}
+      </button>
+      {result && <span className="text-xs text-sky-700">{result}</span>}
+    </div>
+  )
+}
+
 export default function CommandCenter({
   zones,
   activeZone,
@@ -365,6 +440,9 @@ export default function CommandCenter({
   slots,
   escalations,
   pendingPlan,
+  jobTiers,
+  idleWorkersToday,
+  today,
 }: {
   zones: string[]
   activeZone: string | null
@@ -374,12 +452,26 @@ export default function CommandCenter({
   slots: SlotRow[]
   escalations: Escalation[]
   pendingPlan: PendingPlanJob[]
+  jobTiers: Record<string, string>
+  idleWorkersToday: WorkerOption[]
+  today: string
 }) {
   const workerNameById = Object.fromEntries(workers.map(w => [w.id, w.full_name]))
 
   const jobsWithSubstages = jobs
     .map(j => ({ job: j, substages: substages.filter(s => s.booking_ref === j.booking_ref) }))
     .filter(x => x.substages.length > 0)
+    .sort((a, b) => tierRank(jobTiers[b.job.booking_ref]) - tierRank(jobTiers[a.job.booking_ref]))
+
+  // Flat open-demand list for the Idle Workers panel's "deploy to" picker --
+  // every visible job's substages, tagged with the job's own tier, sorted
+  // highest tier first (same priority rule as the shortfall ranking above).
+  const demandRows = sortByTierDesc(
+    jobsWithSubstages.flatMap(({ job, substages: ss }) =>
+      ss.map(s => ({ booking_ref: job.booking_ref, jobTitle: job.job_title, tier: jobTiers[job.booking_ref] ?? 'budget', substage_code: s.substage_code, substage_name: s.substage_name, trade: s.trade_type })),
+    ),
+    jobTiers,
+  )
 
   return (
     <div className="space-y-5">
@@ -432,6 +524,7 @@ export default function CommandCenter({
           <JobCard
             key={job.booking_ref}
             job={job}
+            tier={jobTiers[job.booking_ref] ?? 'budget'}
             substages={jobSubstages}
             workers={workers}
             slots={slots}
@@ -440,6 +533,24 @@ export default function CommandCenter({
           />
         ))}
       </div>
+
+      {/* EXCESS / IDLE — the other half of the demand-supply picture: workers
+          on the books with nothing booked for them today. Per the project
+          owner's rule, these should be proactively offered to open demand
+          (highest tier first) rather than left invisible -- "keeping a
+          worker enrolled and not giving them a job is also not good." */}
+      {idleWorkersToday.length > 0 && (
+        <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4">
+          <p className="text-xs font-bold text-sky-700 uppercase tracking-wide mb-2">
+            Idle Today, Available to Deploy — {idleWorkersToday.length}
+          </p>
+          <div className="space-y-1.5">
+            {idleWorkersToday.map(w => (
+              <IdleWorkerRow key={w.id} worker={w} demandRows={demandRows} today={today} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
