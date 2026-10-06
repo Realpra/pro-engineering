@@ -2362,3 +2362,137 @@ question seed, `/admin/trade-questions`, Screen 4's SKIP pagination) is now genu
   remarks trail).
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 — 2-6 Oct 2026 — COORDINATOR ALLOCATION REBUILT (5 COMMITS, LIVE), THEN A LONG
+## DYNAMIC-CASCADING-SCHEDULER DESIGN STUDY (4 EXCEL DELIVERABLES, NO CODE)
+
+**Part 1 (2 Oct 2026) — real code, 5 commits, confirmed on `master`.** Project owner rejected the
+existing per-job Coordinator allocation screen as "too casual" and demanded real research into
+industry practice before any redesign -- explicit instruction: research five top global companies
+first, then build only what that research justified.
+- Researched ServiceTitan, Procore, Oracle Primavera P6, Deputy, and BuildOps: all five aggregate
+  demand (zone x day x trade x skill) and supply (zone/skill-tagged workers) on ONE board before
+  any individual worker is opened, and all five act on a date range, not a single date. Project
+  owner: "VERY CLEAR WAY TO OPERATE. THAT IS WHAT WE SHALL DO."
+- `c2721a2` -- built `app/coordinator/allocate` (Command Center): zone tabs -> job cards for every
+  job with a live `job_milestone_substages` row that day (the real work-program dates fixed at
+  estimate approval, not a `guest_enquiries.status` label) -> trade/skill demand rows -> worker
+  picker printing each candidate's own real zones. `allocateWorkerRange` replaced one-click-per-
+  day assignment with a single range action (defaulting to the substage's own early_start/
+  early_finish dates), checking `worker_day_slots` across EVERY booking first -- closing a real
+  cross-job double-booking bug.
+- `4a8cae6` -- project owner found the first cut still a single-day flip view, not the "full
+  calendar that keeps increasing" the research called for, and unreachable from where a
+  Coordinator actually lands. Rebuilt as a full-duration scrollable calendar; added the dashboard
+  nav tile + banner that had never linked to it.
+- `4844dc3` -- project owner's detailed rule: jobs fall into 3 categories (general/premium/
+  higher), and a shortage fills the highest-category job first, cascading down, never disturbing
+  a worker already placed on a lower tier. Found this category already exists live as
+  `boq_generated.tier` ('budget'/'premium'/'luxury') -- reused as-is (`lib/allocationPriority.ts`),
+  no new field invented. Job cards now sort/badge by tier; zone tabs scope to the Coordinator's
+  own `users.coverage_zones` (Admin/Superadmin stay unscoped); new "Idle Today, Available to
+  Deploy" panel surfaces unbooked workers against open demand instead of leaving them invisible
+  ("keeping a worker enrolled and not giving them a job is also not good -- workers drift away").
+  Admin's escalation tab gets the chain's missing last hop, "Escalate to Superadmin." Migration
+  `20261002_allocation_tier_priority_superadmin_escalation.sql` -- **confirmed run live**.
+- `e3dc5b7` -- built `/admin/allocation` and `/superadmin/allocation`: a shared Trade x Day
+  capacity matrix (`lib/capacityMatrix.ts`, demand from `job_milestone_substages`, supply from
+  `worker_day_slots` joined to `workers`), per the owner's rule that Superadmin sees Trade x Day
+  only ("may clutter") while Admin additionally gets a Skill Level toggle plus the real decision
+  points -- pending escalations and client-discussion jobs needing expediting.
+- `abe570f` -- **real bug caught by live click-through, 2 Oct 2026**: a real Coordinator's Command
+  Center showed "All Zones (0)" despite a real job sitting in his own covered zone. Root cause:
+  `users.coverage_zones` stores ZONE-level `geo_hierarchy` names, `guest_enquiries.zone`/
+  `workers.zones` store SECTOR-level names -- a different level of the same hierarchy, so a plain
+  string match can never work. `lib/zoneCoverage.ts` resolves this for real through the actual
+  `geo_zone_sector_coverage` junction table. Fixed in 3 places sharing the exact same broken
+  pattern: the new Command Center itself, plus two PRE-EXISTING Session 68 bugs this same root
+  cause surfaced along the way (`app/admin/coordinators/CoordinatorsTabs.tsx`'s driver-matching,
+  `ConfirmExecutionPanel.tsx`'s coordinator-matching).
+- **Live-test status, stated plainly**: only the zone/sector fix itself was confirmed via a real
+  live click-through. The rest of this build -- tier-priority sorting, the Idle-Workers deploy
+  panel, the Admin->Superadmin escalation chain, both capacity-matrix screens -- has NOT been
+  separately live-clicked end to end. `master` is confirmed current (`git rev-parse HEAD` ==
+  `origin/master` == `abe570f`, working tree clean) -- the code is live on
+  `pro-engineering.vercel.app`, but "live" and "live-tested" are not the same claim here.
+
+**Part 2 (2-6 Oct 2026) — a long design study, zero code, 4 Excel deliverables, none committed**
+(same standing convention as every prior review-stage workbook in this project -- delivered
+directly to the project owner for their own-pace review, not pushed to the repo). Began when the
+project owner asked, before any more code: "what will the screens contain for coordinator. give
+in excel... else we are wasting time, energy, tokens, sessions."
+- **Workbook 1 -- "Coordinator_Allocation_Screens.xlsx"** (10 sheets): documented the 7 screens as
+  they exist in the code above, exactly as built, no new ideas -- flagged one real inconsistency
+  found while re-reading the code (`app/coordinator/allocate/[bookingRef]/AllocationPanel.tsx`
+  still uses an older plain-list pattern, no calendar strip, unlike the Command Center it sits
+  beside) and one clearly-separated PROPOSED-NOT-BUILT idea (a zone-wide aggregate trade shortfall
+  check), per the standing rule never to blur "what's live" with "what's only an idea."
+- Project owner rejected this as answering the wrong question -- "WHAT IS EXISTING... IS NOT BEING
+  DISCUSSED... GIVE ME FRESH SCREEN/PAGES BUILD." **Workbook 2 --
+  "Coordinator_Fresh_Design.xlsx"** (12 sheets): the full Coordinator role redesigned from zero,
+  zero references to existing code/tables, built only on the 8 standards from the 5-company
+  study -- Command Home, Job & Demand Pipeline, Workforce Roster, Allocation Board (incl. an
+  aggregate Trade x Day matrix that catches a zone-wide shortfall even when each individual job's
+  own picker still shows a candidate), Shortfall Escalation, Estimate Console, Client Negotiation,
+  Payment Tracker, Zone Coverage, Reports/Procurement.
+- Project owner then shared two real Adecco Switzerland workforce-scheduling spreadsheets
+  (AM/PM fractional split-shift duration, Match Score, Swiss-law compliance check, an Operational
+  Action Trigger column, a day-grain Candidate Supply ledger) and asked for the equivalent built
+  for construction trades, specifically to handle a half-day need being redeployed elsewhere
+  instead of wasting a whole worker-day. **Workbook 3 --
+  "Coordinator_Fractional_Demand_Supply.xlsx"** (3 sheets, illustrative data): a Demand Board and
+  Supply Register mirroring Adecco's own mechanic directly.
+- Project owner then raised the harder problem: variable job lengths, different skills on
+  different days, mid-job delays that redefine the remaining plan with recast skills/
+  proficiency, and workers becoming free mid-delay. Across several rounds of back-and-forth
+  (notice-timing protocol, force-majeure handling, the glued-vs-independent day distinction,
+  a full +1/0/-1/-2/-3 proficiency-deviance ladder, adjoining/extended zones as a second supply
+  fallback with travel-time and a donor-zone-capacity check, all explicitly accepted by the
+  project owner one at a time) this produced **Workbook 4, in two passes**:
+  first "Coordinator_Dynamic_Demand_Supply_Schema.xlsx" (6 entities: Job Master, Plan Template,
+  Task Ledger, Delay/Event Log, Worker Supply Ledger, Match Log, with an 8-step cascading
+  algorithm -- Define/Materialize/Execute/Disrupt/Recast/Release/Match/Escalate), then
+  "Coordinator_Master_Data_Catalogue.xlsx" adding the 10 reference/event tables the refinement
+  rounds required (Worker Master, Zone Master + Adjacency, Compliance/Deviance/Tier/Trade
+  policies, Continuity Block, External Event, Human Decision Log).
+- **Real self-caught error worth recording**: the project owner then pointed out that this last
+  catalogue had quietly DROPPED real fields from the original Adecco sheets during normalization
+  -- Match Score, Compliance Check, and the Operational Action Trigger were moved into separate
+  audit tables instead of staying visible on the demand row the way Adecco itself showed them;
+  Duration Mode's actual clock times, an explicit Active Slot label, a worker's own personal
+  Mobility Radius, and denormalized Client Name/Project Start Date had all been silently lost too.
+  Audited column-by-column against both original uploads, confirmed all 7 omissions, found no
+  good reason to leave any of them out, and delivered a final, consolidated **14-sheet
+  "Coordinator_Complete_Dynamic_Scheme.xlsx"** restoring every one of them (marked ★ throughout)
+  on top of the full cascading mechanic -- this supersedes Workbook 4's two files and is the one
+  to treat as current.
+- **Nothing from Part 2 has been built in code.** All four workbooks are pure design/schema
+  study, delivered only, awaiting the project owner's own review and an explicit go-ahead on
+  which pieces (if any) to actually implement -- consistent with this session's own standing
+  instruction, given directly by the project owner mid-session: "if you are not to do exactly
+  what i am asking then ask first."
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 6 Oct 2026, Session 70)
+- **The 5-commit Coordinator allocation rebuild (Part 1 above) is live on `master` but only
+  partly live-tested.** Before treating it as done: live-click the full flow as a real Coordinator
+  -- tier-sorted job cards, the Idle-Workers-Today deploy panel, an actual Escalate-to-Admin ->
+  Escalate-to-Superadmin round trip, and both `/admin/allocation`/`/superadmin/allocation`
+  capacity-matrix screens. Only the zone/sector fix itself (`abe570f`) has a real live-click
+  confirmation so far.
+- **Part 2's 4 Excel deliverables are pure design study, not yet actioned.** The current,
+  authoritative one is `Coordinator_Complete_Dynamic_Scheme.xlsx` (14 sheets) -- it supersedes the
+  other 3. Nothing in it should be built until the project owner reviews it and says which pieces
+  (if any) to implement; do not start coding any part of the dynamic-cascading-reschedule design
+  without that explicit go-ahead, per the project owner's own standing instruction this session.
+  None of these 4 workbooks were committed to the repo -- they live only where they were
+  delivered, same convention as every prior review-stage workbook in this project.
+  if/when work resumes on them, re-derive their content from this session's own delivered files
+  rather than assuming a prior summary captured every field correctly -- this session's own
+  experience (the 7 omitted Adecco fields) is the concrete reason not to skip that check.
+- Still carried from Session 69, not yet actioned: the full onboarding-approval-chain items
+  (Sub-Coordinator's scoped job/estimate screens, the ordinary/premium/highest skill-substitution
+  ranking, the premium/rebate en-bloc write-back into `boq_generated`), and every "not yet
+  live-tested" item listed in Session 69's own NEXT SESSION note above.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
