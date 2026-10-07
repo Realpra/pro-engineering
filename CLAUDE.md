@@ -2588,3 +2588,79 @@ be checked and corrected accordingly.
   every "not yet live-tested" item listed in Session 69's own NEXT SESSION note.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 7 Oct 2026 — GO-AHEAD GIVEN, FOUNDATION MIGRATION BUILT + VERIFIED
+Project owner sent their own revised copies of 2 of the 3 outstanding files (`Coordinator_Fresh_
+Design_02CT26.xlsx`, `Revised_Coordinator_Complete_Dynamic_Scheme_3...xlsx`) plus a re-upload of
+the Word doc (confirmed byte-identical to the original annotated draft -- nothing new there).
+Diffed both Excel files cell-by-cell against the saved originals (not just red-marked cells, since
+one real edit in the Dynamic Scheme file turned out to be plain-text with no color change):
+- `Coordinator_Fresh_Design` -- 100% clean additions confirmed (every diff was OLD=None), plus 2
+  new sheets (Staff Payment Log, an alternate Worker Onboarding screen) -- explicitly deferred by
+  the project owner ("leave this now, will confuse"), not in scope for this build.
+- Dynamic Scheme file -- 2 real content edits needing clarification before encoding, asked rather
+  than guessed: the deviance ladder's range, and an ambiguous insertion into
+  `operational_action_trigger`'s enum list.
+**Project owner's answers, both real corrections to the design, not just confirmations**:
+1. **Deviance ladder widened to a real, symmetric -3..+3** (not the -3..+1 range this schema
+   previously had) -- derived from a confirmed 0-5 worker skill-grade scale (1 = minimum
+   onboarding admittance, Regular floor = 1, Premium floor = 3, Platinum floor = 4).
+2. **Walk order corrected** -- the negative (cheaper, lower-standard) side is exhausted FIRST and
+   FULLY (0 -> -1 -> -2 -> -3, for cost-economy reasons), and only once fully exhausted does the
+   engine fall back to the positive (over-qualified, costlier) side as a last resort (+1 -> +2 ->
+   +3) before NO SUPPLY. This reverses the original design, which checked +1 immediately after 0.
+Both design files (`docs/deliverables/coordinator_dynamic_scheme/`) updated to match: new "10B-i
+Skill Grade Scale" reference table, Deviance Policy widened to 7 symmetric rows (action column
+marked explicitly as a proposed default, not yet owner-confirmed row-by-row), the Word doc's C3
+step and its own changelog corrected to match. Saved back to the repo byte-identical to what's
+now current.
+
+**Then: explicit go-ahead given** -- "NOW BUILD COORDINATOR all that is there with other roles
+input and output included." Confirmed via direct answers to the 4 pre-build questions asked: (1)
+reuse every already-frozen table/field where the real concept exists, new tables only for
+genuinely new concepts, same live Supabase Postgres (not a separate DB); (2) Coordinator's new
+engine/screens built additive-only, zero edits to existing live Coordinator pages until proven,
+other roles migrated one at a time after; (3) the full earmarked schema gets built now, not
+drip-fed; (4) purely-additive build order, matching engine as one isolated shared module (Phase
+E's recast literally reuses C1-C5's own match process), staged rollout with a live-test gate
+between phases.
+
+**Migration built and VERIFIED, not just written** (`supabase/migrations/20261007_coordinator_
+dynamic_scheduling_engine.sql`): mapped the 17-table Dynamic Scheme onto the live schema --
+**Job Master -> `guest_enquiries`** (extended), **Plan Template -> `job_milestone_substages`**
+(a real finding: this ALREADY EXISTS live, not duplicated -- Task Ledger materializes off its
+early_start/early_finish/headcount fields, never re-typed), **Worker Master -> `workers`**
+(extended with `skill_grade`/`mobility_radius_km`, kept alongside the existing `skill_level` text
+bucket, not replacing it), **Zone Master -> `geo_hierarchy`** (already live), **Trade Master ->
+`trade_config`** (extended with `skill_bucket`). Genuinely new tables, no existing counterpart:
+`job_tier_master`, `zone_adjacency`, `compliance_policy`, `deviance_policy`, `task_ledger`,
+`saviors`, `continuity_block`, `external_event`, `delay_event_log`, `worker_supply_ledger`,
+`match_log`, `human_decision_log`.
+- This sandbox has no Supabase network access (standing constraint), so instead of just writing
+  the SQL and hoping, a REAL local PostgreSQL 16 instance was spun up (already installed in this
+  container) with a scaffold schema matching every confirmed-live column the migration touches
+  (verified via grep against actual app code reads, e.g. `workers.trade/skill_level/zones`,
+  `job_milestone_substages`' exact select list from `app/coordinator/allocate/page.tsx`) --
+  the full migration was run against it twice (first run, then a second run against the same
+  database) to catch both real syntax errors and idempotency bugs. **Found and fixed one real
+  bug this way**: the two `task_ledger` FK-adding `ALTER TABLE ... ADD CONSTRAINT` statements
+  (to `saviors`/`continuity_block`, added after those tables, since task_ledger references them
+  forward) had no `DROP CONSTRAINT IF EXISTS` guard, so a second run failed -- fixed to match the
+  same idempotent pattern already used elsewhere in the file. Re-verified clean on both runs
+  after the fix.
+- **One flagged assumption, not silently guessed**: `job_milestone_substages` has no migration
+  file at all (live-only, confirmed in this project's own standing record), so its `id` column's
+  exact type couldn't be confirmed from this sandbox. Assumed UUID (matching this codebase's own
+  universal convention and the UUID typing already used for `workers.current_substage_id`
+  elsewhere) -- flagged directly in the migration file's own comment, with the one-line fix if
+  that assumption turns out wrong.
+- **Not yet built, explicitly next**: the matching engine itself (the deviance-walk/zone-
+  adjacency-fallback/Saviors-fallback logic as isolated, shared functions) and the actual
+  Coordinator UI screens (Command Home, Allocation Board, etc.) reading/writing this schema.
+  Per the agreed build order, schema comes first, live-test gate between phases -- this entry is
+  the schema phase.
+- This migration has **NOT been run in Supabase yet** -- same standing pattern as every other
+  migration this project has shipped: written and locally verified here, needs to be run by the
+  project owner (or a session with real Supabase access) before the next phase can build against
+  real data.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

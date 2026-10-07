@@ -1643,3 +1643,39 @@ checked and corrected accordingly.
 - No app code changed this entry.
 - Full detail in CLAUDE.md, same discipline as every prior entry.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 7 Oct 2026 — GO-AHEAD GIVEN, FOUNDATION MIGRATION BUILT + VERIFIED
+Project owner sent revised copies of the Fresh Design and Dynamic Scheme workbooks plus the Word
+doc (confirmed byte-identical to the original annotated draft). Diffed both Excel files cell-by-
+cell against saved originals, not just red cells -- caught one real edit that had no color change.
+Fresh Design was 100% clean additions (Staff Payment Log, an alternate Worker Onboarding screen --
+both explicitly deferred by the project owner). Dynamic Scheme had 2 real edits needing
+clarification: the deviance ladder's range and an ambiguous enum-list insertion. Asked rather than
+guessed; got back two real corrections: the ladder widens to a symmetric -3..+3 (from a confirmed
+0-5 skill-grade scale, floors Regular=1/Premium=3/Platinum=4), and the walk order is corrected --
+negative side exhausted fully first (cost economy), positive side only as a last resort. Both
+design files updated and saved to match.
+
+Then: explicit go-ahead to build Coordinator, confirmed via 4 pre-build questions -- reuse frozen
+fields where the concept exists, new tables only for genuinely new concepts, same live Postgres;
+additive-only build, other roles migrated after; full schema now, not drip-fed; staged build order
+with a live-test gate between phases.
+
+Migration built and VERIFIED (`20261007_coordinator_dynamic_scheduling_engine.sql`): mapped the
+17-table Dynamic Scheme onto the live schema -- Job Master->guest_enquiries, Plan Template->
+job_milestone_substages (a real finding: already exists live, not duplicated), Worker Master->
+workers (extended, old skill_level bucket kept untouched), Zone Master->geo_hierarchy, Trade
+Master->trade_config; 12 genuinely new tables for concepts with no live counterpart. No Supabase
+access in this sandbox, so a real local PostgreSQL 16 instance was spun up with a scaffold schema
+matching every confirmed-live column, and the full migration run against it twice to catch both
+syntax errors and idempotency bugs -- found and fixed one real bug this way (two FK-adding ALTER
+statements missing a DROP-IF-EXISTS guard, failed on the second run). Re-verified clean after the
+fix. One flagged assumption: job_milestone_substages has no migration file, so its id column's
+type was assumed UUID (matching this codebase's universal convention) rather than guessed
+silently -- flagged in the migration's own comment.
+
+Not yet built, explicitly next: the matching engine (deviance-walk/zone-adjacency/Saviors fallback
+logic as isolated shared functions) and the actual Coordinator UI screens. This migration has NOT
+been run in Supabase yet -- needs the project owner to run it before the next phase can build
+against real data.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
