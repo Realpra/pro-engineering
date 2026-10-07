@@ -1,0 +1,218 @@
+// Phase C1-C5 — the core matching orchestrator. One slot in, one outcome out: a booked
+// worker, a proposed-pending-Coordinator-decision candidate, or NO SUPPLY. Every candidate
+// actually considered is logged to match_log, selected or not — "the algorithm's own audit
+// trail" (README). This is the ONE matching engine Phase C1's own open question confirmed:
+// used identically whether the slot came from a brand-new job, an ongoing job's reschedule,
+// or a disruption-triggered recast (recast.ts calls this same function, never its own copy).
+//
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = any
+
+import { resolveActionForLevel, getDeviancePolicyRows, devianceLevelFor } from './deviancePolicy'
+import { findAvailableCandidates } from './availability'
+import { getZoneIdsForSectorName, getAdjoiningZones, getSectorNamesForZoneId, donorZoneHasSpareCapacity } from './zoneAdjacency'
+import { DEVIANCE_WALK_ORDER } from './types'
+import type { MatchResult, TaskLedgerRow, DeviancePolicyRow } from './types'
+
+function matchScoreLabel(level: number): string {
+  if (level === 0) return '100% Fit'
+  if (level > 0) return `${100 + level * 5}% Fit`
+  return `${100 + level * 15}% Match`
+}
+
+/**
+ * Runs the full Phase C1-C5 process for one open Task Ledger slot. Writes every candidate
+ * considered to match_log (selected: true/false), and on a real match, updates the slot row
+ * itself (assigned_worker_id only when the policy action is AUTO_BOOK — an ASK_COORDINATOR
+ * result is returned as pendingCoordinatorDecision and must be confirmed via
+ * confirmDevianceMatch() before any worker is actually booked).
+ */
+export async function matchSlot(supabase: AnyClient, slotId: string): Promise<MatchResult> {
+  const { data: slot, error: slotError } = await supabase
+    .from('task_ledger')
+    .select('*')
+    .eq('slot_id', slotId)
+    .maybeSingle()
+  if (slotError) throw new Error(`matchSlot (slot): ${slotError.message}`)
+  if (!slot) throw new Error(`matchSlot: slot ${slotId} not found`)
+  const typedSlot = slot as TaskLedgerRow
+
+  const { data: job, error: jobError } = await supabase
+    .from('guest_enquiries')
+    .select('zone, category_tier')
+    .eq('booking_ref', typedSlot.booking_ref)
+    .maybeSingle()
+  if (jobError) throw new Error(`matchSlot (job): ${jobError.message}`)
+  const tier = job?.category_tier ?? 'Regular'
+
+  const { data: tierRow, error: tierError } = await supabase
+    .from('job_tier_master')
+    .select('skill_floor')
+    .eq('tier_name', tier)
+    .maybeSingle()
+  if (tierError) throw new Error(`matchSlot (tier): ${tierError.message}`)
+  const skillFloor = tierRow?.skill_floor ?? 1
+
+  const policyRows = await getDeviancePolicyRows(supabase, typedSlot.required_skill_code, tier)
+  const shiftWindow = typedSlot.shift_window
+
+  // C1-C3: own zone, full -3..+3 walk, negative side first.
+  const ownZoneSectors = job?.zone ? [job.zone] : []
+  const result = await tryZone(
+    supabase, typedSlot, slotId, ownZoneSectors, skillFloor, policyRows, tier, shiftWindow, 'OWN_ZONE'
+  )
+  if (result) return result
+
+  // C4: adjoining zones, donor-capacity-checked, confirmed mandatory not optional.
+  if (job?.zone) {
+    const fromZoneIds = await getZoneIdsForSectorName(supabase, job.zone)
+    for (const fromZoneId of fromZoneIds) {
+      const adjoiningZoneIds = await getAdjoiningZones(supabase, fromZoneId)
+      for (const toZoneId of adjoiningZoneIds) {
+        const donorSectors = await getSectorNamesForZoneId(supabase, toZoneId)
+        if (donorSectors.length === 0) continue
+        const hasSpare = await donorZoneHasSpareCapacity(supabase, {
+          donorZoneSectorNames: donorSectors,
+          trade: typedSlot.required_skill_code,
+          targetDate: typedSlot.target_date,
+        })
+        if (!hasSpare) continue
+        const adjResult = await tryZone(
+          supabase, typedSlot, slotId, donorSectors, skillFloor, policyRows, tier, shiftWindow, 'ADJOINING_ZONE'
+        )
+        if (adjResult) return adjResult
+      }
+    }
+  }
+
+  // C5: genuine NO SUPPLY — logged, flagged, never silently dropped. Saviors is a deliberate
+  // follow-up human action (fillSlotWithSavior), never auto-invoked here.
+  await supabase
+    .from('task_ledger')
+    .update({
+      match_score: '0% Match',
+      compliance_check_status: 'NO SUPPLY',
+      operational_action_trigger: 'ESCALATE_TO_ADMIN',
+    })
+    .eq('slot_id', slotId)
+
+  return {
+    outcome: 'NO_SUPPLY',
+    operational_action_trigger: 'ESCALATE_TO_ADMIN',
+    via: 'NONE',
+  }
+}
+
+async function tryZone(
+  supabase: AnyClient,
+  slot: TaskLedgerRow,
+  slotId: string,
+  sectorNames: string[],
+  skillFloor: number,
+  policyRows: DeviancePolicyRow[],
+  tier: string,
+  shiftWindow: 'AM' | 'PM' | 'FULL_DAY',
+  via: 'OWN_ZONE' | 'ADJOINING_ZONE'
+): Promise<MatchResult | null> {
+  if (sectorNames.length === 0) return null
+
+  for (const level of DEVIANCE_WALK_ORDER) {
+    const action = resolveActionForLevel(policyRows, slot.required_skill_code, tier, level)
+    if (!action || action === 'NOT_ALLOWED') continue
+
+    const requiredGrade = skillFloor + level
+    const candidates = await findAvailableCandidates(supabase, {
+      trade: slot.required_skill_code,
+      zones: sectorNames,
+      targetDate: slot.target_date,
+      shiftWindow,
+    })
+    const atThisLevel = candidates.filter((c) => c.skill_grade === requiredGrade)
+    if (atThisLevel.length === 0) continue
+
+    // Log every candidate at this level considered — not just the winner.
+    const winner = atThisLevel[0]
+    for (const c of atThisLevel) {
+      await supabase.from('match_log').insert({
+        slot_id: slotId,
+        candidate_worker_id: c.id,
+        target_date: slot.target_date,
+        skill_match_pct: matchScoreLabel(devianceLevelFor(c.skill_grade ?? requiredGrade, skillFloor)),
+        deviance_level_applied: level,
+        proficiency_ok: true,
+        compliance_ok: true,
+        selected: c.id === winner.id,
+        decision_reason:
+          c.id === winner.id
+            ? `Selected at deviance ${level} (${via === 'OWN_ZONE' ? 'own zone' : 'adjoining zone'}), policy action ${action}.`
+            : `Considered at deviance ${level}, not selected (first-eligible-wins).`,
+      })
+    }
+
+    const matchScore = matchScoreLabel(level)
+    const pendingCoordinatorDecision = action === 'ASK_COORDINATOR'
+    await supabase
+      .from('task_ledger')
+      .update({
+        assigned_worker_id: pendingCoordinatorDecision ? null : winner.id,
+        match_score: matchScore,
+        deviance_level_applied: level,
+        compliance_check_status: 'COMPLIANT',
+        operational_action_trigger: pendingCoordinatorDecision
+          ? 'BUILD_UPSKILL_SUPERVISE'
+          : shiftWindow === 'FULL_DAY'
+            ? 'DISPATCH_FULL'
+            : shiftWindow === 'AM'
+              ? 'DISPATCH_AM'
+              : 'DISPATCH_PM',
+      })
+      .eq('slot_id', slotId)
+
+    return {
+      outcome: 'MATCHED',
+      assignedWorkerId: winner.id,
+      deviance_level_applied: level,
+      match_score: matchScore,
+      compliance_check_status: 'COMPLIANT',
+      operational_action_trigger: pendingCoordinatorDecision ? 'BUILD_UPSKILL_SUPERVISE' : 'DISPATCH_FULL',
+      via,
+      action,
+      pendingCoordinatorDecision,
+    }
+  }
+  return null
+}
+
+/**
+ * Confirms an ASK_COORDINATOR match proposed by matchSlot(): actually books the worker, and
+ * records the human decision — "recorded in Human Decision Log as a Deviance Acceptance,
+ * linked by related_match_attempt_id to the exact Match Log row it approved."
+ */
+export async function confirmDevianceMatch(
+  supabase: AnyClient,
+  params: { slotId: string; workerId: string; decidedByUserId: string; notes?: string }
+): Promise<void> {
+  const { data: matchLogRow, error: matchLogError } = await supabase
+    .from('match_log')
+    .select('match_attempt_id')
+    .eq('slot_id', params.slotId)
+    .eq('candidate_worker_id', params.workerId)
+    .eq('selected', true)
+    .maybeSingle()
+  if (matchLogError) throw new Error(`confirmDevianceMatch (match_log): ${matchLogError.message}`)
+
+  const { error: updateError } = await supabase
+    .from('task_ledger')
+    .update({ assigned_worker_id: params.workerId, operational_action_trigger: 'DISPATCH_FULL' })
+    .eq('slot_id', params.slotId)
+  if (updateError) throw new Error(`confirmDevianceMatch (task_ledger): ${updateError.message}`)
+
+  const { error: decisionError } = await supabase.from('human_decision_log').insert({
+    decision_type: 'Deviance Acceptance',
+    related_slot_id: params.slotId,
+    related_match_attempt_id: matchLogRow?.match_attempt_id ?? null,
+    decided_by: params.decidedByUserId,
+    decision_value_notes: params.notes ?? 'Deviance substitute accepted by Coordinator.',
+  })
+  if (decisionError) throw new Error(`confirmDevianceMatch (decision_log): ${decisionError.message}`)
+}
