@@ -4,6 +4,8 @@
 // already shift automatically whenever a delay/LTF/CPM recast pushes them — materialize never
 // re-types or re-estimates this, only turns it into real day-grain rows.
 //
+import { getJobTierName } from './tierMapping'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
 
@@ -31,15 +33,16 @@ export async function materializeTaskLedgerForSubstage(
 ): Promise<{ inserted: number }> {
   const { data: job, error: jobError } = await supabase
     .from('guest_enquiries')
-    .select('contact_name, preferred_start_date, category_tier')
+    .select('contact_name, preferred_start_date')
     .eq('booking_ref', substage.booking_ref)
     .maybeSingle()
   if (jobError) throw new Error(`materializeTaskLedgerForSubstage (job): ${jobError.message}`)
 
+  const tierName = await getJobTierName(supabase, substage.booking_ref)
   const { data: tierRow, error: tierError } = await supabase
     .from('job_tier_master')
     .select('skill_floor')
-    .eq('tier_name', job?.category_tier ?? 'Regular')
+    .eq('tier_name', tierName)
     .maybeSingle()
   if (tierError) throw new Error(`materializeTaskLedgerForSubstage (tier): ${tierError.message}`)
   const minProficiencyReq = tierRow?.skill_floor ?? 1

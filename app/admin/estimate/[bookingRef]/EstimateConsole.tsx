@@ -8,6 +8,7 @@ import type { BOQLineItem } from './actions'
 import ClientRemarksPanel from './ClientRemarksPanel'
 import MilestonePlanTab from './MilestonePlanTab'
 import ConfirmExecutionPanel, { type SupervisorOption, type CoordinatorOption } from './ConfirmExecutionPanel'
+import TaskLedgerTab from './TaskLedgerTab'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ export default function EstimateConsole({
   const hasClientRemarks =
     generatedBOQ?.status === 'client_review' && latestClientResponse != null
   const [showRemarksPanel, setShowRemarksPanel] = useState(hasClientRemarks)
-  const [activeTab, setActiveTab] = useState<'estimate' | 'milestone-plan'>('estimate')
+  const [activeTab, setActiveTab] = useState<'estimate' | 'milestone-plan' | 'task-ledger'>('estimate')
 
   // Initialise line items: prefer generatedBOQ → then existingEstimate → then compute
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -625,10 +626,27 @@ export default function EstimateConsole({
         >
           Milestone Plan
         </button>
+        <button
+          type="button"
+          disabled={!generatedBOQ}
+          title={!generatedBOQ ? 'Generate BOQ first' : undefined}
+          onClick={() => setActiveTab('task-ledger')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            activeTab === 'task-ledger'
+              ? 'bg-[#1F3864] border-[#1F3864] text-white'
+              : 'bg-white border-gray-200 text-gray-600 hover:border-[#1F3864]/40 hover:text-[#1F3864]'
+          }`}
+        >
+          Task Ledger
+        </button>
       </div>
 
       {activeTab === 'milestone-plan' && generatedBOQ && (
         <MilestonePlanTab bookingRef={bookingRef} jobCardType={generatedBOQ.job_card_type} />
+      )}
+
+      {activeTab === 'task-ledger' && generatedBOQ && (
+        <TaskLedgerTab bookingRef={bookingRef} />
       )}
 
       {activeTab === 'estimate' && (

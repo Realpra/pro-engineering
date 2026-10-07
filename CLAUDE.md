@@ -2727,3 +2727,63 @@ run (`node_modules` present this session).
   live `task_ledger` state, the Coordinator-facing deviance-match confirmation screen, a Delay
   report entry point calling `recastForDelay()`, and a Saviors-logging UI calling
   `fillSlotWithSavior()`.
+
+## SESSION 70 CONTINUED FURTHER — 7 Oct 2026 — ENGINE WIRED TO A REAL UI; ONE REAL BUG CAUGHT BEFORE WIRING
+Project owner confirmed proceeding with the next staged-build phase ("proceed") -- wiring real
+Coordinator server actions/UI onto the matching engine built the previous entry.
+
+**Real bug caught before any UI was wired, not after**: re-reading `match.ts`/`materialize.ts`
+to design the UI around them, a repo-wide grep showed `guest_enquiries.category_tier` appears
+NOWHERE except those two files -- it was never added by `20261007_coordinator_dynamic_
+scheduling_engine.sql` (checked directly: that migration's only `ALTER TABLE guest_enquiries`
+adds `has_started_execution`, nothing else) and no other live code reads it. A guessed column
+that was never created, exactly the mistake this project's own rules exist to catch -- caught
+here because the UI-wiring phase forced a second close read of the engine, not by code review
+alone. The real, already-live, already-frozen tier concept is `boq_generated.tier`
+(`'budget'|'premium'|'luxury'`, confirmed live and used by `lib/allocationPriority.ts`'s
+`getJobTiers`, frozen as part of the 2 Oct 2026 Coordinator allocation rebuild). Fixed with a new
+`lib/scheduling-engine/tierMapping.ts` -- `getJobTierName(supabase, bookingRef)` fetches the
+latest non-draft `boq_generated.tier` for a booking (same query shape as `getJobTiers`) and maps
+it onto this engine's `job_tier_master.tier_name` (`budget->Regular`, `premium->Premium`,
+`luxury->Platinum`). `match.ts`/`materialize.ts` both switched to call this instead of reading
+the invented column.
+
+**New additive tab built on the Estimate Console** (`app/admin/estimate/[bookingRef]/
+TaskLedgerTab.tsx` + `taskLedgerActions.ts`), a third tab alongside Estimate/Milestone Plan,
+gated the same way Milestone Plan is (needs a generated BOQ first) -- explicitly NOT a change to
+the live Coordinator Command Center (`app/coordinator/allocate/*`, still running on
+`worker_day_slots` unchanged), per the agreed additive-only build order:
+- Lists the booking's `job_milestone_substages` (the real Plan Template) with a per-substage
+  **Materialize** button calling `materializeTaskLedgerForSubstage()` -- idempotent, shows how
+  many new slots were inserted.
+- Lists the resulting `task_ledger` slots with a status badge (Unmatched / Awaiting Coordinator /
+  Matched / No Supply / Delayed), a **Run Match** button calling `matchSlot()` on any still-open
+  slot, and for any slot where the policy action was `ASK_COORDINATOR` (identified by
+  `operational_action_trigger === 'BUILD_UPSKILL_SUPERVISE'` with no worker booked yet -- the
+  exact value `match.ts`'s `tryZone()` sets for that case), the proposed substitute's name/score/
+  deviance level/reasoning (fetched from `match_log` where `selected = true`) with a **Confirm
+  This Substitute** button calling `confirmDevianceMatch()` -- never auto-booked.
+- A **Report Delay** form (event type, days lost, skill-changed toggle, the confirmed Client/
+  Project Reasons/Beyond Control category, remarks) calling `recastForDelay()`, available on any
+  still-Pending slot (matched or not -- a delay can hit already-assigned work too).
+- A **Log Savior** form (name, mobile, rate, remarks), shown only once a slot has genuinely
+  reached No Supply, calling `fillSlotWithSavior()` -- framed in the UI itself as "a record, not
+  an onboarded worker," matching the engine's own design intent.
+- `taskLedgerActions.ts` reuses the exact same `requireAllocator()` guard (coordinator/admin/
+  super_admin) as the live Command Center's own actions file, not a new permission model.
+- One real `tsc` bug caught and fixed in this pass too: `runMatchOnSlot` had no explicit return
+  type, so TS widened its inferred return type to include `requireAllocator()`'s own `{ supabase,
+  userId }` shape on the early-return path -- fixed by giving it an explicit return type and
+  returning `{ error: ctx.error }` instead of the raw `ctx`. A `decianceLevel` typo (mine, this
+  pass) was also caught and renamed to `devianceLevel` before pushing.
+- `npx tsc --noEmit`: exit 0, clean, after both fixes above.
+
+**Honestly scoped**: this is ONE additive entry point into the engine (the Estimate Console tab),
+not yet the full "Allocation Board reading live task_ledger state" platform-wide view the prior
+entry's plan named -- that's a bigger, cross-job surface (closer in spirit to the live Command
+Center's own board) deliberately left for its own pass rather than folded in here. **NOT
+live-tested** -- same standing constraint as the engine itself, no Supabase network access in
+this sandbox. Staying on `claude/gracious-knuth-vxwkc3`, not fast-forwarded to `master` --
+unlike the pure-migration batch, this is real, UI-reachable application code that has never been
+clicked once.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

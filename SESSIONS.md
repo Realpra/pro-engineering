@@ -1725,3 +1725,34 @@ Estimate Console's "materialize work program" trigger, the Allocation Board read
 `task_ledger` state, the Coordinator-facing deviance-match confirmation screen, a Delay report
 entry point calling `recastForDelay()`, and a Saviors-logging UI calling `fillSlotWithSavior()`.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+Engine wired to a real UI (7 Oct 2026 continued further). Real bug caught before any UI was
+wired: `match.ts`/`materialize.ts` read `guest_enquiries.category_tier`, a column never created
+by any migration and never read anywhere else -- a guessed field. The real, already-live,
+already-frozen tier is `boq_generated.tier` (`budget/premium/luxury`, `lib/allocationPriority.ts`).
+Fixed with new `lib/scheduling-engine/tierMapping.ts`'s `getJobTierName()`, mapping it onto
+`job_tier_master.tier_name` (`budget->Regular`, `premium->Premium`, `luxury->Platinum`). Both
+engine files switched to use it instead of the invented column.
+
+New additive "Task Ledger" tab built on the Estimate Console (`app/admin/estimate/[bookingRef]/
+TaskLedgerTab.tsx` + `taskLedgerActions.ts`), third tab alongside Estimate/Milestone Plan, gated
+the same way -- explicitly not a change to the live Coordinator Command Center
+(`app/coordinator/allocate/*`, unchanged, still on `worker_day_slots`). Per substage: Materialize
+button (`materializeTaskLedgerForSubstage`). Per slot: status badge, Run Match button
+(`matchSlot`), and for any `ASK_COORDINATOR` proposal (`operational_action_trigger ===
+'BUILD_UPSKILL_SUPERVISE'` with no worker booked) the candidate's name/score/deviance/reasoning
+with a Confirm button (`confirmDevianceMatch` -- never auto-booked); a Report Delay form
+(`recastForDelay`); a Log Savior form, shown only at genuine No Supply (`fillSlotWithSavior`).
+Reuses the live Command Center's own `requireAllocator()` guard, not a new permission model.
+
+Two real bugs caught by `tsc` and fixed before pushing: `runMatchOnSlot` had no explicit return
+type, so TS widened it to include `requireAllocator()`'s own shape on the early-return path --
+fixed with an explicit return type + `{ error: ctx.error }`. A `decianceLevel` typo (this pass)
+renamed to `devianceLevel`. `npx tsc --noEmit` exit 0 clean after both fixes.
+
+Honestly scoped: this is ONE additive entry point (the Estimate Console tab), not yet the full
+cross-job "Allocation Board reading live task_ledger state" the prior entry's plan named -- left
+for its own pass. NOT live-tested, same standing constraint as the engine itself. Staying on
+`claude/gracious-knuth-vxwkc3`, not fast-forwarded to `master` -- this is real, UI-reachable code
+that has never been clicked once.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

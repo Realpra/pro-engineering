@@ -11,6 +11,7 @@ type AnyClient = any
 import { resolveActionForLevel, getDeviancePolicyRows, devianceLevelFor } from './deviancePolicy'
 import { findAvailableCandidates } from './availability'
 import { getZoneIdsForSectorName, getAdjoiningZones, getSectorNamesForZoneId, donorZoneHasSpareCapacity } from './zoneAdjacency'
+import { getJobTierName } from './tierMapping'
 import { DEVIANCE_WALK_ORDER } from './types'
 import type { MatchResult, TaskLedgerRow, DeviancePolicyRow } from './types'
 
@@ -39,11 +40,11 @@ export async function matchSlot(supabase: AnyClient, slotId: string): Promise<Ma
 
   const { data: job, error: jobError } = await supabase
     .from('guest_enquiries')
-    .select('zone, category_tier')
+    .select('zone')
     .eq('booking_ref', typedSlot.booking_ref)
     .maybeSingle()
   if (jobError) throw new Error(`matchSlot (job): ${jobError.message}`)
-  const tier = job?.category_tier ?? 'Regular'
+  const tier = await getJobTierName(supabase, typedSlot.booking_ref)
 
   const { data: tierRow, error: tierError } = await supabase
     .from('job_tier_master')
