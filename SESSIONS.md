@@ -1679,3 +1679,49 @@ logic as isolated shared functions) and the actual Coordinator UI screens. This 
 been run in Supabase yet -- needs the project owner to run it before the next phase can build
 against real data.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+`20261007_coordinator_dynamic_scheduling_engine.sql` confirmed run live in Supabase ("Success. No
+rows returned"). `master` fast-forwarded to `cd1d1da` to match -- clean fast-forward (no app code
+in this batch, pure migration + docs, zero live-behavior risk either way). All 17 tables of the
+Coordinator Dynamic Scheduling Engine now genuinely exist in the live database, not just on the
+working branch.
+
+Matching engine built (`lib/scheduling-engine/` -- 7 files: `types.ts`, `deviancePolicy.ts`,
+`availability.ts`, `zoneAdjacency.ts`, `match.ts`, `materialize.ts`, `saviors.ts`, `recast.ts`):
+implements Phase C1-C5's actual algorithm as isolated, shared functions, not UI-embedded logic --
+`matchSlot()` is the ONE matching engine (confirmed per the flow document's own C1 answer: recast
+calls the identical function, never a separate copy). `npx tsc --noEmit` exit 0, a real compiler
+run.
+- `materialize.ts` -- turns a real `job_milestone_substages` row's own date range + headcount
+  into real day-grain `task_ledger` rows (idempotent: only inserts the shortfall).
+- `availability.ts` -- Worker Supply Ledger, always derived fresh from real `task_ledger`
+  commitments on every read, never a stale stored flag.
+- `deviancePolicy.ts`/`match.ts` -- the confirmed -3..+3 symmetric walk, negative side first and
+  fully (0 -> -1 -> -2 -> -3), THEN positive side as a last resort (+1 -> +2 -> +3), each level
+  checked against the real Deviance Policy action (AUTO_BOOK books immediately; ASK_COORDINATOR
+  proposes a match, requiring `confirmDevianceMatch()` before any worker is actually booked).
+  Every candidate considered is logged to `match_log`, selected or not.
+- `zoneAdjacency.ts` -- the C4 cross-zone fallback, with the mandatory donor-capacity check
+  (a donor zone must have more idle same-trade workers than its own open demand that date,
+  checked before any pull is even offered). Resolves ZONE-level `zone_adjacency` rows down to
+  the SECTOR-level names `workers.zones`/`task_ledger` actually use, reusing the same
+  many-to-many junction `lib/zoneCoverage.ts` already established.
+- `saviors.ts` -- the C5 absolute-last-resort, a deliberate human action (`fillSlotWithSavior()`),
+  never auto-invoked by `matchSlot()` itself.
+- `recast.ts` -- Phase D1/E1-E6, the delay/recast flow, reusing `matchSlot()` for the new recast
+  row rather than its own copy.
+
+Honestly scoped, not silently claimed complete: (1) `recast.ts` is SINGLE-SLOT recast only, not
+yet the full "walk every still-open day of the remaining plan" cascade E3 describes; (2) C2 Case 2
+(a continuous opportunity elsewhere beating the own-job soft-hold) not implemented, only Case 1's
+default hold is; (3) compliance-hours checking is stubbed to always COMPLIANT; (4) `zone_adjacency`
+has no seed data yet, so the C4 fallback is real code but a structural no-op until Admin enters
+real zone-pair rows; (5) NOT live-tested at all -- no Supabase network access in this sandbox,
+verified only by a real `tsc` compile and manual re-read, zero UI wiring yet so this reaches
+production as unreachable dead code, not a live-behavior risk -- staying on
+`claude/gracious-knuth-vxwkc3`, not fast-forwarded to `master` this entry (unlike the migration).
+Not yet built, explicitly next: the actual Coordinator server actions/UI that call this engine --
+Estimate Console's "materialize work program" trigger, the Allocation Board reading live
+`task_ledger` state, the Coordinator-facing deviance-match confirmation screen, a Delay report
+entry point calling `recastForDelay()`, and a Saviors-logging UI calling `fillSlotWithSavior()`.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

@@ -2664,3 +2664,66 @@ bucket, not replacing it), **Zone Master -> `geo_hierarchy`** (already live), **
   project owner (or a session with real Supabase access) before the next phase can build against
   real data.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+`20261007_coordinator_dynamic_scheduling_engine.sql` **confirmed run live** in Supabase ("Success.
+No rows returned"). `master` fast-forwarded to `cd1d1da` to match -- clean fast-forward (no app
+code in this batch, pure migration + docs, so zero live-behavior risk either way). All 17 tables
+of the Coordinator Dynamic Scheduling Engine now genuinely exist in the live database, not just
+on the working branch.
+
+**Matching engine built** (`lib/scheduling-engine/` -- 7 files: `types.ts`, `deviancePolicy.ts`,
+`availability.ts`, `zoneAdjacency.ts`, `match.ts`, `materialize.ts`, `saviors.ts`, `recast.ts`):
+implements Phase C1-C5's actual algorithm as isolated, shared functions, not UI-embedded logic --
+`matchSlot()` is the ONE matching engine (confirmed per the flow document's own C1 answer: recast
+calls the identical function, never a separate copy). `npx tsc --noEmit` exit 0, a real compiler
+run (`node_modules` present this session).
+- `materialize.ts` -- turns a real `job_milestone_substages` row's own date range + headcount
+  into real day-grain `task_ledger` rows (idempotent: only inserts the shortfall against what
+  already exists, since the table has no unique constraint to lean on instead).
+- `availability.ts` -- Worker Supply Ledger, always DERIVED fresh from real `task_ledger`
+  commitments on every read (never a stale stored flag), per the standing design principle.
+- `deviancePolicy.ts`/`match.ts` -- the confirmed -3..+3 symmetric walk, negative side first and
+  fully (0 -> -1 -> -2 -> -3), THEN positive side as a last resort (+1 -> +2 -> +3), each level
+  checked against the real Deviance Policy action (AUTO_BOOK books immediately; ASK_COORDINATOR
+  proposes a match and returns `pendingCoordinatorDecision: true`, requiring `confirmDevianceMatch()`
+  before any worker is actually booked -- never silently auto-assigned). Every candidate
+  considered is logged to `match_log`, selected or not.
+- `zoneAdjacency.ts` -- the C4 cross-zone fallback, WITH the mandatory donor-capacity check
+  (a donor zone must have more idle same-trade workers than its own open demand that date,
+  checked before any pull is even offered). Correctly resolves ZONE-level `zone_adjacency` rows
+  down to the SECTOR-level names `workers.zones`/`task_ledger` actually use, reusing the same
+  many-to-many junction `lib/zoneCoverage.ts` already established (not a second resolution).
+- `saviors.ts` -- the C5 absolute-last-resort, a deliberate human action (`fillSlotWithSavior()`),
+  never auto-invoked by `matchSlot()` itself.
+- `recast.ts` -- Phase D1/E1-E6, the delay/recast flow, reusing `matchSlot()` for the new recast
+  row rather than its own copy.
+
+**Honestly scoped, not silently claimed complete**:
+1. `recast.ts` implements the SINGLE-SLOT recast (E1/E2/E6, one new E3/E5 recast row) -- NOT yet
+   the full "walk every still-open day of the job's remaining plan" cascade E3 describes for a
+   delay that pushes every later day forward. That needs the whole remaining Plan Template
+   re-walked, a bigger operation left for the next pass.
+2. C2 Case 2 (a genuine continuous opportunity elsewhere beating the own-job soft-hold) is not
+   implemented -- only Case 1's default hold is. Flagged, not guessed at, since detecting a real
+   continuous opportunity needs a cross-job Continuity Block scan.
+3. Compliance-hours checking (`compliance_policy`'s max daily/rolling hours, min rest) is
+   stubbed to always `COMPLIANT` -- the schema and policy table are ready for it, the actual
+   rolling-hours computation is not yet built.
+4. `zone_adjacency` has NO seed data yet (empty table, no rows inserted by the migration) --
+   the C4 cross-zone fallback is real code but will be a structural no-op until real
+   zone-pair rows (travel time, donor-capacity flag) are entered, an Admin data task not a code
+   one.
+5. **NOT live-tested at all** -- this sandbox has no Supabase network access, so none of these
+   7 files have been run against the real database. Verified only by a real `tsc` compile and a
+   careful manual re-read, not a live click-through. This is real backend library code with ZERO
+   UI wiring yet -- nothing in the live app calls it, so pushing it reaches production as
+   unreachable dead code, not a live-behavior risk, but it has NOT been fast-forwarded to
+   `master` this entry (unlike the migration, which had a much stronger verification method
+   available -- a real local Postgres run). Staying on `claude/gracious-knuth-vxwkc3` until the
+   next phase (wiring real Coordinator server actions/UI onto it) gives something to actually
+   click-test.
+- **Not yet built, explicitly next**: the actual Coordinator server actions/UI that call this
+  engine -- Estimate Console's "materialize work program" trigger, the Allocation Board reading
+  live `task_ledger` state, the Coordinator-facing deviance-match confirmation screen, a Delay
+  report entry point calling `recastForDelay()`, and a Saviors-logging UI calling
+  `fillSlotWithSavior()`.
