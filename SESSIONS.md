@@ -1600,3 +1600,46 @@ in excel... else we are wasting time, energy, tokens, sessions."
 - Full detail, and the exact next-session checklist, live in CLAUDE.md -- that file remains the
   authoritative live reference; this entry keeps SESSIONS.md in sync alongside it.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED — 7 Oct 2026 — DYNAMIC SCHEME'S THIRD REVIEW PASS, THEN PAUSED
+Continuation of Part 2's design study (still zero app code changed). The project owner uploaded
+their own Word-document copy of the Phase A-J flow with 9 corrections embedded as callouts (B1,
+B3, C1, C2 Case 1/2, C3, C5, D1, G2) and asked for both the flow document and the schema to be
+checked and corrected accordingly.
+- 6 of the 9 corrections needed real new schema, applied to `Coordinator_Complete_Dynamic_
+  Scheme.xlsx` (now 17 tables / 15 sheets, up from 14): Job Tier Master's real names
+  (Regular/Premium/Platinum, Platinum = rank 1); new `Job Master.has_started_execution` (the
+  intra-tier "ongoing first" tie-break); new `Worker Supply Ledger.soft_hold_job_id` (a
+  non-blocking default hold, demonstrated never gating real availability); a new standalone
+  **Saviors** table (off-system emergency-worker log) plus `Task Ledger.filled_via_saviors_id`
+  (demonstrated closing a real NO-SUPPLY gap from the earlier worked example); and `Delay/Event
+  Log.reason_category` (Client/Project Reasons/Beyond Control) plus the admin-communication-
+  approval gate (demonstrated on both a Client-tagged and a Project-Reasons-tagged event). README's
+  new "THIRD REVIEW PASS" section documents all 9; Master Index now distinguishes ★/★★/★★★ by pass.
+- The other 3 corrections needed no new field (3-color calendar, the unified tier-ordered worker
+  chart answering C1's open question that there's only one matching engine, and G2's
+  ungluing-offered-inline sequencing fix) -- recorded in the README as UI/flow clarifications only.
+- One consequential update flagged explicitly rather than silently added: B1's tier-priority rule
+  required Phase F's conflict-resolution steps to also carry the ongoing-vs-new intra-tier
+  tie-break, since a tier-only comparison would leave two same-tier jobs unresolved.
+- Rebuilt the companion flow document as a clean Word file (not a redline) --
+  `Coordinator_Dynamic_Deployment_Flow_REVISED.docx` -- via docx-js from a structured content
+  model, with a numbered "WHAT CHANGED" section up front and inline tags back to it on every
+  corrected step. Verified by rendering to PDF and reading every page before delivery.
+- Environment fix recorded for future sessions: this sandbox had only `libreoffice-core`/
+  `-common` installed, not `-writer`/`-calc`, so `soffice --convert-to pdf` failed on ANY input
+  with "source file could not be loaded" (confirmed not specific to this session's .docx by
+  testing a trivial .txt first). Fixed with `apt-get update` then `apt-get install -y
+  libreoffice-writer libreoffice-calc poppler-utils`.
+- Both final deliverables saved into the repo this entry, byte-for-byte identical to what was sent
+  to the project owner (md5sum-verified) -- a deliberate departure from the usual "review-stage
+  workbooks are delivered only" convention, done because the project owner explicitly asked this
+  time: `docs/deliverables/coordinator_dynamic_scheme/Coordinator_Complete_Dynamic_Scheme.xlsx`
+  and `Coordinator_Dynamic_Deployment_Flow_REVISED.docx`.
+- **Session paused here, at the project owner's explicit request.** They are independently
+  revising their own, separate whole-project data-fields Excel sheet and will send it back once
+  done. Next step on resume: read it in full, then re-check and update both saved deliverables
+  against it wherever it calls for a change.
+- No app code changed this entry.
+- Full detail in CLAUDE.md, same discipline as every prior entry.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

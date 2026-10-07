@@ -2496,3 +2496,95 @@ in excel... else we are wasting time, energy, tokens, sessions."
   live-tested" item listed in Session 69's own NEXT SESSION note above.
 - Supabase: xhlpdbcrncpznrqpcrht
 - All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED — 7 Oct 2026 — DYNAMIC SCHEME'S THIRD REVIEW PASS, THEN PAUSED
+Continuation of Session 70 Part 2's design study (still zero app code changed -- pure
+schema/document revision, same standing instruction as before: nothing gets built until the
+project owner gives an explicit go-ahead). The project owner uploaded their own Word-document
+copy of the Phase A-J step-by-step flow with 9 corrections embedded directly in it as callouts
+(B1, B3, C1, C2 Case 1/2, C3, C5, D1, G2) and asked for both the flow document and the schema to
+be checked and corrected accordingly.
+- **6 of the 9 corrections needed real new schema**, applied to `Coordinator_Complete_Dynamic_
+  Scheme.xlsx` (now 17 tables across 15 sheets, up from 14): Job Tier Master's placeholder names
+  (Standard/Priority/Flagship) renamed to the real client-facing levels (Regular/Premium/
+  Platinum, Platinum = priority_rank 1); new `Job Master.has_started_execution` (the intra-tier
+  "ongoing first" tie-break); new `Worker Supply Ledger.soft_hold_job_id` (a non-blocking default
+  hold -- demonstrated on Sachin Kumar's own LDG-0335-09 row: soft_hold_job_id = JOB-101 while
+  availability_token stays AVAILABLE_FULL_DAY, proving the hold never gates real availability); a
+  new standalone **Saviors** table (off-system, non-onboarded emergency-worker log, deliberately
+  with no Worker Master or Worker Supply Ledger row of its own) plus `Task Ledger.filled_via_
+  saviors_id` (demonstrated on a new worked-example row, SLT-101-09, closing the exact NO SUPPLY
+  gap SLT-101-03/DEC-004 had to leave open, with a paired new Decision Log row DEC-005); and
+  `Delay/Event Log.reason_category` (Client/Project Reasons/Beyond Control) plus `admin_
+  communication_approved_at/by` (demonstrated on both a Client-tagged event with the gate
+  populated, EVT-002, and a Project-Reasons-tagged event with it left N/A, EVT-001). README's new
+  "THIRD REVIEW PASS" section documents all 9, and the Master Index's Restored Fields column now
+  distinguishes ★ (first pass) / ★★ (second pass) / ★★★ (this pass).
+- **The other 3 corrections needed no new field**, recorded in the README as UI/flow
+  clarifications only: B3's 3-color calendar (ongoing/planned/undecided, derivable from existing
+  slot_status + assignment presence); the unified tier-ordered "worker chart" dual view
+  (job-demand rows vs. worker-availability rows), confirmed available at both the first-deployment
+  (C1) and surplus-reallocation (C2) decision points -- this is also the direct answer to C1's
+  open question that there is only ONE matching engine, never separate logic for new/ongoing/
+  disruption-triggered demand; and G2's ungluing-offered-inline-at-the-point-of-conflict
+  sequencing fix.
+- **One consequential update, flagged as such rather than silently added**: B1's corrected tier
+  priority rule required Phase F's conflict-resolution steps (F1-F3) to also carry the
+  ongoing-vs-new intra-tier tie-break, since a rule that only compares tiers would otherwise leave
+  two same-tier jobs with no resolution order at all. This was not separately requested by the
+  project owner but follows directly from B1 -- called out explicitly in both the workbook and the
+  Word document rather than folded in as if it had been asked for.
+- Rebuilt the companion flow document as a clean Word file (not a redline of the project owner's
+  annotated draft) -- `Coordinator_Dynamic_Deployment_Flow_REVISED.docx` -- via docx-js, built from
+  a structured content model (`content.js` + `make_docx.js`) rather than hand-written XML, so every
+  phase/step/data/significance line stays consistent in formatting. A "WHAT CHANGED IN THIS
+  REVISION" section up front numbers all 9 corrections; every corrected step in the Phase A-J body
+  carries an inline `[Revised -- see "What Changed" #N]` tag back to it. C1's open question is
+  answered directly in the body, not deferred. Verified by rendering to PDF and reading every page
+  as images before delivery (see environment note below).
+- **Environment note, may matter for future doc/xlsx-conversion work in this sandbox**: this
+  session's container had only `libreoffice-core`/`libreoffice-common` installed, not
+  `libreoffice-writer`/`libreoffice-calc` -- meaning `soffice --convert-to pdf` failed with a flat
+  "source file could not be loaded" on ANY input file, including a trivial .txt, not just this
+  session's own .docx (confirmed by testing a one-line text file before suspecting the real .docx
+  was corrupt -- it wasn't; `unzip -t` had already confirmed the zip/XML structure was valid). Root
+  cause confirmed via `dpkg -l`, fixed with `apt-get install -y libreoffice-writer libreoffice-calc
+  poppler-utils` (network worked once `apt-get update` was run first; the initial install attempt
+  404'd on stale package-index data). Both the xlsx skill's `recalc.py` (relevant for future
+  formula-bearing workbooks -- this session's own workbook has zero formulas, so recalc was simply
+  skipped, confirmed via a formula-cell grep returning 0) and the docx skill's
+  `soffice.py`/`pdftoppm` verification steps need this fix to work in a fresh sandbox.
+- **Both final deliverables saved into the repo this entry, byte-for-byte identical to what was
+  sent to the project owner (md5sum-verified)** -- a deliberate departure from this project's
+  standing "review-stage workbooks are delivered only, never committed" convention, done because
+  the project owner explicitly asked this time ("save the entire session.md, the word file total
+  and excel file total exactly same"): `docs/deliverables/coordinator_dynamic_scheme/
+  Coordinator_Complete_Dynamic_Scheme.xlsx` and `Coordinator_Dynamic_Deployment_Flow_REVISED.docx`.
+- **Session paused here, at the project owner's explicit request.** They are independently
+  revising their own, separate data-fields Excel sheet covering the ENTIRE project (not just the
+  Coordinator dynamic scheme) and will send it back once done. Next step on resume: read that
+  revised sheet in full, then re-check and update both `Coordinator_Complete_Dynamic_Scheme.xlsx`
+  and the Word flow document against it wherever it calls for a change -- not assumed to need no
+  changes just because this pass is fresh.
+- No app code changed this entry -- pure design-study continuation, per the same standing
+  instruction as the rest of Session 70 Part 2.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 7 Oct 2026, Session 70 continued)
+- **Paused, waiting on the project owner's revised data-fields Excel sheet** (their own separate
+  file, covering the whole project's data fields -- not a revision of `Coordinator_Complete_
+  Dynamic_Scheme.xlsx` itself). On resume: read it in full, then update
+  `docs/deliverables/coordinator_dynamic_scheme/Coordinator_Complete_Dynamic_Scheme.xlsx` and
+  `Coordinator_Dynamic_Deployment_Flow_REVISED.docx` wherever it requires a change, keeping both in
+  sync with each other the same way this entry's third review pass did. Both files are saved in
+  the repo now (previous entry), so re-derive from those saved copies, not from chat history alone.
+- **Nothing from the dynamic-cascading-reschedule design has been built in code yet, still.** Do
+  not start coding any part of it without the project owner's explicit go-ahead -- same standing
+  instruction as the rest of Session 70.
+- Still carried from Session 70 Part 1, not yet actioned: live-click the Coordinator allocation
+  rebuild's remaining untested surfaces (tier-sorted job cards, Idle-Workers-Today panel, the
+  Escalate-to-Admin -> Escalate-to-Superadmin round trip, both capacity-matrix screens).
+- Still carried from Session 69, not yet actioned: the full onboarding-approval-chain items, and
+  every "not yet live-tested" item listed in Session 69's own NEXT SESSION note.
+- Supabase: xhlpdbcrncpznrqpcrht
+- All work on PR #1 (github.com/Realpra/pro-engineering/pull/1), branch claude/gracious-knuth-vxwkc3
