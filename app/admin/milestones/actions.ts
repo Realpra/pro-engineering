@@ -123,6 +123,17 @@ export async function deactivateMilestoneTemplate(
 }
 
 // ─── ACTION 5 ───────────────────────────────────────────────────────────────
+// This tab's own approval point ("Scope Changes Affecting Contract Value")
+// gets its own, separately-written sub-estimate creation -- the project
+// owner's explicit instruction (8 Oct 2026) was two independently-correct
+// implementations for the two different approval places (this tab and
+// /admin/scope's own adminApproveScopeChange), not one shared function, even
+// though both approve the same underlying scope_change_requests table.
+// A contract-value scope change is dealt with the same way the project
+// owner described for any approved scope change: a real sub-estimate under
+// the same job, running through the same estimate approval cycle (generate
+// -> send to client -> accept/decline/review) the main estimate already
+// uses, rather than silently closing the request with no billable effect.
 export async function adminApproveScopeContractChange(
   requestId: string,
   adminUserId: string,
@@ -130,6 +141,106 @@ export async function adminApproveScopeContractChange(
 ): Promise<MilestoneActionResult> {
   const supabase: any = await createClient()
   const now = new Date().toISOString()
+
+  const { data: request, error: fetchErr } = await supabase
+    .from('scope_change_requests')
+    .select('booking_ref, proposed_additions, supervisor_rough_estimate, cost_impact_net, justification_cos')
+    .eq('id', requestId)
+    .single()
+  if (fetchErr) return { error: fetchErr.message }
+
+  const { data: parentBoq } = await supabase
+    .from('boq_generated')
+    .select('id, tier, job_card_type, report_id, platform_premium_pct, bocw_cess_percent')
+    .eq('booking_ref', request.booking_ref)
+    .neq('status', 'superseded')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (parentBoq) {
+    const rawItems: any[] = Array.isArray(request.proposed_additions) && request.proposed_additions.length > 0
+      ? request.proposed_additions
+      : (Array.isArray(request.supervisor_rough_estimate) ? request.supervisor_rough_estimate : [])
+
+    const lineItems = rawItems.map((item: any, idx: number) => {
+      const qty = Number(item.qty ?? item.quantity ?? 1) || 1
+      const amount = Number(item.amount ?? 0) || 0
+      return {
+        skuCode: `CONTRACT-CHANGE-${idx + 1}`,
+        skuName: item.description ?? 'Contract-value scope change item',
+        description: item.description ?? null,
+        category: 'labour',
+        sectionName: 'Approved Contract-Value Scope Change',
+        unit: item.unit ?? 'lump',
+        quantity: qty,
+        wastageMultiplier: 1,
+        rate: qty > 0 ? Math.round((amount / qty) * 100) / 100 : amount,
+        amount,
+        isRiskFlag: false,
+        missingRate: false,
+      }
+    })
+
+    const subtotalLabour = Math.round(lineItems.reduce((s: number, i: any) => s + i.amount, 0) * 100) / 100
+    const platformPremiumPct = Number(parentBoq.platform_premium_pct ?? 0)
+    const bocwCessPct = Number(parentBoq.bocw_cess_percent ?? 0)
+    const platformPremiumAmount = Math.round(subtotalLabour * (platformPremiumPct / 100) * 100) / 100
+    const bocwCessAmount = Math.round(subtotalLabour * (bocwCessPct / 100) * 100) / 100
+    const gstAmount = Math.round(platformPremiumAmount * 0.18 * 100) / 100
+    const totalAmount = Math.round((subtotalLabour + platformPremiumAmount + bocwCessAmount + gstAmount) * 100) / 100
+
+    const subBookingRef = `${request.booking_ref}-cc-${requestId.slice(0, 8)}`
+
+    const { error: subErr } = await supabase.from('boq_generated').insert({
+      booking_ref: subBookingRef,
+      report_id: parentBoq.report_id,
+      version: 1,
+      tier: parentBoq.tier,
+      job_card_type: parentBoq.job_card_type,
+      estimate_kind: 'sub_estimate',
+      parent_estimate_id: parentBoq.id,
+      status: 'draft',
+      line_items: lineItems,
+      risk_flag_items: [],
+      deferred_items: [],
+      deferred_value: 0,
+      deferred_pct: 0,
+      subtotal_labour: subtotalLabour,
+      subtotal_material: 0,
+      subtotal_risk_flags: 0,
+      platform_premium_pct: platformPremiumPct,
+      platform_premium_amount: platformPremiumAmount,
+      bocw_cess_percent: bocwCessPct,
+      bocw_cess_amount: bocwCessAmount,
+      gst_percent: 18,
+      gst_amount: gstAmount,
+      contingency_percent: 0,
+      contingency_amount: 0,
+      total_amount: totalAmount,
+      estimate_version: 1.0,
+      estimate_version_label: 'v1.0',
+      coordinator_notes: request.justification_cos ?? null,
+      valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      updated_at: now,
+    })
+    if (subErr) {
+      await supabase
+        .from('scope_change_requests')
+        .update({
+          admin_decision: 'approved',
+          admin_remarks: `${remarks}\n\n[Sub-estimate creation failed: ${subErr.message}]`,
+          admin_decided_at: now,
+          admin_decided_by: adminUserId,
+          change_status: 'admin_approved',
+          updated_at: now,
+        })
+        .eq('id', requestId)
+      revalidatePath(PATH)
+      return { error: `Approved, but sub-estimate creation failed: ${subErr.message}` }
+    }
+  }
+
   const { error } = await supabase
     .from('scope_change_requests')
     .update({
@@ -143,6 +254,7 @@ export async function adminApproveScopeContractChange(
     .eq('id', requestId)
   if (error) return { error: error.message }
   revalidatePath(PATH)
+  revalidatePath(`/admin/estimate/${request.booking_ref}`)
   return { success: true }
 }
 
