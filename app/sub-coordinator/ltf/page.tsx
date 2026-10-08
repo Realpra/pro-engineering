@@ -31,27 +31,43 @@ export default async function LTFFeedsPage() {
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
 
+  // ltf_feeds has no booking_ref column at all (confirmed live schema) --
+  // scoped by site_id (a guest_enquiries.id) only.
   const { data: todayFeeds } = await supabase
     .from('ltf_feeds')
-    .select('id, site_id, booking_ref, submitted_by, submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes, accountability_flag')
+    .select('id, site_id, submitted_by, submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes, accountability_flag')
     .gte('submitted_at', `${today}T00:00:00`)
     .order('submitted_at', { ascending: false })
 
   const { data: yesterdayFeeds } = await supabase
     .from('ltf_feeds')
-    .select('id, site_id, booking_ref, submitted_by, submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes, accountability_flag')
+    .select('id, site_id, submitted_by, submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes, accountability_flag')
     .gte('submitted_at', `${yesterday}T00:00:00`)
     .lt('submitted_at', `${today}T00:00:00`)
     .order('submitted_at', { ascending: false })
 
   const { data: activeJobs } = await supabase
     .from('guest_enquiries')
-    .select('booking_ref, job_title, zone, district, supervisor_id')
+    .select('id, booking_ref, job_title, zone, district, supervisor_id, site_incharge_id')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
   const jobMap = Object.fromEntries(
-    (activeJobs ?? []).map(j => [j.booking_ref, j])
+    (activeJobs ?? []).map(j => [j.id, j])
+  )
+
+  // Resolve each job's real Site Incharge recipient (guest_enquiries.
+  // site_incharge_id -> workers.auth_user_id), same pattern already used
+  // correctly on /supervisor/instruction/page.tsx -- "Chase Site Head" must
+  // message the actual Site Incharge, not the job's Supervisor.
+  const siteInchargeIds = (activeJobs ?? [])
+    .map(j => j.site_incharge_id)
+    .filter((id): id is string => !!id)
+  const { data: siteInchargeWorkers } = siteInchargeIds.length > 0
+    ? await supabase.from('workers').select('id, auth_user_id').in('id', siteInchargeIds)
+    : { data: [] as { id: string; auth_user_id: string | null }[] }
+  const siteInchargeAuthMap = Object.fromEntries(
+    (siteInchargeWorkers ?? []).map(w => [w.id, w.auth_user_id])
   )
 
   const readyFeeds = (todayFeeds ?? []).filter(f => f.is_ready_tomorrow)
@@ -62,8 +78,8 @@ export default async function LTFFeedsPage() {
   const cutoffPassed = now.getHours() >= 20
 
   // Jobs that have NOT submitted LTF today
-  const submittedBookingRefs = new Set((todayFeeds ?? []).map(f => f.booking_ref))
-  const missingFeeds = (activeJobs ?? []).filter(j => !submittedBookingRefs.has(j.booking_ref))
+  const submittedSiteIds = new Set((todayFeeds ?? []).map(f => f.site_id))
+  const missingFeeds = (activeJobs ?? []).filter(j => !submittedSiteIds.has(j.id))
 
   async function addToRouteAction(formData: FormData) {
     'use server'
@@ -146,7 +162,7 @@ export default async function LTFFeedsPage() {
             </p>
             <div className="space-y-3">
               {readyFeeds.map(feed => {
-                const job = jobMap[feed.booking_ref]
+                const job = jobMap[feed.site_id]
                 async function rejectAction() {
                   'use server'
                   await rejectLtfFromRoute(feed.id)
@@ -156,7 +172,7 @@ export default async function LTFFeedsPage() {
                     <div className="bg-green-50 px-5 py-3 border-b border-green-100">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs text-gray-400">{feed.booking_ref}</p>
+                          <p className="text-xs text-gray-400">{job?.booking_ref ?? '—'}</p>
                           <p className="text-sm font-bold text-gray-800">{job?.job_title ?? feed.site_id ?? '—'}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {[job?.zone, job?.district].filter(Boolean).join(', ')}
@@ -215,12 +231,12 @@ export default async function LTFFeedsPage() {
             </p>
             <div className="space-y-3">
               {notReadyFeeds.map(feed => {
-                const job = jobMap[feed.booking_ref]
+                const job = jobMap[feed.site_id]
                 return (
                   <div key={feed.id} className="bg-white rounded-2xl border border-red-200 shadow-sm px-5 py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs text-gray-400">{feed.booking_ref}</p>
+                        <p className="text-xs text-gray-400">{job?.booking_ref ?? '—'}</p>
                         <p className="text-sm font-bold text-gray-800">{job?.job_title ?? feed.site_id ?? '—'}</p>
                         {feed.contractor_notes && (
                           <p className="text-xs text-gray-500 mt-0.5 italic">"{feed.contractor_notes}"</p>
@@ -256,7 +272,7 @@ export default async function LTFFeedsPage() {
                   </div>
                   <form action={chaseSiteHeadAction}>
                     <input type="hidden" name="booking_ref" value={job.booking_ref} />
-                    <input type="hidden" name="issued_to" value={job.supervisor_id ?? ''} />
+                    <input type="hidden" name="issued_to" value={(job.site_incharge_id ? siteInchargeAuthMap[job.site_incharge_id] : null) ?? ''} />
                     <button type="submit" className="shrink-0 bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
                       Chase Site Head
                     </button>
@@ -332,10 +348,10 @@ export default async function LTFFeedsPage() {
             </p>
             <div className="bg-white rounded-2xl border border-red-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {flaggedFeeds.map(feed => {
-                const job = jobMap[feed.booking_ref]
+                const job = jobMap[feed.site_id]
                 return (
                   <div key={feed.id} className="px-5 py-4">
-                    <p className="text-xs text-gray-400">{feed.booking_ref}</p>
+                    <p className="text-xs text-gray-400">{job?.booking_ref ?? '—'}</p>
                     <p className="text-sm font-bold text-gray-800">{job?.job_title ?? '—'}</p>
                     <p className="text-xs text-red-600 font-semibold mt-1">
                       ⚠ Site Head said ready — supervisor found not ready
@@ -356,11 +372,11 @@ export default async function LTFFeedsPage() {
             </p>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {(yesterdayFeeds ?? []).map(feed => {
-                const job = jobMap[feed.booking_ref]
+                const job = jobMap[feed.site_id]
                 return (
                   <div key={feed.id} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs text-gray-400">{feed.booking_ref} · {formatDateTime(feed.submitted_at)}</p>
+                      <p className="text-xs text-gray-400">{job?.booking_ref ?? '—'} · {formatDateTime(feed.submitted_at)}</p>
                       <p className="text-sm font-semibold text-gray-700">{job?.job_title ?? '—'}</p>
                     </div>
                     <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${feed.is_ready_tomorrow ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>

@@ -250,6 +250,12 @@ export async function assignWorkerToJob(formData: FormData) {
   await supabase.from('workers').update({
     is_available: false,
     current_job_id: enquiry?.id ?? null,
+    // Supervisor's own assignWorkerToSubstage already populates this same
+    // column (current_job_booking_ref) alongside current_substage_id as the
+    // canonical human-readable "what job is this worker on" field -- extend
+    // this path to populate it too, instead of leaving it only ever set by
+    // one of the two assignment paths.
+    current_job_booking_ref: booking_ref,
   }).eq('id', worker_id)
   revalidatePath('/sub-coordinator/workers')
   return { success: true }

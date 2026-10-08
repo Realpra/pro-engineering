@@ -90,11 +90,25 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
 
   const { data: report, error: fetchErr } = await supabase
     .from('site_visit_reports')
-    .select('booking_ref, slot_id, supervisor_id, screen02_scope_intent')
+    .select('booking_ref, slot_id, supervisor_id, screen02_scope_intent, screen06_walls, screen14_labour')
     .eq('id', reportId)
     .single()
 
   if (fetchErr) return { error: fetchErr.message }
+
+  // Flow (ii)'s own risk-flag-raising points are Screen 6 (Hazard Check,
+  // column screen06_walls) and Screen 14 (Risk Flags, column
+  // screen14_labour) -- NOT Screen 17 (Scope Change), which is the
+  // resolution step for whatever gets raised here, not a second raising
+  // point. Count how many of the two actually raised a flag during this
+  // visit, independent of how each one later gets resolved.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const screen6 = (report as any).screen06_walls as { riskFlagged?: boolean } | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const screen14 = (report as any).screen14_labour as { riskFlagType?: string } | null
+  const riskFlagCount =
+    (screen6?.riskFlagged === true ? 1 : 0) +
+    (screen14?.riskFlagType && screen14.riskFlagType !== 'None' ? 1 : 0)
 
   // LTF sourcing correction (29 Sep 2026, project owner): Screen 2's
   // per-substage LTF answers (form.ltfBySubstage, Session 58's "LTF per-
@@ -157,7 +171,7 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
 
   const { error: updateErr } = await supabase
     .from('site_visit_reports')
-    .update({ status: 'submitted', submitted_at: submittedAt })
+    .update({ status: 'submitted', submitted_at: submittedAt, risk_flag_count: riskFlagCount })
     .eq('id', reportId)
 
   if (updateErr) return { error: updateErr.message }

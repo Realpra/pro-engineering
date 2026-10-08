@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { submitSupervisorLTF } from '../dashboard/actions'
 
 type CrewEntry = {
   worker_id: string
@@ -139,11 +140,37 @@ export async function submitLTFLog(params: {
     })
     .eq('supervisor_id', params.supervisorId)
     .eq('log_date', today)
-    .select('id')
+    .select('id, booking_ref')
 
   if (error) return { error: error.message }
   if (!data || data.length === 0) {
     return { error: 'No morning log found for today. Submit the morning and evening logs before submitting LTF.' }
   }
+
+  // This screen is the same real-world "Look to the Future" submission as
+  // the Dashboard's own LTFSubmitButton -- it must write the same real
+  // ltf_feeds row (the route-compile cron's actual source), not just the
+  // daily_site_logs columns, or a Supervisor filling this in believes an LTF
+  // signal went out when it never did.
+  const bookingRef = data[0].booking_ref as string | null
+  if (bookingRef) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: enquiry } = await supabase
+      .from('guest_enquiries')
+      .select('id')
+      .eq('booking_ref', bookingRef)
+      .maybeSingle()
+    if (user && enquiry?.id) {
+      const slot = params.ltfTargetSlot
+      await submitSupervisorLTF({
+        siteId: enquiry.id,
+        supervisorUserId: user.id,
+        isReadyTomorrow: params.ltfReadyTomorrow,
+        targetTimeSlot: slot === 'morning' || slot === 'afternoon' || slot === 'evening' ? slot : null,
+        contractorNotes: params.ltfNotes,
+      })
+    }
+  }
+
   return {}
 }

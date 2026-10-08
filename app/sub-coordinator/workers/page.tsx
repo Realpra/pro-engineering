@@ -23,7 +23,7 @@ export default async function WorkersPage() {
   const { data: workers } = await supabase
     .from('workers')
     .select(`id, full_name, trade, district, is_available, is_active,
-      skill_level, daily_wage_inr, current_job_id, phone,
+      skill_level, daily_wage_inr, current_job_booking_ref, phone,
       average_rating, total_deployments, approval_status,
       is_bocw_registered, height_restriction, dust_restriction,
       credential_type, credential_other_detail, credential_valid_upto,
@@ -192,7 +192,7 @@ export default async function WorkersPage() {
             </p>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {deployedWorkers.map(w => {
-                const currentJob = w.current_job_id ? jobMap[w.current_job_id] : null
+                const currentJob = w.current_job_booking_ref ? jobMap[w.current_job_booking_ref] : null
                 return (
                   <div key={w.id} className="px-5 py-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">

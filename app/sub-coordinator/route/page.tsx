@@ -50,11 +50,14 @@ export default async function SubCoordinatorRoutePage() {
     .order('scheduled_date', { ascending: true })
     .order('slot_start', { ascending: true })
 
-  // Supervisors
+  // Supervisors -- guest_enquiries.supervisor_id / supervisor_daily_routes.
+  // supervisor_id are both workers.id, not users.id (confirmed convention
+  // throughout this codebase).
   const { data: supervisors } = await supabase
-    .from('users')
+    .from('workers')
     .select('id, full_name')
-    .eq('platform_role', 'supervisor')
+    .eq('trade', 'Supervisor')
+    .eq('is_active', true)
 
   // Active jobs for site selection
   const { data: activeJobs } = await supabase
@@ -63,10 +66,11 @@ export default async function SubCoordinatorRoutePage() {
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
-  // LTF feeds for today
+  // LTF feeds for today -- ltf_feeds has no booking_ref column at all
+  // (confirmed live schema), only site_id (a guest_enquiries.id).
   const { data: ltfFeeds } = await supabase
     .from('ltf_feeds')
-    .select('id, booking_ref, is_ready_tomorrow, target_time_slot, contractor_notes')
+    .select('id, site_id, is_ready_tomorrow, target_time_slot, contractor_notes')
     .gte('submitted_at', `${today}T00:00:00`)
     .eq('is_ready_tomorrow', true)
 
@@ -152,12 +156,12 @@ export default async function SubCoordinatorRoutePage() {
             </p>
             <div className="bg-white rounded-2xl border border-green-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {(ltfFeeds ?? []).map(feed => {
-                const job = (activeJobs ?? []).find(j => j.booking_ref === feed.booking_ref)
+                const job = (activeJobs ?? []).find(j => j.id === feed.site_id)
                 return (
                   <div key={feed.id} className="px-5 py-3 flex items-start gap-3">
                     <span className="text-base shrink-0 mt-0.5">🟢</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-400">{feed.booking_ref}</p>
+                      <p className="text-xs text-gray-400">{job?.booking_ref ?? '—'}</p>
                       <p className="text-sm font-semibold text-gray-800">{job?.job_title ?? '—'}</p>
                       {feed.contractor_notes && (
                         <p className="text-xs text-gray-500 mt-0.5 italic">"{feed.contractor_notes}"</p>

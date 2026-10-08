@@ -17,6 +17,14 @@ export default async function SubstageDetailPage({ params }: { params: Promise<{
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('users')
+    .select('platform_role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (profile?.platform_role !== 'site_incharge') redirect('/login')
+
   const { data: sub } = await supabase
     .from('job_milestone_substages')
     .select('*')

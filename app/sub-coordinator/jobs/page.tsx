@@ -41,10 +41,14 @@ export default async function JobsPage() {
       subcoordinator_reviewed_at, substage_approved_at`)
     .order('milestone_code', { ascending: true })
 
+  // guest_enquiries.supervisor_id is a workers.id, not a users.id (confirmed
+  // convention throughout this codebase -- Coordinator's own dashboard/jobs
+  // pages and the ltf-route-compile cron all resolve Supervisor via workers).
   const { data: supervisors } = await supabase
-    .from('users')
+    .from('workers')
     .select('id, full_name')
-    .eq('platform_role', 'supervisor')
+    .eq('trade', 'Supervisor')
+    .eq('is_active', true)
 
   const supervisorMap = Object.fromEntries(
     (supervisors ?? []).map(s => [s.id, s.full_name])

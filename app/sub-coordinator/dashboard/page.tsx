@@ -102,13 +102,18 @@ export default async function SubCoordinatorDashboardPage() {
         .order('supervisor_submitted_at', { ascending: true })
     : { data: [] }
 
-  // LTF feeds for today
+  // LTF feeds for today -- ltf_feeds has no booking_ref column at all
+  // (confirmed live schema), only site_id (a guest_enquiries.id).
   const today = new Date().toISOString().split('T')[0]
   const { data: ltfFeeds } = await supabase
     .from('ltf_feeds')
-    .select('id, site_id, booking_ref, submitted_by, submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes, accountability_flag')
+    .select('id, site_id, submitted_by, submitted_at, is_ready_tomorrow, target_time_slot, contractor_notes, accountability_flag')
     .gte('submitted_at', `${today}T00:00:00`)
     .order('submitted_at', { ascending: false })
+
+  const jobMap = Object.fromEntries(
+    (activeJobs ?? []).map(j => [j.id, j])
+  )
 
   // Today's supervisor routes
   const { data: supervisorRoutes } = await supabase
@@ -308,7 +313,7 @@ export default async function SubCoordinatorDashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-xs text-gray-400">{feed.booking_ref}</p>
+                          <p className="text-xs text-gray-400">{jobMap[feed.site_id]?.booking_ref ?? '—'}</p>
                           <p className="text-sm font-semibold text-gray-800">
                             {feed.is_ready_tomorrow ? 'Ready Tomorrow' : 'Not Ready'}
                           </p>
