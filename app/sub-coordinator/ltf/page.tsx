@@ -191,7 +191,6 @@ export default async function LTFFeedsPage() {
                         <form action={addToRouteAction} className="flex-1">
                           <input type="hidden" name="ltf_feed_id" value={feed.id} />
                           <input type="hidden" name="site_id" value={feed.site_id ?? ''} />
-                          <input type="hidden" name="supervisor_id" value={feed.submitted_by ?? ''} />
                           <input type="hidden" name="scheduled_date" value={tomorrow} />
                           <input type="hidden" name="slot_start" value="09:00" />
                           <input type="hidden" name="slot_end" value="11:00" />

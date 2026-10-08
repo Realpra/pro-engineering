@@ -99,13 +99,29 @@ export async function approveSubstageToCoordinator(substageId: string) {
 export async function addLtfToRoute(formData: FormData) {
   const supabase = await createClient()
   const ltf_feed_id = formData.get('ltf_feed_id') as string
-  const supervisor_id = formData.get('supervisor_id') as string
   const site_id = formData.get('site_id') as string
   const scheduled_date = formData.get('scheduled_date') as string
   const slot_start = formData.get('slot_start') as string
   const slot_end = formData.get('slot_end') as string
+
+  // Who visits is a different question from who filed the LTF feed (Site
+  // Incharge end-of-day report or Supervisor's own inspection -- either is a
+  // valid trigger, per the project owner). The job's real assigned
+  // Supervisor already lives on guest_enquiries.supervisor_id -- this is the
+  // exact lookup app/api/cron/ltf-route-compile/route.ts already does
+  // correctly for the automatic path; this manual button now matches it
+  // instead of reusing the feed's submitted_by (a users.id from whichever
+  // role submitted, never the right id-space for this column).
+  const { data: enquiry, error: enquiryError } = await supabase
+    .from('guest_enquiries')
+    .select('supervisor_id')
+    .eq('id', site_id)
+    .maybeSingle()
+  if (enquiryError) return { error: enquiryError.message }
+  if (!enquiry?.supervisor_id) return { error: 'This job has no assigned Supervisor yet -- assign one before adding to route.' }
+
   const { error } = await supabase.from('supervisor_daily_routes').insert({
-    supervisor_id,
+    supervisor_id: enquiry.supervisor_id,
     site_id,
     ltf_feed_id,
     scheduled_date,
