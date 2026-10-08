@@ -12,6 +12,30 @@ Read this at the start of every session.
 - GitHub: https://github.com/Realpra/pro-engineering
 - Supabase project: xhlpdbcrncpznrqpcrht
 
+## LOCAL DEV SETUP (added 8 Oct 2026, ahead of the project owner's Windows -> Mac switch)
+Nothing in this project is OS-specific -- a plain Node/Next.js + git repo, same steps on Mac,
+Windows, or Linux. To pick up local work on any new machine:
+1. `git clone https://github.com/Realpra/pro-engineering.git && cd pro-engineering`
+2. `git checkout claude/gracious-knuth-vxwkc3` (the working branch -- `master` is production and
+   is intentionally behind it until a batch is live-verified; see GO-LIVE STATUS entries below
+   for which commits are safe where).
+3. `npm install`
+4. Recreate `.env.local` at the repo root (gitignored, never committed, so it does not travel
+   with a fresh clone) -- needs at minimum `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the service-role key (see SERVICE ROLE KEY below) from
+   Supabase Dashboard -> Settings -> API for project `xhlpdbcrncpznrqpcrht`. Copy these over from
+   wherever they were last recorded (the old machine's `.env.local`, a password manager, or the
+   Supabase dashboard directly) -- do not guess the variable names, read an existing `.env.local`
+   or `lib/supabase/*.ts`'s `process.env.*` references first if unsure.
+5. `npx tsc --noEmit` -- should exit 0 with real `node_modules` present (this cloud sandbox's own
+   `tsc` runs sometimes show environmental noise from a missing `node_modules`; a local machine
+   with a real `npm install` should have none).
+6. `npm run dev` for a local click-through against the real Supabase project, OR open the
+   branch's own Vercel preview URL (Vercel auto-builds a preview per pushed branch) if testing
+   without running anything locally is preferred.
+7. For Supabase SQL (migrations, verification queries): Supabase Dashboard -> SQL Editor for
+   project `xhlpdbcrncpznrqpcrht` -- no CLI/psql setup needed on the new machine either.
+
 ## SCHEMA FREEZE IN PROGRESS (started 24 Sep 2026, Session 60; methodology finalized 26 Sep 2026, Session 64)
 docs/ENTITY_RELATIONSHIP_FREEZE.md (29 items, R1-R29) and docs/ORIGINAL_SPEC_AUDIT.md
 remain the evidence catalogue of what's wrong and where. BUT deciding them one
