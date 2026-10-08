@@ -2811,3 +2811,57 @@ this sandbox. Staying on `claude/gracious-knuth-vxwkc3`, not fast-forwarded to `
 unlike the pure-migration batch, this is real, UI-reachable application code that has never been
 clicked once.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 8 Oct 2026 — TRIO (CLIENT/WORKER/COORDINATOR) TEST DATA PREPARED
+Project owner moved into live-testing setup for the Dynamic Scheduling Engine: confirmed the
+`skill_grade` derivation (unskilled=0, semi_skilled+<10 jobs=1, skilled+≥10 jobs+≤3yrs=2,
+skilled+10-20 jobs+3-7yrs=3, skilled+20-30 jobs+7-10yrs=4, skilled+>30 jobs+>10yrs=5 -- the one
+real ambiguity, the `5_10` years_experience bucket spanning both the 3-7 and 7-10 tiers since the
+real enum has no 7-year boundary, resolved by tie-breaking on `jobs_completed` <20 vs ≥20), ran
+the cyclic 0-5 `skill_grade` backfill live across existing workers (confirmed success), and
+explicitly confirmed `findAvailableCandidates()`'s lack of an `approval_status` filter is to stay
+exactly as coded -- no code/logic change made anywhere this entry, per explicit instruction.
+
+**Real structural finding, checked against the actual seed before building anything**: Noida
+Sector 62/63/64 all sit under one single real zone ("Zone 1",
+`20260926_worker_onboarding_full_spec.sql`) -- not three separate zones. Own-zone matching is
+sector-exact, so a Sector 63 worker was never going to count as "own zone" for a Sector 62 job
+regardless of zone_adjacency; the only genuine second zone already live is "IIT Zone" (Delhi --
+Hauz Khas/Panchsheel Park, `20260928_geo_hierarchy_delhi_central_delhi.sql`). Project owner's
+decision, confirmed: "other sectors/locations other than what is defined as Zone 1 be treated as
+adjoining zones" -- read correctly as IIT Zone, the one real other zone, not an invented new one.
+
+**New migration, verified, not just written** (`supabase/migrations/20261008_zone_adjacency_seed.sql`):
+seeds both directions (Zone 1 <-> IIT Zone) into `zone_adjacency`, `eligible_for_pull`/
+`donor_capacity_check_required` both true per the engine's own mandatory-donor-check design.
+`travel_time_minutes`/`distance_km` left NULL -- confirmed by re-reading `zoneAdjacency.ts` that
+the matching engine never reads either column, so leaving them unset is honest, not a guessed
+placeholder. Verified against a real local PostgreSQL 16 scaffold (geo_hierarchy + zone_adjacency
+tables, Zone 1 + IIT Zone seed rows), run twice -- clean both times, confirmed idempotent
+(`ON CONFLICT (from_zone_id, to_zone_id) DO UPDATE`), confirmed exactly the 2 expected symmetric
+rows. **NOT YET RUN in the real Supabase project.**
+
+**Three Excel deliverables built and sent this entry** (none committed to the repo, same
+standing convention as every other review/test-prep workbook): `Bathroom_Upgradation_
+Milestone_Plan_Input.xlsx` (an illustrative 18-sub-stage draft in the real `job_milestone_
+substages` input shape, before the project owner's own real data arrived) and `Bathroom_BOQ_
+11x15_Illustrative.xlsx` (a quantity takeoff using real `labour_rate_config`/`rate_card` SKU
+codes, explicitly no live rates -- this sandbox can't pull real `rate_card` pricing) were
+superseded once the project owner uploaded their own real 13-activity "Toilet renovation" work
+plan (photo of their own Excel) with real milestone day-spans (M1=3d/M2=5d/M3=10d/M4=13d, 31
+days total) and flat labour rates (skilled Rs 1200/day, helper Rs 700/day, confirmed "Cheaper"
+in their sheet = a typo for "Helper" via AskUserQuestion, not guessed). Rebuilt as
+`Toilet_Renovation_Real_Work_Plan.xlsx` -- their real 13 rows mapped into the exact
+`job_milestone_substages` input columns, rows 1-8 fitting the M1/M2 day-spans exactly 1:1 (no
+assumption needed), rows 9-13's multi-day split across M3/M4 explicitly flagged (orange-filled)
+as this session's own apportionment, not asserted as their real intent -- plus a live, formula-
+driven Labour Costing sheet (total ≈Rs 2,09,100 for the 31-day job at the given flat rates,
+recalculated automatically if counts/days are edited). `recalc.py`: 0 errors on all three
+workbooks.
+
+**Status at this entry's close**: `zone_adjacency` migration written + locally verified, needs
+to be run live before the C4 cross-zone fallback can be tested for real; the real Milestone Plan
+data is ready to enter via the Task Ledger tab once a real booking/BOQ exists; `skill_grade` is
+already live-seeded. No app code touched this entry -- data/schema-prep + deliverables only, per
+the project owner's explicit "do not change the original coding/logic" instruction.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3

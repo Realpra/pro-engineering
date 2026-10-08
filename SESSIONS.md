@@ -1756,3 +1756,17 @@ for its own pass. NOT live-tested, same standing constraint as the engine itself
 `claude/gracious-knuth-vxwkc3`, not fast-forwarded to `master` -- this is real, UI-reachable code
 that has never been clicked once.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+Trio (Client/Worker/Coordinator) test data prepared (8 Oct 2026). `skill_grade` derivation
+confirmed and the cyclic 0-5 backfill ran live successfully. `findAvailableCandidates()`'s lack
+of an `approval_status` filter confirmed to stay exactly as coded -- no logic changed anywhere
+this entry. Real finding: Sector 62/63/64 all sit under one zone ("Zone 1"); the only other real
+zone live is "IIT Zone" (Delhi). New migration `20261008_zone_adjacency_seed.sql` seeds both
+directions between them, verified against a real local Postgres twice (idempotent, exactly 2
+rows both times) -- not yet run live. Three Excel deliverables sent (not committed): an
+illustrative bathroom draft, an illustrative 11x15 BOQ takeoff, then `Toilet_Renovation_Real_
+Work_Plan.xlsx` once the project owner's own real 13-activity plan arrived -- rebuilt into the
+exact `job_milestone_substages` shape, with a formula-driven Labour Costing sheet (~Rs 2,09,100
+total), "Cheaper"=Helper confirmed via AskUserQuestion not guessed, M3/M4 multi-day splits
+explicitly flagged as this session's own apportionment. No app code touched this entry.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
