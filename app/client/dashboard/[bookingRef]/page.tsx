@@ -55,6 +55,7 @@ export default async function ClientDashboardPage({
     { data: milestonesData },
     { data: substagesData },
     { data: responseData },
+    { data: scopeChangesData },
   ] = await Promise.all([
     supabase.from('guest_enquiries').select('*').eq('booking_ref', bookingRef).single(),
     supabase
@@ -83,6 +84,15 @@ export default async function ClientDashboardPage({
       .order('responded_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Execution-stage scope changes Admin has approved -- the client's own
+    // decision on each (client_acceptance) is what actually triggers the
+    // merge into the main estimate, see submitScopeChangeClientDecision.
+    supabase
+      .from('scope_change_requests')
+      .select('*')
+      .eq('booking_ref', bookingRef)
+      .eq('admin_decision', 'approved')
+      .order('admin_decided_at', { ascending: false }),
   ])
 
   if (!enquiryData) {
@@ -117,6 +127,7 @@ export default async function ClientDashboardPage({
       substages={substagesData ?? []}
       clientResponse={responseData ?? null}
       supervisor={supervisor ?? null}
+      scopeChanges={scopeChangesData ?? []}
     />
   )
 }

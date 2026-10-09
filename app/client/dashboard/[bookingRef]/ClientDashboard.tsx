@@ -11,6 +11,7 @@ import {
   acceptTerms,
   submitClientScopeChange,
   submitMilestonePaymentRequest,
+  submitScopeChangeClientDecision,
 } from './actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +24,7 @@ interface ClientDashboardProps {
   substages: AnyRecord[]
   clientResponse: AnyRecord | null
   supervisor: { full_name: string } | null
+  scopeChanges: AnyRecord[]
 }
 
 function money(v: unknown): string {
@@ -114,6 +116,7 @@ export default function ClientDashboard({
   substages,
   clientResponse,
   supervisor,
+  scopeChanges,
 }: ClientDashboardProps) {
   const router = useRouter()
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -314,6 +317,17 @@ export default function ClientDashboard({
       return
     }
     router.push(`/client/payment?booking_ref=${enquiry.booking_ref}&milestone_code=${milestoneCode}`)
+  }
+
+  async function handleScopeChangeDecision(requestId: string, decision: 'accepted' | 'rejected') {
+    const confirmMsg =
+      decision === 'accepted'
+        ? 'Accept this scope change? Your estimate, milestones and payment schedule will be revised to reflect it.'
+        : 'Reject this scope change?'
+    if (!window.confirm(confirmMsg)) return
+    await runAction(`scope-decision-${requestId}`, () =>
+      submitScopeChangeClientDecision(enquiry.booking_ref, requestId, decision),
+    )
   }
 
   async function handleAccept() {
@@ -1061,6 +1075,76 @@ export default function ClientDashboard({
           </div>
         </div>
       </div>
+
+      {scopeChanges.length > 0 && (
+        <div className="border-b border-[#1F3864]/20 pb-8 mb-8">
+          {/* SECTION 8A — SCOPE CHANGES */}
+          <SectionHeading title="8A. Scope Changes During Execution" />
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-blue-800 text-sm">
+            These are changes to the original scope raised during execution and approved by our
+            team. Accepting a change revises your estimate, milestones and payment schedule to
+            include it; your existing payments are not affected.
+          </div>
+          {scopeChanges.map((sc) => {
+            const decided = sc.client_acceptance && sc.client_acceptance !== 'pending'
+            return (
+              <div key={sc.id} className="bg-white rounded-xl border p-4 mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-gray-800">
+                    {sc.scope_change_number || 'Scope Change'}
+                  </p>
+                  <Pill
+                    className={
+                      sc.client_acceptance === 'accepted'
+                        ? 'bg-green-100 text-green-800'
+                        : sc.client_acceptance === 'rejected'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-amber-100 text-amber-800'
+                    }
+                  >
+                    {(sc.client_acceptance ?? 'pending').toUpperCase()}
+                  </Pill>
+                </div>
+                <p className="text-sm text-gray-700">{sc.client_request || sc.justification_cos}</p>
+                <div className="grid grid-cols-2 gap-3 mt-3 text-sm">
+                  <div className="bg-gray-50 rounded-lg p-2">
+                    <p className="text-gray-400 text-xs">Revised Total Estimate</p>
+                    <p className="font-bold text-gray-800">{money(sc.revised_total_estimate)}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2">
+                    <p className="text-gray-400 text-xs">Revised Completion Date</p>
+                    <p className="font-bold text-gray-800">{fmtDate(sc.revised_completion_date)}</p>
+                  </div>
+                </div>
+                {!decided ? (
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      disabled={busyKey === `scope-decision-${sc.id}`}
+                      onClick={() => handleScopeChangeDecision(sc.id, 'accepted')}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 rounded-lg disabled:opacity-60"
+                    >
+                      ACCEPT
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyKey === `scope-decision-${sc.id}`}
+                      onClick={() => handleScopeChangeDecision(sc.id, 'rejected')}
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-bold py-2 rounded-lg disabled:opacity-60"
+                    >
+                      REJECT
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-2">
+                    Decided {fmtDate(sc.decision_timestamp)}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {declinedRiskItems.length > 0 && (
         <div className="border-b border-[#1F3864]/20 pb-8 mb-8">
