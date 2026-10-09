@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { regeneratePlanForRevisedEstimate } from '@/app/admin/estimate/[bookingRef]/milestonePlanActions'
+import { redistributeMilestonePayments, notifyCoordinatorsOfRevision } from '@/app/admin/estimate/[bookingRef]/actions'
 
 type ActionResult = { success?: true; error?: string }
 
@@ -123,6 +125,54 @@ export async function submitOverallResponse(
     ])
     if (boqRes.error) return { error: boqRes.error.message }
     if (enquiryRes.error) return { error: enquiryRes.error.message }
+
+    // Per the project owner's explicit verdict (9 Oct 2026): an execution-
+    // stage scope change, once merged into this same boq_generated row
+    // (app/admin/scope|milestones/actions.ts), must redefine the whole job
+    // the moment the client re-accepts it -- "it gets to become a new job
+    // from when it happens... milestone/sub-stage and every act is
+    // redefined". The job's FIRST-ever acceptance (no money has moved yet)
+    // must NOT trigger this -- only a genuine mid-execution revision does.
+    // Real signal, not guessed: at least one milestone_payment_schedule row
+    // for this booking already reached a paid terminal state ('paid' for
+    // M0, 'payment_released' for M1-M4) -- "amount received is continuing".
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: paidCheck } = await (supabase as any)
+      .from('milestone_payment_schedule')
+      .select('id')
+      .eq('booking_ref', bookingRef)
+      .in('status', ['paid', 'payment_released'])
+      .limit(1)
+
+    if (paidCheck && paidCheck.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: acceptedBoq } = await (supabase as any)
+        .from('boq_generated')
+        .select('total_amount, estimate_version_label')
+        .eq('id', boqId)
+        .maybeSingle()
+
+      const regenResult = await regeneratePlanForRevisedEstimate(bookingRef)
+      const redistributeResult = await redistributeMilestonePayments(
+        bookingRef,
+        Number(acceptedBoq?.total_amount ?? 0),
+      )
+
+      const { data: { user: actingUser } } = await supabase.auth.getUser()
+      await notifyCoordinatorsOfRevision(
+        bookingRef,
+        acceptedBoq?.estimate_version_label ?? 'revised estimate',
+        Number(acceptedBoq?.total_amount ?? 0),
+        actingUser?.id ?? null,
+      )
+
+      // A redefinition-cascade failure must not be swallowed silently --
+      // the acceptance itself already succeeded (boqRes/enquiryRes above),
+      // so this surfaces as a real error for staff to act on rather than a
+      // plan that looks regenerated but silently wasn't.
+      if (regenResult.error) return { error: `Estimate accepted, but plan regeneration failed: ${regenResult.error}` }
+      if (redistributeResult.error) return { error: `Estimate accepted, but payment redistribution failed: ${redistributeResult.error}` }
+    }
   } else if (responseType === 'rejected') {
     const { error } = await supabase
       .from('boq_generated')

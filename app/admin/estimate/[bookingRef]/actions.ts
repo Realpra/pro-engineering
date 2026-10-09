@@ -1152,6 +1152,116 @@ export async function writeMilestoneSchedule(
   return {}
 }
 
+// ── redistributeMilestonePayments ─────────────────────────────────────────────
+// The project owner's explicit choice (9 Oct 2026, AskUserQuestion) for what
+// happens to milestone_payment_schedule when the job value changes
+// mid-execution: "Recalculate all remaining percentages" -- not a new
+// milestone row for the new scope. Already-PAID milestones ('paid' for M0,
+// 'payment_released' for M1-M4) are left completely untouched -- "amount
+// received is continuing". Every other (not-yet-paid) row keeps its
+// RELATIVE share of what was still outstanding, re-scaled against the new
+// total, so paid + redistributed-remaining sums back to the new total
+// exactly (rounding aside).
+export async function redistributeMilestonePayments(
+  bookingRef: string,
+  newTotalAmount: number,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const PAID_STATUSES = ['paid', 'payment_released']
+
+  const { data: rows, error: fetchErr } = await supabase
+    .from('milestone_payment_schedule')
+    .select('id, status, payment_percent, payment_amount')
+    .eq('booking_ref', bookingRef)
+  if (fetchErr) return { error: fetchErr.message }
+  if (!rows || rows.length === 0) return {}
+
+  type Row = { id: string; status: string; payment_percent: number | null; payment_amount: number | null }
+  const paidRows = (rows as Row[]).filter((r) => PAID_STATUSES.includes(r.status))
+  const remainingRows = (rows as Row[]).filter((r) => !PAID_STATUSES.includes(r.status))
+
+  const paidAmount = round2(paidRows.reduce((s, r) => s + (Number(r.payment_amount) || 0), 0))
+  const remainingBudget = round2(newTotalAmount - paidAmount)
+
+  if (remainingBudget < 0) {
+    return {
+      error: `Revised total (Rs ${newTotalAmount.toFixed(2)}) is less than what is already paid ` +
+        `(Rs ${paidAmount.toFixed(2)}) for this booking -- this needs manual review, not an ` +
+        `automatic redistribution.`,
+    }
+  }
+  if (remainingRows.length === 0) return {}
+
+  const sumOriginalRemainingPct = remainingRows.reduce((s, r) => s + (Number(r.payment_percent) || 0), 0)
+  const useEvenSplit = sumOriginalRemainingPct <= 0
+  const now = new Date().toISOString()
+
+  for (const row of remainingRows) {
+    const share = useEvenSplit
+      ? 1 / remainingRows.length
+      : (Number(row.payment_percent) || 0) / sumOriginalRemainingPct
+    const newAmount = round2(remainingBudget * share)
+    const newPct = newTotalAmount > 0 ? round2((newAmount / newTotalAmount) * 100) : 0
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updErr } = await (supabase as any)
+      .from('milestone_payment_schedule')
+      .update({ payment_amount: newAmount, payment_percent: newPct, updated_at: now })
+      .eq('id', row.id)
+    if (updErr) return { error: (updErr as { message: string }).message }
+  }
+  return {}
+}
+
+// ── notifyCoordinatorsOfRevision ──────────────────────────────────────────────
+// "deployments are reviewed so what is booked and still needed stays like
+// any rescheduling" -- the project owner's own words for what Coordinator
+// must do once a job's plan is redefined mid-execution. 'revised' is one of
+// site_instructions' own real, pre-existing instruction_type values (not
+// invented), and this reuses the exact fan-out-to-every-real-recipient shape
+// already frozen elsewhere in this project (Site Incharge's requestResources,
+// Supervisor's raiseSOS).
+export async function notifyCoordinatorsOfRevision(
+  bookingRef: string,
+  versionLabel: string,
+  newTotalAmount: number,
+  issuedByUserId: string | null,
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: coordinators, error: coordErr } = await (supabase as any)
+    .from('users')
+    .select('id')
+    .eq('platform_role', 'coordinator')
+  if (coordErr) return { error: coordErr.message }
+  if (!coordinators || coordinators.length === 0) return {}
+
+  const now = new Date().toISOString()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('site_instructions').insert(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    coordinators.map((c: any) => ({
+      booking_ref: bookingRef,
+      instruction_type: 'revised',
+      instruction_category: 'system_alert',
+      priority: 'high',
+      instruction_text:
+        `Job ${bookingRef}'s estimate was revised to ${versionLabel} (new total Rs ${newTotalAmount.toFixed(2)}) ` +
+        `after an execution-stage scope change was approved. The milestone/sub-stage plan has been fully ` +
+        `regenerated from the new estimate -- review current worker deployments against the redefined plan: ` +
+        `what is already booked and still needed stays, the rest needs rescheduling.`,
+      issued_by: issuedByUserId,
+      issued_to: c.id,
+      issued_at: now,
+      status: 'pending',
+      is_active: true,
+    })),
+  )
+  if (error) return { error: error.message }
+  return {}
+}
+
 // ── approveBoqField ────────────────────────────────────────────────────────────
 
 export async function approveBoqField(

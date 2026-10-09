@@ -508,7 +508,17 @@ const SKU_TO_RATE: Record<string,string> = {
   const MS_PCT: Record<string,number> = {'M0':20,'M1':25,'M2':20,'M3':25,'M4':10}
   const byMS: Record<string,MilestonePlanSubstage[]> = {}
   for(const item of nonRisk) {
-    const mc = SKU_MS[item.skuCode]
+    // Scope-change-merge SKU codes (LAB-SC-.../LAB-CC-..., see
+    // app/admin/scope|milestones/actions.ts) are never in this fixed
+    // catalogue table -- they are new, execution-stage-discovered work, not
+    // one of the original 26 catalogue SKUs. Per the project owner's
+    // worked example (9 Oct 2026 -- "add one item, cleaning, 1hr next day,
+    // nothing else changed"), a newly-approved scope change is additional
+    // work picked up at the point the plan is redefined, not retroactively
+    // part of an earlier milestone -- defaulted to M4 (the last milestone)
+    // rather than silently dropped, same discipline as TRADE/WORKERS/
+    // EVIDENCE/DAYS below, which already default rather than skip.
+    const mc = SKU_MS[item.skuCode] || (String(item.skuCode).startsWith('LAB-') ? 'M4' : undefined)
     if(!mc) continue
     if(!byMS[mc]) byMS[mc]=[]
     const dep = DEPS[item.skuCode]
@@ -732,4 +742,62 @@ export async function cleanSubstagePredecessor(
     .eq('substage_code', substageCode)
   if (error) return { success: false, error: error.message }
   return { success: true }
+}
+
+// Per the project owner's explicit verdict (9 Oct 2026): an execution-stage
+// scope change, once merged into the main estimate, makes the job's whole
+// plan "redefined... in short it gets to become a new job from when it
+// happens" -- their own explicit choice was "Fully regenerated" (wipe and
+// rebuild job_milestone_substages from the new merged BOQ from scratch,
+// completed/paid sub-stages re-marked done manually afterward), not a
+// partial patch. Called only from the client-acceptance hook
+// (app/client/dashboard/[bookingRef]/actions.ts's submitOverallResponse)
+// once it has confirmed this acceptance is for an execution-stage revision,
+// not the job's original first-ever acceptance.
+export async function regeneratePlanForRevisedEstimate(
+  bookingRef: string,
+): Promise<{ error?: string; savedCount?: number }> {
+  const { stages, error: genErr } = await generateSubstagesFromBOQ(bookingRef)
+  if (genErr) return { error: genErr }
+
+  const rows: JobMilestoneSubstageInput[] = stages.flatMap((stage) =>
+    stage.subStages.map((sub): JobMilestoneSubstageInput => ({
+      milestoneCode: stage.milestoneCode,
+      substageCode: sub.substageCode,
+      substageName: sub.substageName,
+      plannedDay: sub.plannedDay,
+      skilledWorkersPerDay: sub.skilledWorkersPerDay,
+      unskilledWorkersPerDay: sub.unskilledWorkersPerDay,
+      evidenceRequired: sub.evidenceRequired,
+      status: sub.status,
+      substageDescription: sub.substageDescription,
+      plannedHours: sub.plannedHours,
+      startTimeSlot: sub.startTimeSlot,
+      plannedStartDate: sub.plannedStartDate,
+      tradeType: sub.tradeType,
+      predecessorCode: sub.predecessorCode,
+      dependencyType: sub.dependencyType,
+      lagDays: sub.lagDays,
+      lagHours: sub.lagHours,
+      floatDays: sub.floatDays,
+      bufferDays: sub.bufferDays,
+      isCriticalPath: sub.isCriticalPath,
+      resourceConstraint: sub.resourceConstraint,
+      constraintType: sub.constraintType,
+      constraintDate: sub.constraintDate,
+      weatherDelayDays: sub.weatherDelayDays,
+      supervisorChecklist: sub.supervisorChecklist,
+      subcoordinatorChecklist: sub.subcoordinatorChecklist,
+      coordinatorChecklist: sub.coordinatorChecklist,
+      labourAssignments: sub.labourAssignments,
+    })),
+  )
+
+  const saveResult = await saveMilestonePlan(bookingRef, rows)
+  if (saveResult.error) return { error: saveResult.error }
+
+  const cpmResult = await computeCPMSchedule(bookingRef)
+  if (!cpmResult.success) return { error: cpmResult.error, savedCount: saveResult.savedCount }
+
+  return { savedCount: saveResult.savedCount }
 }
