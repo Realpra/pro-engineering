@@ -686,7 +686,7 @@ export async function computeCPMSchedule(bookingRef: string): Promise<{success:b
   const supabase = await createClient()
   const { data: subs, error } = await supabase
     .from('job_milestone_substages')
-    .select('id,substage_code,planned_day,lag_days,lag_hours,dependency_type,predecessor_substage_code')
+    .select('id,substage_code,planned_day,lag_days,lag_hours,dependency_type,predecessor_substage_code,weather_delay_days')
     .eq('booking_ref', bookingRef)
     .order('sequence_order')
   if (error||!subs) return {success:false,error:error?.message}
@@ -697,7 +697,12 @@ export async function computeCPMSchedule(bookingRef: string): Promise<{success:b
   const base = new Date(); base.setHours(0,0,0,0)
   for (const s of subs) {
     const code = s.substage_code; if(!code) continue
-    const dur = s.planned_day||1
+    // weather_delay_days extends THIS substage's own duration -- a real logged delay (Dynamic
+    // Scheduler recast.ts bumps this column) pushes this substage's own finish date later,
+    // which the FS/SS/FF/SF propagation below naturally carries forward into every substage
+    // that actually depends on it. Confirmed correction, 10 Oct 2026: a delay must recompute
+    // the whole dependency-aware schedule, not a flat "+N days to everything dated after it."
+    const dur = (s.planned_day||1) + (s.weather_delay_days||0)
     const lagDays = (s.lag_days||0)+((s.lag_hours||0)/24)
     const pred = s.predecessor_substage_code
     const dep = s.dependency_type||'FS'

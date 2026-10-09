@@ -10,7 +10,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { materializeTaskLedgerForSubstage } from '@/lib/scheduling-engine/materialize'
-import { matchSlot, confirmDevianceMatch, listCandidatesForSlot, assignCandidateToSlot, type CandidateListResult } from '@/lib/scheduling-engine/match'
+import { matchSlot, confirmDevianceMatch, listCandidatesForSlot, assignCandidateToSlot, cancelBooking, type CandidateListResult } from '@/lib/scheduling-engine/match'
 import { recastForDelay, type RecastParams } from '@/lib/scheduling-engine/recast'
 import { fillSlotWithSavior } from '@/lib/scheduling-engine/saviors'
 
@@ -265,7 +265,7 @@ export async function reportSlotDelay(params: {
   newRequiredSkillCode?: string
   reasonCategory: RecastParams['reasonCategory']
   reasonRemarks?: string
-}): Promise<{ error?: string; recastSlotId?: string; cascadedSlotIds?: string[] }> {
+}): Promise<{ error?: string; affectedSubstageIds?: string[]; insertedCount?: number }> {
   const ctx = await requireAllocator()
   if ('error' in ctx) return ctx
   try {
@@ -280,9 +280,24 @@ export async function reportSlotDelay(params: {
       loggedByUserId: ctx.userId,
     })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
-    return { recastSlotId: result.recastSlotId, cascadedSlotIds: result.cascadedSlotIds }
+    return { affectedSubstageIds: result.affectedSubstageIds, insertedCount: result.insertedCount }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Delay report failed.' }
+  }
+}
+
+// Always-available cancel/unassign (10 Oct 2026 correction): "one alloted can always be
+// cancelled. system shall not fail/obstruct that logic." No condition gates this beyond the
+// same role check every other action here already has.
+export async function cancelSlotBooking(params: { bookingRef: string; slotId: string; remarks?: string }): Promise<{ error?: string }> {
+  const ctx = await requireAllocator()
+  if ('error' in ctx) return ctx
+  try {
+    await cancelBooking(ctx.supabase, { slotId: params.slotId, cancelledByUserId: ctx.userId, remarks: params.remarks })
+    revalidatePath(`/admin/estimate/${params.bookingRef}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Cancel failed.' }
   }
 }
 

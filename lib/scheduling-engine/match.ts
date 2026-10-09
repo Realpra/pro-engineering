@@ -1,9 +1,15 @@
-// Phase C1-C5 — the core matching orchestrator. One slot in, one outcome out: a booked
-// worker, a proposed-pending-Coordinator-decision candidate, or NO SUPPLY. Every candidate
-// actually considered is logged to match_log, selected or not — "the algorithm's own audit
-// trail" (README). This is the ONE matching engine Phase C1's own open question confirmed:
-// used identically whether the slot came from a brand-new job, an ongoing job's reschedule,
-// or a disruption-triggered recast (recast.ts calls this same function, never its own copy).
+// Phase C1-C5 — the core matching orchestrator.
+//
+// CORRECTED DESIGN (10 Oct 2026, the project owner's own words): "there is no automatic
+// booking by system/program. the job is to showcase... there is no allow/not allow embargo."
+// The engine's only job, at every deviance level and every zone, is to find and LIST eligible
+// candidates for a human (the Deployer -- Coordinator, or whichever role is driving that job)
+// to pick from. It never books on its own, and it never skips a deviance level because a
+// policy row says NOT_ALLOWED -- every level gets walked and shown; the human decides, always.
+// `matchSlot`/`tryZone` below -- the ORIGINAL silent-auto-book path -- are confirmed design-
+// violating by this correction and are no longer called by any live code (recast.ts and the
+// Task Ledger UI both use `listCandidatesForSlot`/`assignCandidateToSlot` instead). Kept, not
+// deleted, per this project's standing "deprecate in place" rule.
 //
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
@@ -282,10 +288,10 @@ async function listZone(
 ): Promise<{ level: number; candidates: CandidateRow[] } | null> {
   if (sectorNames.length === 0) return null
 
+  // No allow/not-allow embargo (10 Oct 2026 correction) -- every deviance level is walked and
+  // shown regardless of what deviance_policy's action column says; the policy row is no longer
+  // read here at all. The human (Deployer) decides, every time, never the policy table.
   for (const level of DEVIANCE_WALK_ORDER) {
-    const action = resolveActionForLevel(policyRows, slot.required_skill_code, tier, level)
-    if (!action || action === 'NOT_ALLOWED') continue
-
     const requiredGrade = skillFloor + level
     const candidates = await findAvailableCandidates(supabase, {
       trade: slot.required_skill_code,
@@ -307,7 +313,7 @@ async function listZone(
         proficiency_ok: true,
         compliance_ok: true,
         selected: false,
-        decision_reason: `Listed at deviance ${level} for Coordinator selection.`,
+        decision_reason: `Listed at deviance ${level} for Deployer selection.`,
       })
     }
 
@@ -327,12 +333,13 @@ async function listZone(
 }
 
 /**
- * Books whichever candidate the Coordinator actually picked from listCandidatesForSlot()'s
+ * Books whichever candidate the Deployer actually picked from listCandidatesForSlot()'s
  * returned list -- the real "pick from the list" counterpart to confirmDevianceMatch() (which
- * confirms a single system-PROPOSED ASK_COORDINATOR substitute). Flips that candidate's own
- * match_log row to selected: true rather than inserting a duplicate; deviance != 0 is still
- * recorded in human_decision_log, same as confirmDevianceMatch(), since picking a non-0-level
- * substitute is a real human decision either way.
+ * confirms a single system-PROPOSED ASK_COORDINATOR substitute, the legacy/dead path -- see
+ * the file header). Flips that candidate's own match_log row to selected: true rather than
+ * inserting a duplicate; deviance != 0 is still recorded in human_decision_log, same as
+ * confirmDevianceMatch(), since picking a non-0-level substitute is a real human decision
+ * either way.
  */
 export async function assignCandidateToSlot(
   supabase: AnyClient,
@@ -421,4 +428,55 @@ export async function confirmDevianceMatch(
     decision_value_notes: params.notes ?? 'Deviance substitute accepted by Coordinator.',
   })
   if (decisionError) throw new Error(`confirmDevianceMatch (decision_log): ${decisionError.message}`)
+}
+
+/**
+ * Cancels an existing booking on a slot -- the project owner's explicit, verbatim correction
+ * (10 Oct 2026): "any deployment is for change/cancellation/revision/reasons of absence etc so
+ * editable... one alloted can always be cancelled. system shall not fail/obstruct that logic."
+ * Always available, unconditionally, on any slot that currently has a worker booked -- there is
+ * no state this function refuses to run against. Clears the booking back to a plain unmatched
+ * Pending slot and immediately re-derives the released worker's real availability for that date,
+ * so they show up again in any other job's candidate list the moment someone re-runs Find
+ * Candidates there -- not because of any "preference" mechanism, simply because the fresh
+ * availability check now finds them free (per the project owner's own correction on this point).
+ */
+export async function cancelBooking(
+  supabase: AnyClient,
+  params: { slotId: string; cancelledByUserId: string; remarks?: string }
+): Promise<void> {
+  const { data: slot, error: slotError } = await supabase
+    .from('task_ledger')
+    .select('assigned_worker_id, target_date')
+    .eq('slot_id', params.slotId)
+    .maybeSingle()
+  if (slotError) throw new Error(`cancelBooking (slot): ${slotError.message}`)
+  if (!slot) throw new Error(`cancelBooking: slot ${params.slotId} not found`)
+
+  const releasedWorkerId = slot.assigned_worker_id as string | null
+
+  const { error: updateError } = await supabase
+    .from('task_ledger')
+    .update({
+      assigned_worker_id: null,
+      match_score: null,
+      deviance_level_applied: null,
+      compliance_check_status: null,
+      operational_action_trigger: null,
+    })
+    .eq('slot_id', params.slotId)
+  if (updateError) throw new Error(`cancelBooking (task_ledger): ${updateError.message}`)
+
+  if (releasedWorkerId) {
+    const { deriveAndUpsertAvailability } = await import('./availability')
+    await deriveAndUpsertAvailability(supabase, releasedWorkerId, slot.target_date)
+  }
+
+  const { error: decisionError } = await supabase.from('human_decision_log').insert({
+    decision_type: 'Booking Cancelled',
+    related_slot_id: params.slotId,
+    decided_by: params.cancelledByUserId,
+    decision_value_notes: params.remarks ?? 'Booking cancelled by Deployer; worker released and re-available.',
+  })
+  if (decisionError) throw new Error(`cancelBooking (decision_log): ${decisionError.message}`)
 }

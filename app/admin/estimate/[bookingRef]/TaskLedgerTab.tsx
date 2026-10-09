@@ -1,29 +1,40 @@
 'use client'
 
-// The Coordinator-facing surface for the Dynamic Scheduling Engine
-// (lib/scheduling-engine/) -- also reachable cross-job from
-// /coordinator/dynamic-scheduler, which links back into this same tab per
-// booking rather than duplicating any of this logic. "Materialize" turns a
-// sub-stage's own plan dates/headcount (job_milestone_substages, the real
-// Plan Template) into real day-grain Task Ledger rows; "Find Candidates"
-// walks the confirmed -3..+3 deviance ladder (negative side first) then
+// The Deployer-facing surface for the Dynamic Scheduling Engine
+// (lib/scheduling-engine/) -- "Deployer" is whichever role is actually
+// driving this job (Coordinator, Admin, or Super Admin; see
+// requireAllocator() in taskLedgerActions.ts), not a Coordinator-only
+// concept -- also reachable cross-job from /coordinator/dynamic-scheduler,
+// which links back into this same tab per booking rather than duplicating
+// any of this logic. "Materialize" turns a sub-stage's own plan
+// dates/headcount (job_milestone_substages, the real Plan Template) into
+// real day-grain Task Ledger rows, split into separate skilled (the
+// sub-stage's own trade) and unskilled ('Helper') demand buckets; "Find
+// Candidates" walks the confirmed -3..+3 deviance ladder (negative/cheaper
+// side first, fully, then positive/costlier side as a last resort) then
 // adjoining zones before declaring NO SUPPLY, and returns the full ranked
 // list (by jobs completed) to pick from -- never a silent auto-pick, for an
-// ordinary slot or a delay-recast slot alike.
+// ordinary slot or a delay-recast slot alike. NO LEVEL IS EVER GATED OR
+// SKIPPED by policy (10 Oct 2026 correction: "there is no automatic booking
+// by system/program... there is no allow/not allow embargo") -- every
+// level, at every zone, is always checked and shown; the human always picks.
 //
 // RECAST SLOTS RUN THE WALK AUTOMATICALLY (10 Oct 2026 correction): the
 // project owner was explicit -- once a delay is logged, "the whole program
 // gets revised... allot all skills afresh... deviance run" has to happen as
 // part of the recast itself, not sit blank waiting for a manual Find-
 // Candidates click per shifted slot. Every slot with origin==='Recast' (the
-// one directly delayed, and every later slot the cascade shifted) has its
-// deviance walk triggered the moment this tab loads -- see the auto-fetch
-// effect below -- so its real candidate list is already showing, with only
-// the final Book click left as a human decision (never silently auto-
-// booked, per the project owner's own standing correction on that point).
-// Ordinary freshly-Materialized (origin==='Planned') slots keep the manual
-// Find Candidates button, unchanged -- that flow was already confirmed
-// correct and wasn't what this correction was about.
+// fresh slots re-materialized at the CPM-recomputed dates for every
+// sub-stage that actually moved -- see recast.ts, NOT a flat date-add to
+// every later row) has its deviance walk triggered the moment this tab
+// loads -- see the auto-fetch effect below -- so its real candidate list is
+// already showing, with only the final Book click left as a human decision
+// (never silently auto-booked). Ordinary freshly-Materialized
+// (origin==='Planned') slots keep the manual Find Candidates button,
+// unchanged -- that flow was already confirmed correct and wasn't what this
+// correction was about. A booked slot can always be cancelled/unassigned,
+// unconditionally -- "system shall not fail/obstruct that logic" -- see
+// handleCancel below.
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
@@ -35,6 +46,7 @@ import {
   setSlotShiftWindow,
   findCandidatesForSlot,
   assignCandidate,
+  cancelSlotBooking,
   type TaskLedgerSubstage,
   type TaskLedgerSlot,
   type PendingDecision,
@@ -161,6 +173,19 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
     else { setMsg({ text: 'Substitute confirmed and booked.', ok: true }); load() }
   }
 
+  // Always available for a booked slot -- "one alloted can always be cancelled. system shall
+  // not fail/obstruct that logic" (10 Oct 2026 correction). No condition gates this beyond the
+  // worker actually being booked; the slot goes back to Unmatched and the worker is freed.
+  async function handleCancel(slotId: string) {
+    if (!window.confirm('Cancel this booking? The worker will be freed and this slot returns to Unmatched.')) return
+    setBusy(slotId)
+    setMsg(null)
+    const res = await cancelSlotBooking({ bookingRef, slotId })
+    setBusy(null)
+    if (res.error) setMsg({ text: res.error, ok: false })
+    else { setMsg({ text: 'Booking cancelled -- worker freed, slot is Unmatched again.', ok: true }); load() }
+  }
+
   const pendingBySlot = new Map(pendingDecisions.map(d => [d.slotId, d]))
   const substageById = new Map(substages.map(s => [s.id, s]))
 
@@ -212,7 +237,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
       <div className="rounded-xl border-2 border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
           <h3 className="font-bold text-sm text-[#1F3864]">Task Ledger Slots</h3>
-          <p className="text-xs text-gray-500 mt-0.5">One row per worker-slot per day. Set Full Day or AM/PM, then Find Candidates -- own zone first (deviance -3..+3, cheaper side first), then adjoining zones, before NO SUPPLY -- and pick who to book from the list. A RECAST slot (created by a delay) runs this walk automatically -- no button needed, just review and Book once it appears.</p>
+          <p className="text-xs text-gray-500 mt-0.5">One row per worker-slot per day (skilled and Helper demand listed separately). Set Full Day or AM/PM, then Find Candidates -- own zone first (deviance -3..+3, cheaper side exhausted first, then costlier as last resort), then adjoining zones, before NO SUPPLY -- every level is shown, nothing is auto-booked or blocked, you pick who to book from the list. A RECAST slot (re-materialized at the whole job's recomputed dates after a delay) runs this walk automatically -- no button needed, just review and Book once it appears. A booked slot can always be cancelled -- see Cancel Booking.</p>
         </div>
         {slots.length === 0 ? (
           <p className="px-4 py-4 text-sm text-gray-500">No slots yet -- materialize a sub-stage above first.</p>
@@ -251,12 +276,22 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                       </div>
                       {substage && <p className="text-xs text-gray-400 mt-0.5">{substage.substage_name ?? substage.substage_code}</p>}
                       {slot.assigned_worker_name && (
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          Booked: <span className="font-semibold">{slot.assigned_worker_name}</span>
-                          {slot.match_score && <> · {slot.match_score}</>}
-                          {typeof slot.deviance_level_applied === 'number' && slot.deviance_level_applied !== 0 && (
-                            <> · deviance {slot.deviance_level_applied > 0 ? '+' : ''}{slot.deviance_level_applied}</>
-                          )}
+                        <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-2 flex-wrap">
+                          <span>
+                            Booked: <span className="font-semibold">{slot.assigned_worker_name}</span>
+                            {slot.match_score && <> · {slot.match_score}</>}
+                            {typeof slot.deviance_level_applied === 'number' && slot.deviance_level_applied !== 0 && (
+                              <> · deviance {slot.deviance_level_applied > 0 ? '+' : ''}{slot.deviance_level_applied}</>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={busy === slot.slot_id}
+                            onClick={() => handleCancel(slot.slot_id)}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {busy === slot.slot_id ? 'Working...' : 'Cancel Booking'}
+                          </button>
                         </p>
                       )}
                       {decision && (
@@ -441,11 +476,12 @@ function DelayForm({ bookingRef, slotId, requiredSkillCode, busy, setBusy, setMs
     setBusy(null)
     if (res.error) setMsg({ text: res.error, ok: false })
     else {
-      const cascadeCount = res.cascadedSlotIds?.length ?? 0
+      const subCount = res.affectedSubstageIds?.length ?? 0
+      const inserted = res.insertedCount ?? 0
       setMsg({
-        text: cascadeCount > 0
-          ? `Delay recorded -- a recast slot was created, and ${cascadeCount} later slot(s) on this job were pushed back by the same amount. Candidates are being found automatically for each -- review and Book below.`
-          : 'Delay recorded -- a recast slot was created. Candidates are being found automatically -- review and Book below.',
+        text: subCount > 0
+          ? `Delay recorded -- the job's whole schedule was recomputed (real dependency-aware CPM, not a flat shift). ${subCount} sub-stage(s) actually moved as a result, and ${inserted} fresh slot(s) were re-materialized at their new dates. Candidates are being found automatically for each recast slot -- review and Book below.`
+          : "Delay recorded and the job's schedule was recomputed -- no other sub-stage's dates actually changed as a result.",
         ok: true,
       })
       onDone()
