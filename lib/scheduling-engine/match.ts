@@ -188,6 +188,7 @@ export type CandidateRow = {
   id: string
   full_name: string
   skill_grade: number | null
+  jobs_completed: number | null
   deviance_level: number
   match_score: string
 }
@@ -202,10 +203,13 @@ export type CandidateListResult = {
  * The real "list to choose from" read: walks the exact same zone+deviance search as
  * matchSlot(), but stops at the FIRST level/zone that has ANY eligible worker and returns
  * every one of them (not just a silently-picked winner) -- own zone first, full -3..+3 order,
- * then adjoining zones (donor-capacity-checked) if own zone has nobody at any level. Writes
- * every candidate found to match_log (selected: false) for the same audit trail matchSlot()
- * keeps -- assignCandidateToSlot() below flips the chosen one to selected: true rather than
- * re-inserting. Makes no booking itself.
+ * then adjoining zones (donor-capacity-checked) if own zone has nobody at any level. Within
+ * that one resolved level, candidates come back ranked by jobs_completed descending
+ * (findAvailableCandidates' own secondary sort -- every candidate here shares the identical
+ * skill_grade already, so this is the one already-captured Track Record field left to rank
+ * on, not an arbitrary DB order). Writes every candidate found to match_log (selected: false)
+ * for the same audit trail matchSlot() keeps -- assignCandidateToSlot() below flips the
+ * chosen one to selected: true rather than re-inserting. Makes no booking itself.
  */
 export async function listCandidatesForSlot(supabase: AnyClient, slotId: string): Promise<CandidateListResult> {
   const { data: slot, error: slotError } = await supabase
@@ -313,6 +317,7 @@ async function listZone(
         id: c.id,
         full_name: c.full_name,
         skill_grade: c.skill_grade,
+        jobs_completed: c.jobs_completed,
         deviance_level: level,
         match_score: matchScore,
       })),

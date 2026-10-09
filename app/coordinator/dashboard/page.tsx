@@ -138,9 +138,27 @@ export default async function CoordinatorDashboardPage() {
 
   const totalAllocationPending = allocationPendingCount + confirmedNoPlanCount
 
+  // Dynamic Scheduler attention count — mirrors the same classify() the scheduler's own
+  // cross-job page uses (Unmatched / Awaiting Coordinator / No Supply / Delayed task_ledger
+  // slots across every booking), so this tile's badge and that page's own totals never drift
+  // apart from each other.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: taskLedgerSlots } = await (supabase as any)
+    .from('task_ledger')
+    .select('slot_status, compliance_check_status, operational_action_trigger, assigned_worker_id')
+  const dynamicSchedulerAttention = (taskLedgerSlots ?? []).filter((s: {
+    slot_status: string; compliance_check_status: string | null; operational_action_trigger: string | null; assigned_worker_id: string | null
+  }) =>
+    s.slot_status === 'Cancelled_Delayed' ||
+    s.compliance_check_status === 'NO SUPPLY' ||
+    (s.operational_action_trigger === 'BUILD_UPSKILL_SUPERVISE' && !s.assigned_worker_id) ||
+    (!s.assigned_worker_id && s.slot_status === 'Pending')
+  ).length
+
   const navItems = [
     { href: '/coordinator/jobs', icon: '🏗', label: 'Job Pipeline', count: (allJobs ?? []).length, urgent: false },
     { href: '/coordinator/allocate', icon: '🧮', label: 'Allocate Workers', count: totalAllocationPending, urgent: totalAllocationPending > 0 },
+    { href: '/coordinator/dynamic-scheduler', icon: '⚙️', label: 'Dynamic Scheduler', count: dynamicSchedulerAttention, urgent: dynamicSchedulerAttention > 0 },
     { href: '/coordinator/scope-reports', icon: '📋', label: 'Scope Reports', count: (scopeReports ?? []).length, urgent: (scopeReports ?? []).length > 0 },
     { href: '/coordinator/estimate', icon: '📐', label: 'Estimate Console', count: clientRemarks.length, urgent: clientRemarks.length > 0 },
     { href: '/coordinator/clients', icon: '👤', label: 'Clients', count: null, urgent: false },

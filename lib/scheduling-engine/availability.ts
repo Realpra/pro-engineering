@@ -92,21 +92,31 @@ export function tokenAllowsBooking(token: AvailabilityToken, shiftWindow: 'AM' |
 export async function findAvailableCandidates(
   supabase: AnyClient,
   params: { trade: string; zones: string[]; targetDate: string; shiftWindow: 'AM' | 'PM' | 'FULL_DAY' }
-): Promise<{ id: string; full_name: string; skill_grade: number | null }[]> {
+): Promise<{ id: string; full_name: string; skill_grade: number | null; jobs_completed: number | null }[]> {
   const { data: pool, error } = await supabase
     .from('workers')
-    .select('id, full_name, skill_grade, zones, is_available')
+    .select('id, full_name, skill_grade, zones, is_available, jobs_completed')
     .eq('trade', params.trade)
     .eq('is_available', true)
     .overlaps('zones', params.zones)
   if (error) throw new Error(`findAvailableCandidates: ${error.message}`)
 
-  const candidates: { id: string; full_name: string; skill_grade: number | null }[] = []
+  const candidates: { id: string; full_name: string; skill_grade: number | null; jobs_completed: number | null }[] = []
   for (const w of pool ?? []) {
     const token = await deriveAndUpsertAvailability(supabase, w.id, params.targetDate)
     if (tokenAllowsBooking(token, params.shiftWindow)) {
-      candidates.push({ id: w.id, full_name: w.full_name, skill_grade: w.skill_grade })
+      candidates.push({ id: w.id, full_name: w.full_name, skill_grade: w.skill_grade, jobs_completed: w.jobs_completed })
     }
   }
+  // Secondary ranking within one deviance level (every candidate here already shares the
+  // same skill_grade, filtered by the caller): more completed jobs first -- the one
+  // already-captured Quality & Track Record field (Worker Onboarding, Screen 3) that
+  // distinguishes otherwise-identical-grade candidates without inventing a new field or a
+  // new business rule. Ties (including null) keep a stable order by worker id.
+  candidates.sort((a, b) => {
+    const diff = (b.jobs_completed ?? 0) - (a.jobs_completed ?? 0)
+    if (diff !== 0) return diff
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
   return candidates
 }

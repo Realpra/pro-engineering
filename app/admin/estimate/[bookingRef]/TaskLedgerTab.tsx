@@ -1,15 +1,15 @@
 'use client'
 
 // The Coordinator-facing surface for the Dynamic Scheduling Engine
-// (lib/scheduling-engine/) -- a new, additive tab, not a replacement for the
-// live Coordinator Command Center (app/coordinator/allocate/*), which keeps
-// running on worker_day_slots unchanged until this path is itself
-// live-tested. "Materialize" turns a sub-stage's own plan dates/headcount
-// (job_milestone_substages, the real Plan Template) into real day-grain
-// Task Ledger rows; "Run Match" walks the confirmed -3..+3 deviance ladder
-// (negative side first) then adjoining zones before declaring NO SUPPLY;
-// a proposed substitute match sits pending until a Coordinator explicitly
-// confirms it -- never silently auto-booked.
+// (lib/scheduling-engine/) -- also reachable cross-job from
+// /coordinator/dynamic-scheduler, which links back into this same tab per
+// booking rather than duplicating any of this logic. "Materialize" turns a
+// sub-stage's own plan dates/headcount (job_milestone_substages, the real
+// Plan Template) into real day-grain Task Ledger rows; "Find Candidates"
+// walks the confirmed -3..+3 deviance ladder (negative side first) then
+// adjoining zones before declaring NO SUPPLY, and returns the full ranked
+// list (by jobs completed) to pick from -- never a silent auto-pick, for an
+// ordinary slot or a delay-recast slot alike.
 
 import { useEffect, useState, useCallback } from 'react'
 import {
@@ -280,7 +280,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                         <>
                           <p className="text-xs text-blue-900 font-semibold mb-1.5">
                             {candidateList.candidates.length} eligible at deviance {candidateList.level! > 0 ? '+' : ''}{candidateList.level}
-                            {' '}({candidateList.via === 'ADJOINING_ZONE' ? 'adjoining zone' : 'own zone'}) -- row order as the algorithm found them, pick who to book:
+                            {' '}({candidateList.via === 'ADJOINING_ZONE' ? 'adjoining zone' : 'own zone'}) -- ranked by jobs completed (track record), pick who to book:
                           </p>
                           <div className="max-h-56 overflow-y-auto space-y-1">
                             {candidateList.candidates.map(c => (
@@ -289,6 +289,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                                   <span className="text-xs font-semibold text-gray-800">{c.full_name}</span>
                                   <span className="text-[10px] text-gray-500 ml-1.5">
                                     {c.match_score}{c.deviance_level !== 0 ? ` · deviance ${c.deviance_level > 0 ? '+' : ''}${c.deviance_level}` : ''}
+                                    {typeof c.jobs_completed === 'number' ? ` · ${c.jobs_completed} jobs done` : ''}
                                   </span>
                                 </div>
                                 <button
@@ -370,7 +371,16 @@ function DelayForm({ bookingRef, slotId, requiredSkillCode, busy, setBusy, setMs
     })
     setBusy(null)
     if (res.error) setMsg({ text: res.error, ok: false })
-    else { setMsg({ text: 'Delay recorded -- a recast slot was created and run through matching.', ok: true }); onDone() }
+    else {
+      const cascadeCount = res.cascadedSlotIds?.length ?? 0
+      setMsg({
+        text: cascadeCount > 0
+          ? `Delay recorded -- a recast slot was created, and ${cascadeCount} later slot(s) on this job were pushed back by the same amount. Find Candidates on each to book.`
+          : 'Delay recorded -- a recast slot was created. Find Candidates to book it.',
+        ok: true,
+      })
+      onDone()
+    }
   }
 
   return (

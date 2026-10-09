@@ -33,10 +33,15 @@ type GeneratedBOQ = {
 
 export default async function EstimatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bookingRef: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { bookingRef } = await params
+  const { tab } = await searchParams
+  const initialTab: 'estimate' | 'milestone-plan' | 'task-ledger' =
+    tab === 'task-ledger' ? 'task-ledger' : tab === 'milestone-plan' ? 'milestone-plan' : 'estimate'
   const supabase = await createClient()
 
   // Auth
@@ -329,6 +334,7 @@ export default async function EstimatePage({
         supervisors={supervisorsResult.data ?? []}
         coordinators={coordinatorsResult.data ?? []}
         matchingCoordinatorIds={matchingCoordinatorIds}
+        initialTab={initialTab}
       />
     </div>
   )

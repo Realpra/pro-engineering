@@ -313,6 +313,12 @@ type Props = {
   supervisors: SupervisorOption[]
   coordinators: CoordinatorOption[]
   matchingCoordinatorIds: string[]
+  // Lets /coordinator/dynamic-scheduler deep-link straight into this job's
+  // Task Ledger tab instead of landing on Estimate every time -- read from
+  // the URL server-side (page.tsx's own searchParams) rather than
+  // useSearchParams() here, which would need a Suspense boundary this page
+  // doesn't otherwise have any reason to add.
+  initialTab?: 'estimate' | 'milestone-plan' | 'task-ledger'
 }
 
 export default function EstimateConsole({
@@ -329,13 +335,16 @@ export default function EstimateConsole({
   supervisors,
   coordinators,
   matchingCoordinatorIds,
+  initialTab,
 }: Props) {
   const router = useRouter()
 
   const hasClientRemarks =
     generatedBOQ?.status === 'client_review' && latestClientResponse != null
   const [showRemarksPanel, setShowRemarksPanel] = useState(hasClientRemarks)
-  const [activeTab, setActiveTab] = useState<'estimate' | 'milestone-plan' | 'task-ledger'>('estimate')
+  const [activeTab, setActiveTab] = useState<'estimate' | 'milestone-plan' | 'task-ledger'>(
+    initialTab && generatedBOQ ? initialTab : 'estimate'
+  )
 
   // Initialise line items: prefer generatedBOQ → then existingEstimate → then compute
   // eslint-disable-next-line react-hooks/exhaustive-deps

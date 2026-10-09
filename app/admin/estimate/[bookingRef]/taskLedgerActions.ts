@@ -117,6 +117,11 @@ export async function getTaskLedgerData(bookingRef: string): Promise<{
 
   // Pending-decision slots: matchSlot() sets this exact trigger value only
   // when its policy action was ASK_COORDINATOR and no worker was booked yet.
+  // Legacy fallback only, 10 Oct 2026 -- matchSlot() itself is no longer called by any live
+  // path (ordinary slots use findCandidatesForSlot/assignCandidate, recast slots are left
+  // unmatched for the same flow now too), so this block only matters for a slot some earlier
+  // live click-through already ran through the old silent-match path. Kept, not deleted, in
+  // case such a row already exists; it renders nothing once none do.
   const pendingSlotIds = slots
     .filter(s => s.operational_action_trigger === 'BUILD_UPSKILL_SUPERVISE' && !s.assigned_worker_id)
     .map(s => s.slot_id)
@@ -260,7 +265,7 @@ export async function reportSlotDelay(params: {
   newRequiredSkillCode?: string
   reasonCategory: RecastParams['reasonCategory']
   reasonRemarks?: string
-}): Promise<{ error?: string; recastSlotId?: string }> {
+}): Promise<{ error?: string; recastSlotId?: string; cascadedSlotIds?: string[] }> {
   const ctx = await requireAllocator()
   if ('error' in ctx) return ctx
   try {
@@ -275,7 +280,7 @@ export async function reportSlotDelay(params: {
       loggedByUserId: ctx.userId,
     })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
-    return { recastSlotId: result.recastSlotId }
+    return { recastSlotId: result.recastSlotId, cascadedSlotIds: result.cascadedSlotIds }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Delay report failed.' }
   }

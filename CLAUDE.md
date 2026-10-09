@@ -3002,3 +3002,97 @@ needs already existed live, just unused):**
 network access (only the project owner's own pasted query output was used), so none of this has
 been clicked through live yet. No migration pending either way.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 10 Oct 2026 — DYNAMIC SCHEDULER: REAL CANDIDATE LIST + AM/PM PICKER (commit f6cc630), THEN RECAST CONSISTENCY + SECONDARY RANKING + MULTI-DAY CASCADE + CROSS-JOB HOME (this entry)
+Two builds, the first (commit `f6cc630`) not logged at the time it shipped -- closed out now.
+Both per the project owner's explicit, repeated correction this session: stop re-asking about
+points already closed in earlier design rounds (the -3..+3 deviance ladder/job-category
+approach, the full_day/AM/PM fields were both already agreed) -- build directly.
+
+**Commit `f6cc630` -- real candidate list, no more silent auto-pick**: `matchSlot`'s own
+`tryZone` silently booked (AUTO_BOOK) or silently proposed-pending-confirm (ASK_COORDINATOR)
+exactly one winner per slot, with no visibility into who else was eligible -- not what "a list
+of names shall scroll... to chose from" (the project owner's own words) describes.
+`lib/scheduling-engine/match.ts` got two new exports mirroring `tryZone`'s own zone+deviance
+walk without booking anyone: `listCandidatesForSlot()` (stops at the first level/zone with ANY
+eligible worker, returns every one of them, logs each to `match_log` with `selected: false`)
+and `assignCandidateToSlot()` (books whichever one the Coordinator actually picks, flips that
+exact `match_log` row to `selected: true`, writes `human_decision_log` only if the picked level
+is non-zero). New `setSlotShiftWindow`/`findCandidatesForSlot`/`assignCandidate` actions
+(`taskLedgerActions.ts`); `TaskLedgerTab.tsx`'s "Run Match" button replaced with a Full Day/AM/PM
+dropdown per slot plus "Find Candidates" opening a scrollable list of candidate rows, each with
+its own "Book" button -- the AM/PM half-day booking logic was already fully live at the data
+layer (`availability.ts`'s `AvailabilityToken`/`tokenAllowsBooking`), only the UI picker for it
+was missing until this commit. One real bug caught and fixed before pushing: `assignCandidateToSlot`
+first queried `match_log` ordering by a non-existent `logged_at` column -- the real column,
+confirmed via the migration file, is `created_at`. `matchSlot`/`tryZone`/`confirmDevianceMatch`
+left unchanged (recast.ts still called the old silent path at that point -- fixed below).
+
+**This entry -- closing the 4 honestly-flagged gaps from the full-build walkthrough, per "do it
+all as per the latest decided build. all of it":**
+1. **Recast consistency, fixed**: `recastForDelay`'s new slot used to run straight through the
+   silent `matchSlot()` -- the one remaining place still auto-picking/auto-proposing after
+   `f6cc630` made every ordinary slot go through the visible Find-Candidates/Book flow instead.
+   `matchSlot` import removed from `recast.ts` entirely; a recast slot is now left Pending/
+   unmatched like any other, found and booked the same way.
+2. **Secondary ranking within one deviance level, built**: `findAvailableCandidates`
+   (`availability.ts`) had no `ORDER BY` at all -- within one deviance level every candidate
+   already shares the identical `skill_grade` (that's what "this level" means), so the only
+   already-captured field left to rank on without inventing a new one is `workers.jobs_completed`
+   (Quality & Track Record, Worker Onboarding Screen 3, frozen Session 65) -- more jobs done
+   ranks first, ties broken by worker id for a stable order. `CandidateRow`/`listZone`/`tryZone`
+   all carry `jobs_completed` through now; `TaskLedgerTab.tsx`'s candidate list shows it
+   ("· N jobs done") so the ranking is visible, not just applied silently.
+3. **Full remaining-plan cascade for multi-day delays, built**: `recastForDelay`'s own file
+   header had flagged E3's fuller scope as not-yet-built -- a delay used to redefine only the
+   one slot it hit, when in real life every later day of the SAME job is pushed back by the
+   same amount (the next trade literally cannot start until the delayed one finishes). New
+   `cascadeShiftSlot()` (shared with the root slot's own release/soft-hold logic via a new
+   `releaseWorkerAndSoftHold()` helper) walks every other still-`Pending` slot on the same
+   booking dated after the affected slot's ORIGINAL date (fetched once, before any of this
+   cascade's own inserts exist, so it can never re-shift a row it just created) and gives each
+   the identical treatment -- cancelled, worker released, reinserted `daysLost` later, left
+   unmatched for its own Find-Candidates pass. Does NOT re-run a full CPM critical-path
+   recompute across substages -- that stays the Milestone Plan's own concern
+   (`computeCPMSchedule`), not this engine's; flagged, not silently claimed. `reportSlotDelay`
+   now returns `cascadedSlotIds`; the Delay form's success message reports how many other slots
+   were also shifted.
+4. **Cross-job home, built**: the whole engine's only UI used to be one tab buried inside a
+   single booking's own Estimate Console -- unreachable unless a Coordinator already knew which
+   booking needed attention, the opposite of "tied linked, not separate" (the project owner's
+   own correction earlier this session rejecting the old Command Center as the beta-run
+   surface). New `/coordinator/dynamic-scheduler` -- every booking with any real Task Ledger
+   activity, rolled up by Unmatched/Awaiting Coordinator/No Supply/Delayed/Matched slot counts,
+   sorted most-attention-first, linking straight into that booking's own Task Ledger tab (no
+   logic duplicated -- the real actions still live only in `taskLedgerActions.ts`). New
+   Coordinator dashboard nav tile ("⚙️ Dynamic Scheduler") with a live attention-count badge
+   computed the identical way the new page itself counts, so the two numbers can never drift
+   apart. Needed one small plumbing addition to make the deep link work: `EstimateConsole.tsx`
+   now accepts an `initialTab` prop (read server-side in `page.tsx` from a `?tab=` query param,
+   not `useSearchParams()` client-side, which would have needed a `Suspense` boundary this page
+   had no other reason to add) so `/admin/estimate/[bookingRef]?tab=task-ledger` opens directly
+   onto the Task Ledger tab instead of defaulting to Estimate every time.
+
+**Also found, left alone, flagged rather than guessed**: after this entry's fixes, NOTHING in
+the live app calls `matchSlot`/`tryZone`/`runMatchOnSlot` any more (recast no longer does
+either) -- the old silent-match path and its paired "Confirm This Substitute" pending-decision
+UI are now fully orphaned. Not deleted (this project's standing discipline -- never remove a
+construct without specific permission, only deprecate in place): a short comment added at
+`getTaskLedgerData`'s pending-decision query noting it is legacy-fallback only, kept in case an
+earlier live click-through already produced such a row, and that it renders nothing once none
+exist. A genuine build-it-or-retire-it candidate for a future pass, same discipline as every
+other orphaned-code item already on record (PENDING #21/#35 etc.), not actioned here since
+deleting it was not what was asked.
+
+**Not built, genuinely still open, not guessed past**: C2 Case 2 (a continuous opportunity
+elsewhere beating the own-job default soft-hold) -- still only Case 1's default hold exists;
+real compliance-hours checking -- still stubbed to always `COMPLIANT`; `zone_adjacency` has no
+seed data in the real Supabase project yet beyond the one migration the project owner has said
+to treat as correct (`20261008_zone_adjacency_seed.sql`).
+
+`npx tsc --noEmit`: exit 0, clean, both commits (real compiler run, `node_modules` present this
+session). **NOT live-tested** -- same standing constraint as every build this session, this
+sandbox has no Supabase network access. No new migration needed for either commit -- every
+column touched (`workers.jobs_completed`, `task_ledger.*`, `worker_supply_ledger.*`) already
+exists live.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
