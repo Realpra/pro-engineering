@@ -2865,3 +2865,85 @@ data is ready to enter via the Task Ledger tab once a real booking/BOQ exists; `
 already live-seeded. No app code touched this entry -- data/schema-prep + deliverables only, per
 the project owner's explicit "do not change the original coding/logic" instruction.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 9 Oct 2026 — EXECUTION-STAGE SCOPE CHANGE: MAIN-ESTIMATE MERGE + FULL REDEFINITION CASCADE (commit cd2d35e)
+An earlier pass this same session (commit `c094723`, 8 Oct 2026) had built an execution-stage
+scope change as a brand-new standalone sub-estimate row (route i). The project owner gave an
+explicit, detailed, verbatim verdict that this was the wrong route: a scope change discovered
+during execution (site need/hidden surprises/new risk/client-requested modification, once the
+client agrees) must be MERGED into the SAME main `boq_generated` row as a new version (route ii)
+-- "it gets to become a new job from when it happens... job value changed, milestone/sub-stage
+and every act is redefined... deployments are reviewed". Four follow-up design questions were
+put to the project owner via AskUserQuestion and answered explicitly, each overriding this
+session's own recommended default:
+- Already-completed/paid sub-stages on redefinition: **"Fully regenerated"** (the whole
+  `job_milestone_substages` set is wiped and rebuilt from the revised BOQ; completed ones get
+  manually re-marked done afterward by staff) -- not left untouched.
+- Remaining (not-yet-paid) milestone payment amounts: **"Recalculate all remaining
+  percentages"** (every not-yet-paid milestone's % and rupee amount is recalculated against the
+  new total; already-paid milestones are never touched) -- not a new milestone row for the new
+  scope.
+- When the cascade fires: **"Every approved change, always"** -- no cost/timeline threshold
+  gating.
+- The route (i) sub-estimate code from 8 Oct 2026: **"Replace it"**.
+
+**Built (5 files, no new migration -- every column already existed live, confirmed before
+building, not guessed)**:
+- `app/admin/scope/actions.ts`'s `adminApproveScopeChange` and `app/admin/milestones/
+  actions.ts`'s `adminApproveScopeContractChange` rewritten to MERGE the approved request's
+  line items into the job's live main `boq_generated` row instead of inserting a new one:
+  fetches the full live row, builds new line items with `LAB-SC-.../LAB-CC-...` SKU codes (the
+  `LAB-` prefix matters -- confirmed by reading `generateBOQ`/`processClientRemarks` that
+  `subtotal_labour` is computed by filtering on this exact skuCode prefix, not the `category`
+  field, so a differently-prefixed code would be silently excluded from the total), merges with
+  existing `line_items`, recomputes subtotals/premium/BOCW/GST/contingency/total from the merged
+  set using the SAME stored percentages (never reinvented), bumps `estimate_version`/
+  `estimate_version_label`, resets `status: 'draft'` and clears `client_accepted_at`/
+  `client_rejected_at` so the revision goes back through the same generate -> send-to-client ->
+  accept cycle the original estimate used. Built as two separately-written, independently-
+  correct implementations per the project owner's explicit 8 Oct 2026 instruction (two approval
+  places, two flows, not one shared function) -- they share only the merge structure, not code.
+- `app/admin/estimate/[bookingRef]/milestonePlanActions.ts`'s `generateSubstagesFromBOQ` had one
+  real gap that would have silently dropped the new scope-change work: its `SKU_MS` lookup
+  (mapping SKU code -> milestone M0-M4) has no fallback, unlike every other lookup table in that
+  function (`TRADE`/`WORKERS`/`EVIDENCE`/`DAYS` all default rather than skip). Since
+  `LAB-SC-.../LAB-CC-...` codes are new, they would have hit `if(!mc) continue` and vanished.
+  Fixed with a default bucket of `M4` (the last milestone) for any unmatched `LAB-` code --
+  confirmed with the project owner via a worked example ("add one item, cleaning, 1hr next day,
+  nothing else changed... let the schema go through") before building, rather than guessed.
+  New `regeneratePlanForRevisedEstimate(bookingRef)` wraps `generateSubstagesFromBOQ` ->
+  `saveMilestonePlan` (which already deletes-then-reinserts all of a booking's
+  `job_milestone_substages` -- the real mechanism behind "Fully regenerated") ->
+  `computeCPMSchedule`.
+- `app/admin/estimate/[bookingRef]/actions.ts`: new `redistributeMilestonePayments(bookingRef,
+  newTotalAmount)` -- splits `milestone_payment_schedule` rows into paid (`status` in
+  `'paid'`/`'payment_released'`, left untouched) and remaining; the remaining rows keep their
+  ORIGINAL relative share of what was still outstanding, rescaled against
+  `newTotal - alreadyPaidAmount`, so paid + redistributed-remaining sums back to the new total
+  exactly. Returns an explicit error (not a silent clamp) if the revised total is somehow less
+  than what's already been paid -- flagged for manual review rather than guessed at. New
+  `notifyCoordinatorsOfRevision(...)` fans out a `site_instructions` row (reusing the exact
+  shape already frozen for Site Incharge's `requestResources`/Supervisor's `raiseSOS`;
+  `instruction_type: 'revised'` is one of the table's own original 6 real values, not invented)
+  to every real Coordinator -- the project owner's own words, "deployments are reviewed so what
+  is booked and still needed stays like any rescheduling".
+- `app/client/dashboard/[bookingRef]/actions.ts`'s `submitOverallResponse` accept branch now
+  detects whether this acceptance is the job's ordinary FIRST-ever acceptance (no cascade) or a
+  genuine mid-execution revision (cascade fires) -- not by `estimate_version` (which can already
+  be >1 from ordinary pre-execution negotiation via `processClientRemarks`, so it's not a safe
+  signal), but by a real, data-grounded check: does this booking already have at least one
+  `milestone_payment_schedule` row at a paid terminal status. If yes, runs
+  `regeneratePlanForRevisedEstimate` + `redistributeMilestonePayments` +
+  `notifyCoordinatorsOfRevision` in sequence and surfaces any cascade failure as a real error
+  (the acceptance itself already succeeded by that point, so a silent swallow would leave a plan
+  that looks regenerated but isn't).
+- `npx tsc --noEmit`: exit 0, clean (real compiler run, `node_modules` present this session).
+
+**NOT live-tested**: this sandbox has no Supabase network access (standing constraint, every
+session) -- none of this has been exercised against a real booking with a real paid M0
+milestone. No new migration was needed (every column reused was already live), so there is no
+migration-run blocker before this reaches `master` -- but a live click-through (merge a real
+scope change, have the client re-accept, confirm the plan regenerates and payments redistribute
+correctly) is still owed before this is considered frozen, same discipline as every other
+process in this project.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
