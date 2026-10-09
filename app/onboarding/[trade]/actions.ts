@@ -15,7 +15,7 @@ function adminClient() {
 
 function tradeCode(trade: string): string {
   const map: Record<string, string> = {
-    mason:'MAS', plumber:'PLB', electrician:'ELC', waterproofer:'WTP',
+    mason:'MAS', plumber:'PLB', electrician:'ELC', waterproofer:'WTP', tiler:'TIL',
     painter:'PNT', carpenter:'CRP', 'false-ceiling-installer':'FCI',
     helper:'HLP', supervisor:'SUP',
   }

@@ -5,6 +5,7 @@ const trades = [
   { name: 'Plumber', slug: 'plumber', desc: 'Supply lines, drainage, sanitary fitting' },
   { name: 'Electrician', slug: 'electrician', desc: 'Wiring, DB installation, light fitting' },
   { name: 'Waterproofer', slug: 'waterproofer', desc: 'Bathroom and terrace waterproofing' },
+  { name: 'Tiler', slug: 'tiler', desc: 'Wall and floor tiling, grouting, skirting' },
   { name: 'Painter', slug: 'painter', desc: 'Interior, exterior, texture finish' },
   { name: 'Carpenter', slug: 'carpenter', desc: 'Modular furniture, doors, false ceiling frame' },
   { name: 'False Ceiling Installer', slug: 'false-ceiling-installer', desc: 'Gypsum, grid, POP cornice' },

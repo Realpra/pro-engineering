@@ -19,7 +19,7 @@ const INDIAN_STATES = [
 ]
 
 const TRADES = [
-  'Mason','Plumber','Electrician','Waterproofer','Painter',
+  'Mason','Plumber','Electrician','Waterproofer','Tiler','Painter',
   'Carpenter','False Ceiling Installer','Helper','Supervisor',
 ]
 
