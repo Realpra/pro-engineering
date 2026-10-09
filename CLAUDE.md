@@ -2947,3 +2947,58 @@ scope change, have the client re-accept, confirm the plan regenerates and paymen
 correctly) is still owed before this is considered frozen, same discipline as every other
 process in this project.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 10 Oct 2026 — SCOPE CHANGE GETS ITS OWN CLIENT-DECISION STAGE (commit 0d7a3a5)
+The project owner caught a real gap in the 9 Oct build (above) before it could cause trouble:
+"in real life you are creating a sub-estimate to the ongoing job. this run will need fresh data
+fields, fresh acceptance process, then on acceptance a revised estimate." The 9 Oct build had
+Admin's approval IMMEDIATELY merge into the main `boq_generated` row, with the client's
+GENERIC estimate-accept action (inferred via "is any milestone already paid") standing in for
+real consent to the specific scope change -- no distinct record anywhere that the client agreed
+to THIS change, specifically.
+
+Given real Supabase access this entry (project owner ran the queries, pasted output back --
+this sandbox still has no direct network access to Supabase itself, confirmed again by a failed
+curl to the project host and no `.env.local`/`SUPABASE_*` env vars present), two live checks
+before writing anything:
+- `information_schema.columns` for `scope_change_requests` -- confirmed the table ALREADY has
+  real, live columns for exactly what the project owner described: `client_acceptance`,
+  `client_informed_at`, `revised_total_estimate`, `original_completion_date`,
+  `revised_completion_date`, plus an unused, dead duplicate pair (`client_decision`/
+  `decision_timestamp`, typed in code but never actually read/written anywhere -- confirmed by
+  grep). A repo-wide grep then found `app/admin/scope/ScopeTabs.tsx` and `app/admin/milestones/
+  MilestoneTabs.tsx` -- both real, live admin pages -- ALREADY render `client_acceptance` as a
+  badge ("Client acceptance: pending/accepted/rejected") and `client_informed_at`, permanently
+  stuck on "pending" because nothing had ever written to either column. A genuinely orphaned,
+  pre-existing display bug, independent of anything built this session, fixed as a side effect.
+- `pg_constraint` for `scope_change_requests` -- confirmed no CHECK constraints exist on this
+  table at all (same class of check that caught the `instruction_type` incident earlier in this
+  project; this time it came back clean), so no value-validation risk on `client_acceptance`.
+
+**Redesigned (no new migration -- the "fresh data fields" the project owner correctly said this
+needs already existed live, just unused):**
+- `adminApproveScopeChange`/`adminApproveScopeContractChange` no longer merge into the main
+  estimate at approval time. They now compute and STORE a preview (`revised_total_estimate`,
+  `original_completion_date`/`revised_completion_date` derived from the live
+  `job_milestone_substages` plan + `timeline_impact_days`) on the `scope_change_requests` row
+  itself, and stamp `client_informed_at`. Kept as two separately-written implementations per
+  the existing instruction for these two approval places.
+- New `submitScopeChangeClientDecision` (`app/client/dashboard/[bookingRef]/actions.ts`) is the
+  client's own accept/reject on THIS specific scope change -- a real, distinct decision, not an
+  inference from the generic estimate-accept flow. Rejecting just stamps `client_acceptance:
+  'rejected'`. Accepting does the actual merge into `boq_generated` (same math as before, reused),
+  sets the merged row straight to `status: 'accepted'`/`client_accepted_at` (no redundant second
+  generic accept, since the client already explicitly agreed to this exact change and total),
+  stamps `client_acceptance: 'accepted'` on the scope-change row, then runs the already-built
+  cascade (`regeneratePlanForRevisedEstimate` / `redistributeMilestonePayments` /
+  `notifyCoordinatorsOfRevision`) -- all three unchanged, only what triggers them changed.
+- `submitOverallResponse`'s accept branch reverted to its original simple form -- the "is any
+  milestone already paid" heuristic is removed now that there's a real, unambiguous trigger.
+- New Client Dashboard Section 8A lists admin-approved scope changes with their revised
+  total/completion date preview and Accept/Reject buttons.
+- `npx tsc --noEmit`: exit 0, clean.
+
+**NOT live-tested**: same standing constraint -- this sandbox itself still has no Supabase
+network access (only the project owner's own pasted query output was used), so none of this has
+been clicked through live yet. No migration pending either way.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
