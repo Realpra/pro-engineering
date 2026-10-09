@@ -10,7 +10,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { materializeTaskLedgerForSubstage } from '@/lib/scheduling-engine/materialize'
-import { matchSlot, confirmDevianceMatch } from '@/lib/scheduling-engine/match'
+import { matchSlot, confirmDevianceMatch, listCandidatesForSlot, assignCandidateToSlot, type CandidateListResult } from '@/lib/scheduling-engine/match'
 import { recastForDelay, type RecastParams } from '@/lib/scheduling-engine/recast'
 import { fillSlotWithSavior } from '@/lib/scheduling-engine/saviors'
 
@@ -163,6 +163,62 @@ export async function materializeSubstage(params: { bookingRef: string; substage
     return result
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Materialize failed.' }
+  }
+}
+
+export async function setSlotShiftWindow(params: {
+  bookingRef: string
+  slotId: string
+  shiftWindow: 'AM' | 'PM' | 'FULL_DAY'
+}): Promise<{ error?: string }> {
+  const ctx = await requireAllocator()
+  if ('error' in ctx) return ctx
+  const { error } = await ctx.supabase
+    .from('task_ledger')
+    .update({ shift_window: params.shiftWindow })
+    .eq('slot_id', params.slotId)
+    .is('assigned_worker_id', null)
+  if (error) return { error: error.message }
+  revalidatePath(`/admin/estimate/${params.bookingRef}`)
+  return {}
+}
+
+// The real "find candidates, pick one" flow -- replaces blindly auto-matching with a visible,
+// ranked (by deviance level, own-zone-first) list of every eligible worker the engine actually
+// found, so the Coordinator picks directly instead of the system silently choosing for them.
+export async function findCandidatesForSlot(params: { bookingRef: string; slotId: string }): Promise<{ error?: string; result?: CandidateListResult }> {
+  const ctx = await requireAllocator()
+  if ('error' in ctx) return { error: ctx.error }
+  try {
+    const result = await listCandidatesForSlot(ctx.supabase, params.slotId)
+    revalidatePath(`/admin/estimate/${params.bookingRef}`)
+    return { result }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Candidate search failed.' }
+  }
+}
+
+export async function assignCandidate(params: {
+  bookingRef: string
+  slotId: string
+  workerId: string
+  devianceLevel: number
+  matchScore: string
+}): Promise<{ error?: string }> {
+  const ctx = await requireAllocator()
+  if ('error' in ctx) return ctx
+  try {
+    await assignCandidateToSlot(ctx.supabase, {
+      slotId: params.slotId,
+      workerId: params.workerId,
+      devianceLevel: params.devianceLevel,
+      matchScore: params.matchScore,
+      decidedByUserId: ctx.userId,
+    })
+    revalidatePath(`/admin/estimate/${params.bookingRef}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Assign failed.' }
   }
 }
 

@@ -15,14 +15,17 @@ import { useEffect, useState, useCallback } from 'react'
 import {
   getTaskLedgerData,
   materializeSubstage,
-  runMatchOnSlot,
   confirmSlotMatch,
   reportSlotDelay,
   logSaviorForSlot,
+  setSlotShiftWindow,
+  findCandidatesForSlot,
+  assignCandidate,
   type TaskLedgerSubstage,
   type TaskLedgerSlot,
   type PendingDecision,
 } from './taskLedgerActions'
+import type { CandidateListResult } from '@/lib/scheduling-engine/match'
 
 type Props = { bookingRef: string }
 
@@ -46,6 +49,8 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
   const [delayFormFor, setDelayFormFor] = useState<string | null>(null)
   const [saviorFormFor, setSaviorFormFor] = useState<string | null>(null)
+  const [candidateListFor, setCandidateListFor] = useState<string | null>(null)
+  const [candidateList, setCandidateList] = useState<CandidateListResult | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -75,20 +80,38 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
     }
   }
 
-  async function handleRunMatch(slotId: string) {
+  async function handleShiftChange(slotId: string, shiftWindow: 'AM' | 'PM' | 'FULL_DAY') {
     setBusy(slotId)
     setMsg(null)
-    const res = await runMatchOnSlot({ bookingRef, slotId })
+    const res = await setSlotShiftWindow({ bookingRef, slotId, shiftWindow })
+    setBusy(null)
+    if (res.error) setMsg({ text: res.error, ok: false })
+    else load()
+  }
+
+  async function handleFindCandidates(slotId: string) {
+    if (candidateListFor === slotId) { setCandidateListFor(null); setCandidateList(null); return }
+    setBusy(slotId)
+    setMsg(null)
+    const res = await findCandidatesForSlot({ bookingRef, slotId })
+    setBusy(null)
+    if (res.error) { setMsg({ text: res.error, ok: false }); return }
+    setCandidateListFor(slotId)
+    setCandidateList(res.result ?? { via: 'NONE', level: null, candidates: [] })
+  }
+
+  async function handleAssign(slotId: string, candidate: { id: string; deviance_level: number; match_score: string }) {
+    setBusy(slotId)
+    setMsg(null)
+    const res = await assignCandidate({
+      bookingRef, slotId, workerId: candidate.id, devianceLevel: candidate.deviance_level, matchScore: candidate.match_score,
+    })
     setBusy(null)
     if (res.error) setMsg({ text: res.error, ok: false })
     else {
-      const r = res.result
-      setMsg({
-        text: r?.outcome === 'MATCHED'
-          ? `Matched at ${r.match_score ?? ''} (${r.via === 'ADJOINING_ZONE' ? 'adjoining zone' : 'own zone'})${r.pendingCoordinatorDecision ? ' -- awaiting your confirmation' : ''}.`
-          : 'No supply found -- own zone and adjoining zones both exhausted.',
-        ok: true,
-      })
+      setMsg({ text: 'Worker booked.', ok: true })
+      setCandidateListFor(null)
+      setCandidateList(null)
       load()
     }
   }
@@ -153,7 +176,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
       <div className="rounded-xl border-2 border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
           <h3 className="font-bold text-sm text-[#1F3864]">Task Ledger Slots</h3>
-          <p className="text-xs text-gray-500 mt-0.5">One row per worker-slot per day. Run Match walks own zone first (deviance -3..+3, cheaper side first), then adjoining zones, before NO SUPPLY.</p>
+          <p className="text-xs text-gray-500 mt-0.5">One row per worker-slot per day. Set Full Day or AM/PM, then Find Candidates -- own zone first (deviance -3..+3, cheaper side first), then adjoining zones, before NO SUPPLY -- and pick who to book from the list.</p>
         </div>
         {slots.length === 0 ? (
           <p className="px-4 py-4 text-sm text-gray-500">No slots yet -- materialize a sub-stage above first.</p>
@@ -172,7 +195,20 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-gray-800">{slot.target_date}</span>
-                        <span className="text-xs text-gray-500">{slot.shift_window}</span>
+                        {canRunMatch ? (
+                          <select
+                            value={slot.shift_window}
+                            disabled={busy === slot.slot_id}
+                            onChange={e => handleShiftChange(slot.slot_id, e.target.value as 'AM' | 'PM' | 'FULL_DAY')}
+                            className="text-xs border rounded px-1.5 py-0.5 text-gray-700"
+                          >
+                            <option value="FULL_DAY">Full Day</option>
+                            <option value="AM">Half Day -- AM</option>
+                            <option value="PM">Half Day -- PM</option>
+                          </select>
+                        ) : (
+                          <span className="text-xs text-gray-500">{slot.shift_window === 'FULL_DAY' ? 'Full Day' : `Half Day -- ${slot.shift_window}`}</span>
+                        )}
                         <span className="text-xs text-gray-500">{slot.required_skill_code} (grade ≥{slot.min_proficiency_req})</span>
                         {slot.origin === 'Recast' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-300">RECAST</span>}
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badge.cls}`}>{badge.label}</span>
@@ -207,10 +243,10 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                         <button
                           type="button"
                           disabled={busy === slot.slot_id}
-                          onClick={() => handleRunMatch(slot.slot_id)}
+                          onClick={() => handleFindCandidates(slot.slot_id)}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                         >
-                          {busy === slot.slot_id ? 'Matching...' : 'Run Match'}
+                          {busy === slot.slot_id ? 'Searching...' : candidateListFor === slot.slot_id ? 'Hide Candidates' : 'Find Candidates'}
                         </button>
                       )}
                       {canReportDelay && (
@@ -233,6 +269,43 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                       )}
                     </div>
                   </div>
+
+                  {candidateListFor === slot.slot_id && candidateList && (
+                    <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                      {candidateList.candidates.length === 0 ? (
+                        <p className="text-xs text-blue-900">
+                          No eligible worker found -- own zone and adjoining zones both exhausted at every deviance level.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs text-blue-900 font-semibold mb-1.5">
+                            {candidateList.candidates.length} eligible at deviance {candidateList.level! > 0 ? '+' : ''}{candidateList.level}
+                            {' '}({candidateList.via === 'ADJOINING_ZONE' ? 'adjoining zone' : 'own zone'}) -- row order as the algorithm found them, pick who to book:
+                          </p>
+                          <div className="max-h-56 overflow-y-auto space-y-1">
+                            {candidateList.candidates.map(c => (
+                              <div key={c.id} className="flex items-center justify-between gap-2 bg-white rounded px-2 py-1.5 border border-blue-100">
+                                <div className="min-w-0">
+                                  <span className="text-xs font-semibold text-gray-800">{c.full_name}</span>
+                                  <span className="text-[10px] text-gray-500 ml-1.5">
+                                    {c.match_score}{c.deviance_level !== 0 ? ` · deviance ${c.deviance_level > 0 ? '+' : ''}${c.deviance_level}` : ''}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={busy === slot.slot_id}
+                                  onClick={() => handleAssign(slot.slot_id, c)}
+                                  className="shrink-0 px-2.5 py-1 rounded text-[11px] font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  Book
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   {delayFormFor === slot.slot_id && (
                     <DelayForm
