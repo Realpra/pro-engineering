@@ -3096,3 +3096,59 @@ sandbox has no Supabase network access. No new migration needed for either commi
 column touched (`workers.jobs_completed`, `task_ledger.*`, `worker_supply_ledger.*`) already
 exists live.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 70 CONTINUED FURTHER — 10 Oct 2026 — TILER ADDED AS A 10TH ONBOARDABLE TRADE (commits 90c2ddf, f5ecf2f)
+Conceptual-contract check, done by reading field definitions in code rather than running a live
+query, per the project owner's explicit instruction after the "trio" (Worker/Client-Job/
+Execution Coordinator) readiness check surfaced a real risk: `job_milestone_substages.
+trade_type` is set from exactly one place (`generateSubstagesFromBOQ`'s `TRADE` SKU lookup,
+`app/admin/estimate/[bookingRef]/milestonePlanActions.ts:503`) and copied verbatim into
+`task_ledger.required_skill_code` by `materializeTaskLedgerForSubstage` -- no translation layer.
+`workers.trade` is set from exactly one place (Worker Onboarding's `tradeName()`,
+`app/onboarding/[trade]/utils.ts`). Lining up both real vocabularies found a genuine mismatch,
+not a guess: 4 real BOQ SKU codes (`LAB-WST-01`/`LAB-TIL-01`/`LAB-TIL-02`/`LAB-GRT-01` -- wall
+skirting, wall tiles, floor tiles, grouting) already mapped to `'Tiler'` in the `TRADE` table,
+but Tiler was never one of the 9 onboardable trades -- so any sub-stage touching those 4 SKUs
+would always show NO SUPPLY in the Dynamic Scheduler regardless of real worker availability,
+since no worker could ever carry `workers.trade='Tiler'`. (Separately, one-directional, not a
+blocker: Painter/Carpenter/False Ceiling Installer are onboardable trades the current BOQ
+catalogue never generates demand for at all.)
+
+Project owner's decision: Tiler is its own onboardable trade (civil-trade skill set, kept
+distinct from Mason, not merged into it). **Commit `90c2ddf`**: added `tiler`/`'Tiler'`/`'TIL'`
+to every place a trade is enumerated -- `app/onboarding/page.tsx` (landing-page trade tile),
+`app/onboarding/[trade]/utils.ts` (`tradeName()`), `app/onboarding/[trade]/actions.ts`
+(`tradeCode()`, worker_code prefix), `app/onboarding/[trade]/page.tsx` (`TRADES` const, the
+Multi-Skilling secondary-trades picker), `app/admin/trade-questions/page.tsx` (`TRADES` const,
+Admin's question-bank tabs). No migration needed -- `workers.trade` is free text, confirmed via
+migration grep to carry no CHECK constraint (unlike `instruction_type`/5 onboarding fields this
+project has been bitten by before).
+
+**Commit `f5ecf2f`**: per the project owner's explicit instruction ("tiler is one skill similar
+to mason. so same question repeated"), seeded Tiler's Section C skill-assessment questions
+(`trade_skill_questions`) as an exact copy of Mason's own 10 live questions (same
+question_code/question_text/display_order, under `trade='Tiler'` -- `question_code` is unique
+per `(trade, question_code)`, so this is a distinct, valid row set, no collision with Mason's).
+A real starting point, not invented content, and freely editable by Admin afterward through the
+already-built `/admin/trade-questions` screen, same discipline as the 8-trade seed
+(`20261002_seed_trade_skill_questions_all_trades.sql`). New migration
+`supabase/migrations/20261010_seed_trade_skill_questions_tiler.sql` -- verified against a local
+PostgreSQL 16 scaffold matching the real table (`UNIQUE (trade, question_code)`), run twice,
+clean and idempotent both times, confirmed no collision with a seeded Mason row. **Confirmed run
+live in the real Supabase project** ("Success. No rows returned").
+
+`npx tsc --noEmit`: exit 0, clean on both commits. **Standing rule change this entry, from the
+project owner directly**: the push-without-asking latitude given earlier this session
+("supabase will be run once you have done it... now finalise and push") was a ONE-TIME
+permission for that batch only, NOT a standing rule -- "i do not ask to push ever as standing,
+this is one time permission, you always ask next time." Going forward, every push (branch or
+`master`) needs the project owner's explicit go-ahead first, no exceptions, until told
+otherwise again. Both commits are pushed to `claude/gracious-knuth-vxwkc3`
+(`fd2e24e..f5ecf2f`) -- `master` is NOT yet fast-forwarded, pending that explicit go-ahead.
+
+**Not done, not guessed at**: Tiler's own `workers.skill_grade` derivation (the unskilled=0..
+skilled+>30jobs+>10yrs=5 ladder, confirmed 8 Oct 2026) was defined generically off
+`skill_level`/`jobs_completed`/`years_experience`, not per-trade, so it should already apply to
+Tiler correctly without any further change -- flagged here as an assumption carried over, not
+separately re-verified this entry.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
