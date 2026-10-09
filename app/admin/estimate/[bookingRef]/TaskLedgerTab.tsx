@@ -10,8 +10,22 @@
 // adjoining zones before declaring NO SUPPLY, and returns the full ranked
 // list (by jobs completed) to pick from -- never a silent auto-pick, for an
 // ordinary slot or a delay-recast slot alike.
+//
+// RECAST SLOTS RUN THE WALK AUTOMATICALLY (10 Oct 2026 correction): the
+// project owner was explicit -- once a delay is logged, "the whole program
+// gets revised... allot all skills afresh... deviance run" has to happen as
+// part of the recast itself, not sit blank waiting for a manual Find-
+// Candidates click per shifted slot. Every slot with origin==='Recast' (the
+// one directly delayed, and every later slot the cascade shifted) has its
+// deviance walk triggered the moment this tab loads -- see the auto-fetch
+// effect below -- so its real candidate list is already showing, with only
+// the final Book click left as a human decision (never silently auto-
+// booked, per the project owner's own standing correction on that point).
+// Ordinary freshly-Materialized (origin==='Planned') slots keep the manual
+// Find Candidates button, unchanged -- that flow was already confirmed
+// correct and wasn't what this correction was about.
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   getTaskLedgerData,
   materializeSubstage,
@@ -51,6 +65,8 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
   const [saviorFormFor, setSaviorFormFor] = useState<string | null>(null)
   const [candidateListFor, setCandidateListFor] = useState<string | null>(null)
   const [candidateList, setCandidateList] = useState<CandidateListResult | null>(null)
+  const [recastCandidates, setRecastCandidates] = useState<Record<string, CandidateListResult>>({})
+  const fetchedRecastRef = useRef<Set<string>>(new Set())
 
   const load = useCallback(() => {
     setLoading(true)
@@ -67,6 +83,21 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
   }, [bookingRef])
 
   useEffect(() => { load() }, [load])
+
+  // Auto-run the deviance walk for every unmatched Recast-origin slot the moment it's visible
+  // -- see the file header's "RECAST SLOTS RUN THE WALK AUTOMATICALLY" note.
+  useEffect(() => {
+    const toFetch = slots.filter(
+      s => s.origin === 'Recast' && s.slot_status === 'Pending' && !s.assigned_worker_id && !fetchedRecastRef.current.has(s.slot_id)
+    )
+    if (toFetch.length === 0) return
+    for (const s of toFetch) {
+      fetchedRecastRef.current.add(s.slot_id)
+      findCandidatesForSlot({ bookingRef, slotId: s.slot_id }).then(res => {
+        if (res.result) setRecastCandidates(prev => ({ ...prev, [s.slot_id]: res.result! }))
+      })
+    }
+  }, [slots, bookingRef])
 
   async function handleMaterialize(substageId: string) {
     setBusy(substageId)
@@ -112,6 +143,11 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
       setMsg({ text: 'Worker booked.', ok: true })
       setCandidateListFor(null)
       setCandidateList(null)
+      setRecastCandidates(prev => {
+        const next = { ...prev }
+        delete next[slotId]
+        return next
+      })
       load()
     }
   }
@@ -176,7 +212,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
       <div className="rounded-xl border-2 border-gray-200 bg-white overflow-hidden">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
           <h3 className="font-bold text-sm text-[#1F3864]">Task Ledger Slots</h3>
-          <p className="text-xs text-gray-500 mt-0.5">One row per worker-slot per day. Set Full Day or AM/PM, then Find Candidates -- own zone first (deviance -3..+3, cheaper side first), then adjoining zones, before NO SUPPLY -- and pick who to book from the list.</p>
+          <p className="text-xs text-gray-500 mt-0.5">One row per worker-slot per day. Set Full Day or AM/PM, then Find Candidates -- own zone first (deviance -3..+3, cheaper side first), then adjoining zones, before NO SUPPLY -- and pick who to book from the list. A RECAST slot (created by a delay) runs this walk automatically -- no button needed, just review and Book once it appears.</p>
         </div>
         {slots.length === 0 ? (
           <p className="px-4 py-4 text-sm text-gray-500">No slots yet -- materialize a sub-stage above first.</p>
@@ -239,7 +275,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {canRunMatch && (
+                      {canRunMatch && slot.origin !== 'Recast' && (
                         <button
                           type="button"
                           disabled={busy === slot.slot_id}
@@ -270,42 +306,24 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
                     </div>
                   </div>
 
-                  {candidateListFor === slot.slot_id && candidateList && (
-                    <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-                      {candidateList.candidates.length === 0 ? (
-                        <p className="text-xs text-blue-900">
-                          No eligible worker found -- own zone and adjoining zones both exhausted at every deviance level.
-                        </p>
-                      ) : (
-                        <>
-                          <p className="text-xs text-blue-900 font-semibold mb-1.5">
-                            {candidateList.candidates.length} eligible at deviance {candidateList.level! > 0 ? '+' : ''}{candidateList.level}
-                            {' '}({candidateList.via === 'ADJOINING_ZONE' ? 'adjoining zone' : 'own zone'}) -- ranked by jobs completed (track record), pick who to book:
-                          </p>
-                          <div className="max-h-56 overflow-y-auto space-y-1">
-                            {candidateList.candidates.map(c => (
-                              <div key={c.id} className="flex items-center justify-between gap-2 bg-white rounded px-2 py-1.5 border border-blue-100">
-                                <div className="min-w-0">
-                                  <span className="text-xs font-semibold text-gray-800">{c.full_name}</span>
-                                  <span className="text-[10px] text-gray-500 ml-1.5">
-                                    {c.match_score}{c.deviance_level !== 0 ? ` · deviance ${c.deviance_level > 0 ? '+' : ''}${c.deviance_level}` : ''}
-                                    {typeof c.jobs_completed === 'number' ? ` · ${c.jobs_completed} jobs done` : ''}
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  disabled={busy === slot.slot_id}
-                                  onClick={() => handleAssign(slot.slot_id, c)}
-                                  className="shrink-0 px-2.5 py-1 rounded text-[11px] font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                                >
-                                  Book
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
+                  {slot.origin !== 'Recast' && candidateListFor === slot.slot_id && candidateList && (
+                    <CandidateListBody result={candidateList} slotId={slot.slot_id} busy={busy === slot.slot_id} onBook={handleAssign} />
+                  )}
+
+                  {canRunMatch && slot.origin === 'Recast' && (
+                    recastCandidates[slot.slot_id] ? (
+                      <CandidateListBody
+                        result={recastCandidates[slot.slot_id]}
+                        slotId={slot.slot_id}
+                        busy={busy === slot.slot_id}
+                        onBook={handleAssign}
+                        autoRun
+                      />
+                    ) : (
+                      <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-900">
+                        Running the deviance walk for this recast slot...
+                      </div>
+                    )
                   )}
 
                   {delayFormFor === slot.slot_id && (
@@ -336,6 +354,57 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Shared candidate-list renderer -- used both for the manual Find-Candidates flow (ordinary
+// Planned slots) and the automatic recast flow (autoRun, Recast-origin slots, no button needed
+// to see it -- see the file header's "RECAST SLOTS RUN THE WALK AUTOMATICALLY" note).
+function CandidateListBody({ result, slotId, busy, onBook, autoRun }: {
+  result: CandidateListResult
+  slotId: string
+  busy: boolean
+  onBook: (slotId: string, candidate: { id: string; deviance_level: number; match_score: string }) => void
+  autoRun?: boolean
+}) {
+  const cls = autoRun ? 'border-purple-200 bg-purple-50' : 'border-blue-200 bg-blue-50'
+  const textCls = autoRun ? 'text-purple-900' : 'text-blue-900'
+  return (
+    <div className={`mt-2 rounded-lg border px-3 py-2 ${cls}`}>
+      {result.candidates.length === 0 ? (
+        <p className={`text-xs ${textCls}`}>
+          No eligible worker found -- own zone and adjoining zones both exhausted at every deviance level.
+        </p>
+      ) : (
+        <>
+          <p className={`text-xs font-semibold mb-1.5 ${textCls}`}>
+            {autoRun && 'Recast -- '}{result.candidates.length} eligible at deviance {result.level! > 0 ? '+' : ''}{result.level}
+            {' '}({result.via === 'ADJOINING_ZONE' ? 'adjoining zone' : 'own zone'}) -- ranked by jobs completed (track record), pick who to book:
+          </p>
+          <div className="max-h-56 overflow-y-auto space-y-1">
+            {result.candidates.map(c => (
+              <div key={c.id} className="flex items-center justify-between gap-2 bg-white rounded px-2 py-1.5 border border-gray-100">
+                <div className="min-w-0">
+                  <span className="text-xs font-semibold text-gray-800">{c.full_name}</span>
+                  <span className="text-[10px] text-gray-500 ml-1.5">
+                    {c.match_score}{c.deviance_level !== 0 ? ` · deviance ${c.deviance_level > 0 ? '+' : ''}${c.deviance_level}` : ''}
+                    {typeof c.jobs_completed === 'number' ? ` · ${c.jobs_completed} jobs done` : ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onBook(slotId, c)}
+                  className="shrink-0 px-2.5 py-1 rounded text-[11px] font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  Book
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -375,8 +444,8 @@ function DelayForm({ bookingRef, slotId, requiredSkillCode, busy, setBusy, setMs
       const cascadeCount = res.cascadedSlotIds?.length ?? 0
       setMsg({
         text: cascadeCount > 0
-          ? `Delay recorded -- a recast slot was created, and ${cascadeCount} later slot(s) on this job were pushed back by the same amount. Find Candidates on each to book.`
-          : 'Delay recorded -- a recast slot was created. Find Candidates to book it.',
+          ? `Delay recorded -- a recast slot was created, and ${cascadeCount} later slot(s) on this job were pushed back by the same amount. Candidates are being found automatically for each -- review and Book below.`
+          : 'Delay recorded -- a recast slot was created. Candidates are being found automatically -- review and Book below.',
         ok: true,
       })
       onDone()
