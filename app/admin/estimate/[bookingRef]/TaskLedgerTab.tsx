@@ -548,18 +548,25 @@ function SkillDeploymentBoard({ bookingRef, substageId, skillCode, onBooked }: {
       <div className="px-3 py-2 overflow-x-auto">
         <div className="flex items-center gap-1 mb-1">
           <span className="w-28 shrink-0 text-[10px] font-semibold text-gray-500">Required</span>
-          {board.days.map(d => (
-            <div
-              key={d.slotId}
-              title={`${d.date} -- ${d.booked ? `Booked: ${d.workerName}` : 'Open'}`}
-              className={`w-7 h-5 shrink-0 rounded-sm flex items-center justify-center text-[8px] font-bold text-white ${
-                d.booked ? 'bg-red-500' : d.slotId === board.focusedSlotId ? 'bg-green-500 ring-2 ring-offset-1 ring-green-700' : 'bg-green-500'
-              }`}
-            >
-              {d.date.slice(8, 10)}
-            </div>
-          ))}
+          {board.days.map(d => {
+            // The real 3-color row (10 Oct 2026 correction -- this was already decided, not an
+            // addition): allotted (booked, red), available (open, not yet reached, green),
+            // proposed (the one day currently being decided right now, amber) -- the same
+            // vocabulary as the candidate availability rows below, applied to the REQUIRED row
+            // itself, not a 2-color stand-in with a ring hack.
+            const cls = d.booked ? 'bg-red-500' : d.slotId === board.focusedSlotId ? 'bg-amber-400' : 'bg-green-500'
+            return (
+              <div
+                key={d.slotId}
+                title={`${d.date} -- ${d.booked ? `Allotted: ${d.workerName}` : d.slotId === board.focusedSlotId ? 'Proposed -- deciding now' : 'Available'}`}
+                className={`w-7 h-5 shrink-0 rounded-sm flex items-center justify-center text-[8px] font-bold text-white ${cls}`}
+              >
+                {d.date.slice(8, 10)}
+              </div>
+            )
+          })}
         </div>
+        <p className="text-[9px] text-gray-400 mb-1">Required row: red = allotted · amber = proposed (deciding now) · green = available</p>
 
         {!allBooked && board.candidates.length === 0 && (
           <p className="text-xs text-gray-500 mt-2">
@@ -585,6 +592,9 @@ function SkillDeploymentBoard({ bookingRef, substageId, skillCode, onBooked }: {
             )}
           </div>
         ))}
+        {visibleCandidates.length > 0 && (
+          <p className="text-[9px] text-gray-400 mt-0.5">Availability rows: green = available all day · red = booked full day elsewhere · amber = half-day active elsewhere</p>
+        )}
 
         {board.candidates.length > 3 && (
           <button type="button" onClick={() => setFoldedCandidates(v => !v)} className="mt-1 text-[10px] text-blue-600 hover:underline">

@@ -46,6 +46,7 @@ interface SubstageSnapshot {
   early_start_date: string
   early_finish_date: string
   weather_delay_days: number | null
+  labour_assignments: { trade: string; skillType: 'skilled' | 'unskilled'; qty: number; daysNeeded?: number }[] | null
 }
 
 export async function recastForDelay(supabase: AnyClient, params: RecastParams) {
@@ -123,7 +124,7 @@ export async function recastForDelay(supabase: AnyClient, params: RecastParams) 
   // Find every substage whose dates actually moved -- not a guess, a real before/after diff.
   const { data: afterRows, error: afterError } = await supabase
     .from('job_milestone_substages')
-    .select('id, booking_ref, trade_type, skilled_workers_per_day, unskilled_workers_per_day, early_start_date, early_finish_date, weather_delay_days')
+    .select('id, booking_ref, trade_type, skilled_workers_per_day, unskilled_workers_per_day, early_start_date, early_finish_date, weather_delay_days, labour_assignments')
     .eq('booking_ref', affectedSubstage.booking_ref)
   if (afterError) throw new Error(`recastForDelay (after snapshot): ${afterError.message}`)
 

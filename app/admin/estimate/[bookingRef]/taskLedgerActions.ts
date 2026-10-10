@@ -158,7 +158,7 @@ export async function materializeSubstage(params: { bookingRef: string; substage
   if ('error' in ctx) return ctx
   const { data: substage, error: substageError } = await ctx.supabase
     .from('job_milestone_substages')
-    .select('id, booking_ref, trade_type, skilled_workers_per_day, unskilled_workers_per_day, early_start_date, early_finish_date')
+    .select('id, booking_ref, trade_type, skilled_workers_per_day, unskilled_workers_per_day, early_start_date, early_finish_date, labour_assignments')
     .eq('id', params.substageId)
     .maybeSingle()
   if (substageError) return { error: substageError.message }
