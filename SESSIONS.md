@@ -1843,3 +1843,20 @@ in use and kept, 2 cron endpoints on 3 schedules).
 
 Update, 10 Oct 2026: `20261010_public_website_intake.sql` confirmed run live by the owner. The first
 NEXT SESSION item above is done; live-testing the six forms on the Vercel preview is now first.
+
+## SESSION 71 CLOSED — 10 Oct 2026
+State at close is in CLAUDE.md's matching entry. In short: public website built and pushed to the
+working branch, migration run live, all pages confirmed to open on a local run, no form submitted
+yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_TEXT.xlsx.
+
+## NEXT SESSION — START HERE (Updated 10 Oct 2026, Session 71 closed)
+- FIRST: `git fetch` and confirm the local folder matches origin
+- Live click-through of the public website (checklist: home; the three /request/* forms; the three
+  /work-with-us/* forms; /staff/intake as admin incl. a status save; coordinator + admin job lists
+  with the new jobs in them; /zones; client login with the test login a request returns)
+- Apply the owner's Excel corrections to the two content files by Key
+- Fill the Trade D / Trade E / A-B-C skeleton branches as the owner names them
+- Ask the owner before fast-forwarding `master`
+- AWS: scripts, Nginx config, cron replacement, guide and checklist once the owner has the AWS
+  account and domain
+- Everything from the earlier NEXT SESSION notes is still open

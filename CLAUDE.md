@@ -3330,3 +3330,22 @@ exist in the live database, so the three request forms, the three partner regist
 `/staff/intake` can save and load. Still not live-tested (no form submitted yet), still on
 `claude/gracious-knuth-vxwkc3`, not fast-forwarded to `master` -- owner to be asked first.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 71 CLOSED — 10 Oct 2026 — STATE AT CLOSE
+- Public website is on `claude/gracious-knuth-vxwkc3` (commit 920cc90 + log commits), migration
+  `20261010_public_website_intake.sql` run live by the owner. `master` NOT touched.
+- Verified this session by running `npm run dev` on the owner's Windows machine: all 15 public pages
+  and `/book`, `/login` return HTTP 200; `/staff/intake` redirects to /login when signed out (correct);
+  `/zones` renders live `geo_hierarchy` data (Uttar Pradesh, Delhi). NO form has been submitted and
+  no page has been looked at in a browser by this session -- the click-through is still owed.
+- The Vercel preview build for the push could not be checked from the session (repo is private, no
+  `gh` CLI on the machine). Local `next build` compiles; its type-check step fails ONLY on the stray
+  untracked nested `pro-engineering/` folder, which is not in git.
+- Owner has `PRO_ENGINEERING_SITE_TEXT.xlsx` (also copied to their Desktop) to correct; when it comes
+  back, apply each filled yellow cell to `content/site-content.json` / `content/job-catalogue.json` by
+  its Key, then regenerate the workbook.
+- WORKING STYLE THE OWNER SET THIS SESSION (follow it): build the whole thing in one run without
+  asking questions; state assumptions at the end; ask only before pushing to `master`. The owner
+  also declines the app's per-file approval boxes, reading them as questions -- prepare files outside
+  the repo and bring them in with one command, so at most one approval appears.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
