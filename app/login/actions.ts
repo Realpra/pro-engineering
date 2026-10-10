@@ -28,6 +28,12 @@ export async function loginAction(formData: FormData) {
     else if (role === 'coordinator') redirect('/coordinator/dashboard')
     else if (role === 'admin') redirect('/admin/dashboard')
     else if (role === 'mktg_agent') redirect('/mktg-agent/dashboard')
+    // Every worker gets a real users row with platform_role='worker' (createWorkerAuthAccount,
+    // app/onboarding/[trade]/actions.ts) and a real login_email/Worker2026 password -- but
+    // this redirect chain never had a case for it, so every worker who ever tried their real
+    // generated credentials hit "Unrecognised role" and could never reach a dashboard. A
+    // real, confirmed, pre-existing bug, not something newly introduced -- fixed here.
+    else if (role === 'worker') redirect('/worker/dashboard')
     else if (!profile) return { error: `No profile record found for user ${user.id}. Contact administrator.` }
     else return { error: `Unrecognised role "${profile.platform_role}". Contact administrator.` }
   } catch(e) {
