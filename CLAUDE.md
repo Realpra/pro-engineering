@@ -15,8 +15,11 @@ Read this at the start of every session.
 ## STACK AND HOSTING PATH (decided 10 Oct 2026, Session 71 — do not re-open unless the owner does)
 Front end: Next.js 16.2.9, React 19.2.4, TypeScript 5, Tailwind CSS 4, lucide-react icons.
 Public website theme is charcoal + orange; internal dashboards keep navy #1F3864.
-Back end: Next.js server actions + API routes on Node.js, Supabase database (PostgreSQL),
-Supabase Auth, supabase-js, 3 Vercel cron jobs (vercel.json), GitHub Realpra/pro-engineering.
+Back end: Next.js server actions + API routes on Node.js, Supabase database (hosted Postgres
+17.6 -- the owner's "PostgreSQL 17" goal is already met), Supabase Auth, Supabase Storage
+(buckets worker-selfies, site-photos, site-log-photos -- uploads already exist), supabase-js,
+2 Vercel cron endpoints on 3 schedules (vercel.json), GitHub Realpra/pro-engineering.
+No Redis, job queue, realtime, SMS provider or payment gateway is in the build today.
 NOT part of the stack: Laravel, PHP 8.3, Horizon, Reverb. The owner raised "Nginx, PHP 8.3,
 PostgreSQL 17, Redis 7, Laravel 11 Horizon + Reverb, S3" as a previously finalised stack; no
 such code or note exists anywhere in this repo. After a piece-by-piece comparison the owner
@@ -24,12 +27,16 @@ accepted staying on Next.js + Supabase and moving to AWS in stages:
 - Stage 3 (first, when the owner has an AWS account + domain): host this same app on an AWS
   Mumbai server behind Nginx with a process manager, SSL, auto-deploy from GitHub. Database
   stays on Supabase. Two things break if forgotten: the new domain must be added to Supabase
-  Auth's allowed URLs, and vercel.json's 3 cron jobs stop existing off Vercel -- they need a
-  server cron calling the same /api/cron/* paths.
-- Stage 1 (S3 for photos/documents) and Stage 2 (Redis 7 + background job worker for SMS,
-  reminders, reports): added with the first feature that needs each, not before.
+  Auth's allowed URLs, and vercel.json's 2 cron endpoints (3 schedules) stop existing off
+  Vercel -- they need a server cron calling the same /api/cron/* paths, with CRON_SECRET set.
+- Stage 1 (S3): owner agreed 10 Oct 2026 to KEEP Supabase Storage for now and treat a move to
+  S3 as a separate step after AWS hosting is live. It is a migration, not a new feature: 10
+  upload/getPublicUrl lines in 6 files change, existing files are copied, stored URLs updated.
+- Stage 2 (Redis 7 + background job worker for SMS, reminders, reports): added with the first
+  feature that needs it, not before. The scheduling engine runs in-app and does not need it.
 - Stage 4 (database off Supabase to plain PostgreSQL 17 on AWS): deferred, a separate later
-  decision. It is a partial back-end rewrite: 851 `.from('...')` data calls in 141 files and
+  decision -- and consistent with the owner's own 7 Oct go-ahead ("same live Supabase Postgres,
+  not a separate DB"). Every table's RLS is tied to Supabase Auth. It is a partial back-end rewrite: 851 `.from('...')` data calls in 141 files and
   118 Supabase Auth calls in 100 files (counted 10 Oct 2026 at commit 6fa614f) would change.
 Beta path: today the branch's Vercel preview is the test copy and `master` is live, both on
 the one production database (see SCHEMA FREEZE section). On AWS: a private test address on
@@ -3241,4 +3248,78 @@ separately re-verified this entry.
   Resources, Blog, About, Values, Contact. Steps 2-4 add fields and tables, so each goes
   through docs/SCHEMA_FREEZE_METHODOLOGY.md first; step 1 and step 5 touch no schema.
 - STILL NEEDED FROM OWNER: phone, email, office address; company values and story.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 71 CONTINUED — 10 Oct 2026 — PUBLIC WEBSITE BUILT IN FULL (NOT LIVE-TESTED, MIGRATION NOT RUN)
+Owner's instruction after the spec above: build the entire public UI from the 21 screenshots +
+their own inputs in one run, connected to the existing back end, ask only before `master`,
+state assumptions at the end, and deliver an Excel of all text for correction. Built:
+- **Route group `app/(site)/`** with its own layout (charcoal + orange, square edges; dashboards
+  untouched): `SiteHeader` (phone strip, Staff and Worker Login -> /login, Client Login ->
+  /client/login, nav, two actions), `SiteFooter`, `AccountReminder`. `app/page.tsx` (the old
+  redirect to /login) is DELETED -- `/` is now `app/(site)/page.tsx`. Root layout's tab title
+  fixed ("Create Next App" -> "Pro Engineering").
+- **Pages**: `/` (two doors, three request cards, four supply cards, numbers strip, 8-step
+  process, video placeholder, closing strip), `/services`, `/for-workers`, `/zones` (live from
+  `geo_hierarchy`, force-dynamic), `/resources`, `/blog` (client-side search + category
+  filter), `/about`, `/about/values`, `/contact`.
+- **Client requests** `/request/one-day`, `/request/turn-key`, `/request/labour-bazaar` -- one
+  `RequestForm` component, three types. These sit BESIDE `/book`, which is untouched and linked
+  as "Start a full project enquiry" (the nine project types). Fields per the owner's answers:
+  one-day = Trade > Skill > Job type, Full day or hours From-To, forenoon/afternoon, 7-day
+  date bar, skills + numbers, brief scope; turn-key = Trade > Lump sum job, with/without
+  material, preferred date (owner: every job has a client date); Labour Bazaar = firm name,
+  trade, start date, duration in days, skills/helpers + numbers, scope. All three: State >
+  District > Sector > Address (no region/zone step for the client -- owner's rule), then name
+  + phone. `submitJobRequest` (`app/(site)/actions.ts`) inserts ONE `guest_enquiries` row
+  (same booking_ref format, status 'enquiry', zone = sector name and district exactly as
+  /book/schedule writes them) so the job enters the existing Coordinator/Admin pipeline; a
+  signed-in client's new request is linked to their existing account (every visit = a new
+  job, never a new login), anyone else gets the same `createClientDevAuthAccount` /book uses.
+- **Supply side**: three DISTINCT pages `/work-with-us/team-head`, `/associate`,
+  `/contractor`, each the exhaustive `PartnerForm` (identity, firm, GST/PAN, experience, team
+  by skill or by lump-sum crew with numbers, state + districts + sectors served, lead basis /
+  sub-contractor / labour provider ticks, commercial terms, declaration). Workers keep the
+  frozen `/onboarding`. "Pro Engineering does not charge workers any fee to register" is shown
+  -- owner confirmed it as current policy.
+- **Staff side** `/staff/intake` (super_admin, admin, coordinator, sub_coordinator): job
+  requests with every request field, partner registrations with status (new/contacted/
+  approved/rejected) + staff note, editable. "Website Intake" link added to those four
+  dashboards (4 small additive edits; nothing else in them changed).
+- **ONE new SQL file, NOT YET RUN**: `supabase/migrations/20261010_public_website_intake.sql`,
+  same discipline as the 7 Oct engine file -- EXTENDS `guest_enquiries` (Job Master) with
+  nullable request columns (request_type, request_trade, request_skill, request_job_type,
+  lump_sum_package, with_material, work_unit, time_from, time_to, day_slot, duration_days,
+  skills_required JSONB, site_state, firm_name) and documents two columns live code already
+  reads but no migration declared (`scope_description`, `address_line` -- reused as the
+  canonical scope/address, not duplicated); CREATES `supply_partners` (genuinely new concept,
+  `workers`/`users` checked first). Until it is run, the three request forms and three partner
+  forms fail on submit with the database's own "column/table not found" message, and
+  `/staff/intake` shows a load error naming the file. `/book`, `/onboarding` and every existing
+  page are unaffected either way. Classified Addition, not Contradiction: no existing reader or
+  writer of `guest_enquiries` changes.
+- **All site wording lives in `content/site-content.json`**; Trade > Skill > Job type and
+  Trade > Lump sum job lists live in `content/job-catalogue.json`. `docs/
+  PRO_ENGINEERING_SITE_TEXT.xlsx` is generated from both (one row per text, a yellow
+  replacement column) for the owner to correct; apply their edits back by key.
+- **Assumptions taken (told to the owner)**: (1) the trade list is Civil, Electrical, IT plus
+  empty "Trade D"/"Trade E" branches, with A/B/C skeleton skills/jobs/lump-sum jobs where the
+  owner has not named them -- per their instruction to build a skeleton they will fill; (2)
+  "skills and numbers" lists offer the 10 onboardable worker trades, so demand is stated in
+  the same terms allocation matches on; (3) `guest_enquiries.job_type` is derived (Labour
+  Bazaar -> construction; Civil -> renovation, or waterproofing for that skill; others ->
+  other) because the column has a live CHECK constraint and only JOB_TYPE_DB_MAP's values are
+  known-valid; (4) descriptive content (values, story, testimonials, resources, blog, contact,
+  social, numbers) is written as original placeholder text in the same positions as the
+  reference site, NOT the reference site's own wording; (5) the dev/beta client login block
+  (shared password) is shown on the request success screen exactly as /book/submit shows it.
+- **NOT TESTED**: nothing here has been clicked. `npx tsc --noEmit` is clean for the repo's own
+  files. Known thing to check on first live run: a website request has no budget,
+  duration_weeks, service_model or estimate_total (all NULL) -- any existing page that assumes
+  those are non-null for every `guest_enquiries` row needs a look.
+- **LOCAL-ONLY NOISE on the owner's Windows machine**: an untracked nested `pro-engineering/`
+  folder (an old copy of the repo inside the repo) makes local `tsc` report one error in ITS
+  stale files. It is not in git and not on Vercel. Left alone -- not this session's to delete.
+- Staying on `claude/gracious-knuth-vxwkc3`, NOT fast-forwarded to `master`: the migration has
+  not been run, and the owner asked to be consulted before `master`.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3

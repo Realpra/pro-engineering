@@ -204,6 +204,7 @@ export default async function SubCoordinatorDashboardPage() {
             { href: '/sub-coordinator/instructions', label: '📣 Instructions' },
             { href: '/sub-coordinator/jobs', label: '🏗 Jobs' },
             { href: '/book', label: '+ New Job' },
+            { href: '/staff/intake', label: '🌐 Website Intake' },
           ].map(item => (
             <Link
               key={item.href}

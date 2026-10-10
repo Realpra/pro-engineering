@@ -1813,3 +1813,30 @@ Word copy of the stack record: docs/PRO_ENGINEERING_STACK_RECORD.docx
 - AWS: write the server setup script, Nginx config, cron replacement, deployment setup, guide
   and test checklist when the owner has the AWS account and domain ready
 - Everything from the earlier NEXT SESSION notes is still open
+
+## SESSION 71 CONTINUED — 10 Oct 2026 — PUBLIC WEBSITE BUILT IN FULL (NOT LIVE-TESTED, MIGRATION NOT RUN)
+Full detail in CLAUDE.md's matching entry. Summary: the whole public site is built under
+`app/(site)/` (home, services, for-workers, zones, resources, blog, about, values, contact),
+with three client request forms (`/request/one-day`, `/request/turn-key`,
+`/request/labour-bazaar`) that insert into `guest_enquiries` beside the untouched `/book`,
+three distinct partner registration pages (`/work-with-us/team-head|associate|contractor`)
+writing a new `supply_partners` table, and a staff page `/staff/intake` linked from the
+admin, superadmin, coordinator and sub-coordinator dashboards. `app/page.tsx`'s redirect to
+/login is replaced by the home page. All wording is in `content/site-content.json` +
+`content/job-catalogue.json`, exported to `docs/PRO_ENGINEERING_SITE_TEXT.xlsx` for the owner
+to correct. Stack record corrected (Postgres 17.6 already in place, Supabase Storage already
+in use and kept, 2 cron endpoints on 3 schedules).
+
+## NEXT SESSION — START HERE (Updated 10 Oct 2026, Session 71 continued)
+- FIRST: `git fetch` and confirm the local folder matches origin
+- Owner to run `supabase/migrations/20261010_public_website_intake.sql` in the Supabase SQL
+  Editor -- the six new forms and `/staff/intake` do not work until it is run
+- Then live-test on the branch's Vercel preview: each of the three request forms end to end
+  (row appears in `guest_enquiries` with its request_* fields, shows on `/staff/intake` and in
+  the existing Coordinator/Admin job lists, client login works), each of the three partner
+  forms (row in `supply_partners`, status change saves), and that existing pages cope with a
+  job that has no budget/estimate_total/service_model
+- Apply the owner's corrections from `docs/PRO_ENGINEERING_SITE_TEXT.xlsx` to the two content
+  files by key; fill the Trade D / Trade E / A-B-C skeleton branches as they name them
+- Ask the owner before fast-forwarding `master`
+- Everything from the earlier NEXT SESSION notes is still open

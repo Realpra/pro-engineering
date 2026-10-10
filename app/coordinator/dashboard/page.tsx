@@ -189,6 +189,12 @@ export default async function CoordinatorDashboardPage() {
             >
               + New Job
             </Link>
+            <Link
+              href="/staff/intake"
+              className="text-white text-xs font-bold bg-[#2E74B5] px-3 py-1.5 rounded-lg"
+            >
+              Website Intake
+            </Link>
             <form action="/api/auth/signout" method="POST">
               <button className="text-blue-300 text-xs font-semibold border border-blue-400/40 px-3 py-1.5 rounded-lg">
                 Sign Out

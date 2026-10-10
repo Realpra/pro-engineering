@@ -1,0 +1,82 @@
+{
+  "workerSkills": [
+    "Mason", "Plumber", "Electrician", "Waterproofer", "Tiler", "Painter",
+    "Carpenter", "False Ceiling Installer", "Helper", "Supervisor"
+  ],
+  "trades": [
+    {
+      "name": "Civil",
+      "skills": [
+        { "name": "Masonry", "jobs": ["Brickwork", "Plastering", "Small concrete repair", "Wall or floor patch repair", "Chiselling and breaking"] },
+        { "name": "Tiling", "jobs": ["Floor tiling", "Wall tiling", "Tile replacement", "Grouting", "Skirting"] },
+        { "name": "Plumbing", "jobs": ["Leak repair", "Tap or mixer fitting", "WC or basin fitting", "Drain blockage", "Tank or motor connection", "New supply line"] },
+        { "name": "Waterproofing", "jobs": ["Bathroom floor treatment", "Terrace treatment", "Balcony treatment", "Water tank treatment", "Wall seepage treatment"] },
+        { "name": "Painting", "jobs": ["Interior repaint", "Exterior paint", "Texture finish", "Putty and primer", "Wood polish or enamel"] },
+        { "name": "Carpentry", "jobs": ["Door fitting or repair", "Lock and hardware", "Furniture assembly", "Wardrobe or shelf work", "Ceiling frame"] },
+        { "name": "False ceiling", "jobs": ["Gypsum board ceiling", "Grid ceiling", "POP cornice", "Ceiling repair"] },
+        { "name": "Site help", "jobs": ["Material shifting", "Loading and unloading", "Site cleaning", "Debris removal"] }
+      ],
+      "lumpSum": [
+        { "name": "Kitchen renovation", "skills": ["Mason", "Tiler", "Plumber", "Electrician", "Carpenter", "Painter", "Helper"] },
+        { "name": "Bathroom renovation", "skills": ["Plumber", "Mason", "Tiler", "Waterproofer", "Electrician", "Helper"] },
+        { "name": "Flooring replacement", "skills": ["Tiler", "Mason", "Helper"] },
+        { "name": "Full home painting", "skills": ["Painter", "Helper"] },
+        { "name": "Terrace waterproofing", "skills": ["Waterproofer", "Mason", "Helper"] },
+        { "name": "Room false ceiling", "skills": ["False Ceiling Installer", "Electrician", "Painter"] },
+        { "name": "Room addition or extension", "skills": ["Mason", "Plumber", "Electrician", "Carpenter", "Painter", "Helper", "Supervisor"] }
+      ]
+    },
+    {
+      "name": "Electrical",
+      "skills": [
+        { "name": "Wiring", "jobs": ["New point wiring", "Rewiring", "Fault finding"] },
+        { "name": "Fittings", "jobs": ["Switch or socket fitting", "Light or fan fitting", "Appliance connection"] },
+        { "name": "Distribution and protection", "jobs": ["DB or MCB work", "Earthing", "Inverter connection"] }
+      ],
+      "lumpSum": [
+        { "name": "Full house wiring", "skills": ["Electrician", "Helper"] },
+        { "name": "Electrical lump sum job B", "skills": [] },
+        { "name": "Electrical lump sum job C", "skills": [] }
+      ]
+    },
+    {
+      "name": "IT",
+      "skills": [
+        { "name": "IT skill A", "jobs": ["IT job type A1", "IT job type A2", "IT job type A3"] },
+        { "name": "IT skill B", "jobs": ["IT job type B1", "IT job type B2", "IT job type B3"] },
+        { "name": "IT skill C", "jobs": ["IT job type C1", "IT job type C2", "IT job type C3"] }
+      ],
+      "lumpSum": [
+        { "name": "IT lump sum job A", "skills": [] },
+        { "name": "IT lump sum job B", "skills": [] },
+        { "name": "IT lump sum job C", "skills": [] }
+      ]
+    },
+    {
+      "name": "Trade D",
+      "skills": [
+        { "name": "Trade D skill A", "jobs": ["Trade D job type A1", "Trade D job type A2", "Trade D job type A3"] },
+        { "name": "Trade D skill B", "jobs": ["Trade D job type B1", "Trade D job type B2", "Trade D job type B3"] },
+        { "name": "Trade D skill C", "jobs": ["Trade D job type C1", "Trade D job type C2", "Trade D job type C3"] }
+      ],
+      "lumpSum": [
+        { "name": "Trade D lump sum job A", "skills": [] },
+        { "name": "Trade D lump sum job B", "skills": [] },
+        { "name": "Trade D lump sum job C", "skills": [] }
+      ]
+    },
+    {
+      "name": "Trade E",
+      "skills": [
+        { "name": "Trade E skill A", "jobs": ["Trade E job type A1", "Trade E job type A2", "Trade E job type A3"] },
+        { "name": "Trade E skill B", "jobs": ["Trade E job type B1", "Trade E job type B2", "Trade E job type B3"] },
+        { "name": "Trade E skill C", "jobs": ["Trade E job type C1", "Trade E job type C2", "Trade E job type C3"] }
+      ],
+      "lumpSum": [
+        { "name": "Trade E lump sum job A", "skills": [] },
+        { "name": "Trade E lump sum job B", "skills": [] },
+        { "name": "Trade E lump sum job C", "skills": [] }
+      ]
+    }
+  ]
+}

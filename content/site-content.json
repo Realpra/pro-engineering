@@ -1,0 +1,487 @@
+{
+  "brand": {
+    "name": "Pro Engineering",
+    "mark": "PE",
+    "tagline": "Construction work and skilled workers, managed from first visit to final handover."
+  },
+  "contact": {
+    "phone": "[Phone number]",
+    "email": "[Email address]",
+    "address": "[Office address]",
+    "hours": "[Working hours]"
+  },
+  "social": {
+    "facebook": "[Facebook link]",
+    "linkedin": "[LinkedIn link]",
+    "youtube": "[YouTube link]"
+  },
+  "header": {
+    "staffLogin": "Staff and Worker Login",
+    "clientLogin": "Client Login",
+    "navRequest": "Get Work Done",
+    "navWork": "Work With Us",
+    "navServices": "Services",
+    "navZones": "Where We Work",
+    "navResources": "Resources",
+    "navBlog": "Blog",
+    "navAbout": "About",
+    "navContact": "Contact",
+    "ctaPost": "Raise a Request",
+    "ctaJoin": "Join Us"
+  },
+  "reminder": {
+    "text": "Your request is registered. Complete your account to track it.",
+    "cta": "Complete account"
+  },
+  "hero": {
+    "eyebrow": "Construction, renovation and skilled labour",
+    "title": "Tell us the job. We survey it, price it, staff it and see it through.",
+    "body": "Pro Engineering takes your work from the first site visit to the final handover, with our own verified workers and a supervisor checking progress on site.",
+    "notice": "You see and approve the estimate before any payment is asked.",
+    "client": {
+      "title": "I need work done",
+      "desc": "A repair for a few hours, a full renovation, or workers in bulk for your site.",
+      "cta": "See request types"
+    },
+    "provider": {
+      "title": "I want to work with Pro Engineering",
+      "desc": "Register as a worker, or bring your team, your labour network or your contracting firm.",
+      "cta": "See how to join"
+    },
+    "staff": {
+      "title": "I already have a login",
+      "desc": "Staff, supervisors and registered workers sign in here. Clients use the client login.",
+      "cta": "Go to login"
+    }
+  },
+  "request": {
+    "eyebrow": "For clients",
+    "title": "Three ways to get work done",
+    "intro": "Choose the one closest to your need. Your name and phone number are enough to start, and every visit can raise a new request.",
+    "fullProject": "Planning a larger project with a budget and a schedule?",
+    "fullProjectCta": "Start a full project enquiry",
+    "oneDay": {
+      "title": "One day or smaller",
+      "desc": "A short job that needs the right people for a few hours or a single day.",
+      "point1": "Pick the trade, the skill and the job",
+      "point2": "Full day, or hours from and to, forenoon or afternoon",
+      "point3": "Choose a date within the next seven days",
+      "cta": "Request a short job"
+    },
+    "turnKey": {
+      "title": "Turn-key lump sum",
+      "desc": "A complete job at one agreed price, such as a kitchen or bathroom renovation.",
+      "point1": "Pick the trade and the lump sum job",
+      "point2": "Choose with material or without material",
+      "point3": "Give your preferred date; we survey the site and send the estimate",
+      "cta": "Request a turn-key job"
+    },
+    "bulk": {
+      "title": "Labour Bazaar",
+      "desc": "Workers in bulk for a construction site, by trade, skill and number.",
+      "point1": "Describe the job, the start date and the duration",
+      "point2": "List the skills and helpers you need and how many of each",
+      "point3": "We confirm the requirement with you and allot the workers",
+      "cta": "Request workers in bulk"
+    }
+  },
+  "work": {
+    "eyebrow": "For workers and partners",
+    "title": "Four ways to work with us",
+    "intro": "Whether you work alone or bring a hundred people, there is a place for you.",
+    "notice": "Pro Engineering does not charge workers any fee to register.",
+    "worker": {
+      "title": "Worker",
+      "desc": "Register yourself in your own trade. Once approved, we book you on jobs near you.",
+      "cta": "Register as a worker"
+    },
+    "teamHead": {
+      "title": "Team Head",
+      "desc": "You lead a team. Tell us the skills and numbers you bring, and we book the team on jobs.",
+      "cta": "Bring your team"
+    },
+    "associate": {
+      "title": "Associate",
+      "desc": "You are strong in labour supply. Your workers join Pro Engineering and you earn a commission on their work.",
+      "cta": "Become an associate"
+    },
+    "contractor": {
+      "title": "Contractor",
+      "desc": "You can take on a whole job. We pass suitable job requests to you and you deliver to the client.",
+      "cta": "Register as a contractor"
+    }
+  },
+  "numbers": {
+    "items": [
+      { "value": "[00]", "label": "Sectors served" },
+      { "value": "[00]", "label": "Workers registered" },
+      { "value": "[00]", "label": "Jobs completed" },
+      { "value": "[00]", "label": "Trades covered" }
+    ]
+  },
+  "how": {
+    "eyebrow": "The process",
+    "title": "How a job moves, step by step",
+    "intro": "The same eight steps apply whether the job takes a day or three months.",
+    "steps": [
+      { "title": "You post the job", "desc": "Online, or our team records it for you after a call or visit." },
+      { "title": "We survey the site", "desc": "When the job needs it, a supervisor visits and measures before anything is priced." },
+      { "title": "We prepare the estimate", "desc": "Built from the survey, the scope of work and the workers and material needed." },
+      { "title": "The estimate is approved internally", "desc": "It is checked and signed off by our senior team before you see it." },
+      { "title": "You review it", "desc": "You see the estimate, ask for changes and agree the final scope and price." },
+      { "title": "Workers are allotted", "desc": "By trade, skill and location, day by day, from our registered workers." },
+      { "title": "Work is supervised", "desc": "A supervisor inspects on site and records progress against each milestone." },
+      { "title": "You pay by milestone", "desc": "Payments follow completed stages, through to handover." }
+    ]
+  },
+  "homeZones": {
+    "eyebrow": "Where we work",
+    "title": "Service areas",
+    "intro": "You choose your state, district and sector when you raise a request.",
+    "cta": "See all service areas"
+  },
+  "video": {
+    "title": "Plan your workforce with us",
+    "body": "Tell us what your site needs over the coming weeks and we will work out the skills and numbers with you, at no charge.",
+    "cta": "Request a free site survey",
+    "placeholder": "[Video to be added]"
+  },
+  "closing": {
+    "title": "Ready to start?",
+    "body": "Raise a request in a few minutes, or register to work with us.",
+    "zones": "Service areas",
+    "contact": "Contact us"
+  },
+  "services": {
+    "eyebrow": "What we cover",
+    "title": "Services",
+    "intro": "Work is organised by trade, then by skill, then by the job itself. Complete jobs at one price are listed as lump sum jobs.",
+    "skillsTitle": "Skills and job types",
+    "lumpSumTitle": "Lump sum jobs",
+    "projectsTitle": "Full project types",
+    "projectsIntro": "For larger projects with a budget and a schedule, start a full project enquiry.",
+    "projects": [
+      "Home Renovation", "Leak Proofing", "Construction", "IT Project", "Clean Energy",
+      "Life Sciences", "Geo-technical", "Project Management", "Manufacturing"
+    ],
+    "cta": "Raise a request"
+  },
+  "forWorkers": {
+    "eyebrow": "For workers",
+    "title": "Steady work, close to home",
+    "intro": "Register once in your trade. After approval, Pro Engineering books you on jobs in the sectors you choose.",
+    "reasonsTitle": "Why register",
+    "reasons": [
+      { "title": "No registration fee", "desc": "Pro Engineering does not charge workers anything to register." },
+      { "title": "Work near you", "desc": "You choose the sectors you can travel to, and we match jobs to them." },
+      { "title": "Your skill is recognised", "desc": "Your trade, experience and skill level decide the jobs you are offered." },
+      { "title": "Clear records", "desc": "Your registration, approvals and deployments are recorded on your own login." }
+    ],
+    "tradesTitle": "Trades you can register in",
+    "stepsTitle": "How registration works",
+    "steps": [
+      { "title": "Choose your trade", "desc": "Pick your main trade from the list." },
+      { "title": "Fill in your details", "desc": "Identity, experience, skills, the sectors you can work in and your bank details." },
+      { "title": "Approval", "desc": "Our team checks your registration and approves it." },
+      { "title": "Start working", "desc": "You are booked on jobs and can see them on your login." }
+    ],
+    "cta": "Register as a worker",
+    "partnerTitle": "Bring more than yourself?",
+    "partnerBody": "If you lead a team, supply labour or run a contracting firm, register as a partner instead."
+  },
+  "zonesPage": {
+    "eyebrow": "Where we work",
+    "title": "Service areas",
+    "intro": "These are the states, districts and sectors Pro Engineering serves today.",
+    "empty": "The list of service areas could not be loaded. Please contact us to check whether we serve your area.",
+    "note": "Outside these areas? Raise your request anyway and we will tell you whether we can serve it.",
+    "cta": "Raise a request"
+  },
+  "resources": {
+    "eyebrow": "Resources",
+    "title": "News, project stories, videos and guides",
+    "intro": "Reading and viewing for clients, workers and partners.",
+    "viewAll": "View all",
+    "groups": [
+      {
+        "title": "News",
+        "items": [
+          { "title": "[News headline 1]", "date": "[Date]", "summary": "[One or two lines about this news item]" },
+          { "title": "[News headline 2]", "date": "[Date]", "summary": "[One or two lines about this news item]" },
+          { "title": "[News headline 3]", "date": "[Date]", "summary": "[One or two lines about this news item]" }
+        ]
+      },
+      {
+        "title": "Project stories",
+        "items": [
+          { "title": "[Project story 1]", "date": "[Date]", "summary": "[What the job was, what we did, the result]" },
+          { "title": "[Project story 2]", "date": "[Date]", "summary": "[What the job was, what we did, the result]" }
+        ]
+      },
+      {
+        "title": "Videos",
+        "items": [
+          { "title": "[Video title 1]", "date": "[Date]", "summary": "[What this video shows]" },
+          { "title": "[Video title 2]", "date": "[Date]", "summary": "[What this video shows]" },
+          { "title": "[Video title 3]", "date": "[Date]", "summary": "[What this video shows]" }
+        ]
+      },
+      {
+        "title": "Guides",
+        "items": [
+          { "title": "[Guide title 1]", "date": "[Date]", "summary": "[What this guide helps the reader do]" },
+          { "title": "[Guide title 2]", "date": "[Date]", "summary": "[What this guide helps the reader do]" }
+        ]
+      }
+    ]
+  },
+  "blog": {
+    "eyebrow": "Blog",
+    "title": "Blog",
+    "intro": "Notes from our sites, our workers and our team.",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search posts",
+    "categoriesTitle": "Categories",
+    "noResults": "No posts match your search.",
+    "categories": ["About Pro Engineering", "Safety", "Project stories", "Worker spotlights", "News and events"],
+    "posts": [
+      { "title": "[Blog post title 1]", "date": "[Date]", "author": "Pro Engineering", "category": "Safety", "summary": "[Two or three lines introducing this post]" },
+      { "title": "[Blog post title 2]", "date": "[Date]", "author": "Pro Engineering", "category": "Project stories", "summary": "[Two or three lines introducing this post]" },
+      { "title": "[Blog post title 3]", "date": "[Date]", "author": "Pro Engineering", "category": "Worker spotlights", "summary": "[Two or three lines introducing this post]" },
+      { "title": "[Blog post title 4]", "date": "[Date]", "author": "Pro Engineering", "category": "News and events", "summary": "[Two or three lines introducing this post]" },
+      { "title": "[Blog post title 5]", "date": "[Date]", "author": "Pro Engineering", "category": "About Pro Engineering", "summary": "[Two or three lines introducing this post]" }
+    ]
+  },
+  "about": {
+    "eyebrow": "About us",
+    "title": "Construction work, properly organised",
+    "intro": "Pro Engineering surveys, estimates, staffs and supervises construction and renovation work, using its own registered workers.",
+    "description": "[Company description: who we are, where we work, how long we have been doing it, and what makes our workers and our way of working reliable.]",
+    "whyTitle": "More than a supply of workers",
+    "whyIntro": "Every job on the platform is handled the same way, so clients know what to expect.",
+    "why": [
+      "The site is surveyed before the job is priced",
+      "Every estimate is approved by our senior team before you see it",
+      "No payment is asked before you approve the estimate",
+      "Workers are registered, checked and approved before they are deployed",
+      "A supervisor inspects the work on site",
+      "Payments follow completed milestones"
+    ],
+    "supportTitle": "How we support your project",
+    "support": [
+      { "title": "Survey and estimate", "desc": "Measurements and scope recorded on site, then priced item by item." },
+      { "title": "The right workers", "desc": "Allotted by trade, skill and location for each day of the job." },
+      { "title": "Supervision", "desc": "Daily records, inspections and milestone checks through to handover." }
+    ],
+    "links": {
+      "values": { "title": "Our Values", "desc": "What we hold ourselves to." },
+      "safety": { "title": "Safety First", "desc": "How we keep workers and sites safe." },
+      "story": { "title": "Our Story", "desc": "[One line about how Pro Engineering began]" },
+      "testimonials": { "title": "Testimonials", "desc": "[One line introducing client and worker testimonials]" },
+      "partners": { "title": "Partners", "desc": "[One line about partner firms and affiliations]" }
+    },
+    "storyTitle": "Our Story",
+    "story": "[Company story: the year Pro Engineering started, who started it, and the key steps since.]",
+    "testimonialsTitle": "Testimonials",
+    "testimonials": [
+      { "quote": "[Client testimonial]", "name": "[Client name]", "detail": "[Job and location]" },
+      { "quote": "[Worker testimonial]", "name": "[Worker name]", "detail": "[Trade]" }
+    ],
+    "partnersTitle": "Partners",
+    "partnersBody": "[Names of partner firms, suppliers and affiliations]",
+    "callTitle": "Talk to us about your site",
+    "callBody": "Call us to discuss your requirement."
+  },
+  "values": {
+    "eyebrow": "About us",
+    "title": "Our Values",
+    "tagline": "Safety, honest pricing, skilled work, accountability and respect.",
+    "intro": "These values guide how every person at Pro Engineering works, in the office and on site.",
+    "items": [
+      { "title": "Safety", "tagline": "Everyone goes home safe, every day.", "body": "[How Pro Engineering puts safety first: checks before deployment, protective equipment, restrictions recorded for each worker, and what is expected on every site.]" },
+      { "title": "Honest pricing", "tagline": "The estimate you approve is the price you pay.", "body": "[How estimates are built, approved and shared, and how changes are agreed before any extra work.]" },
+      { "title": "Skilled work", "tagline": "The right skill for the job.", "body": "[How workers are assessed, graded and matched to jobs.]" },
+      { "title": "Accountability", "tagline": "We do what we said we would do.", "body": "[How progress is recorded, supervised and reported to the client.]" },
+      { "title": "Respect", "tagline": "For workers, clients and colleagues alike.", "body": "[How Pro Engineering treats its workers and expects sites to treat them.]" }
+    ],
+    "closing": "[Closing statement on how these values shape the company's future.]"
+  },
+  "contactPage": {
+    "eyebrow": "Contact",
+    "title": "Contact us",
+    "intro": "Call, write or visit. To get work started, raising a request is the fastest way.",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "addressLabel": "Office",
+    "hoursLabel": "Hours",
+    "requestTitle": "Need work done?",
+    "requestBody": "Raise a request and a coordinator will call you.",
+    "workTitle": "Want to work with us?",
+    "workBody": "Register as a worker or as a partner."
+  },
+  "forms": {
+    "missing": "Please complete every field in the first two sections.",
+    "optional": "optional",
+    "select": "Select",
+    "submitting": "Submitting",
+    "add": "Add another",
+    "remove": "Remove",
+    "errorTitle": "This could not be submitted",
+    "sections": {
+      "job": "The job",
+      "timing": "When",
+      "skills": "Skills and numbers",
+      "scope": "Scope of work",
+      "location": "Where",
+      "contact": "Your details"
+    },
+    "fields": {
+      "trade": "Trade",
+      "skill": "Skill",
+      "jobType": "Job type",
+      "lumpSumPackage": "Lump sum job",
+      "material": "Material",
+      "withMaterial": "With material",
+      "withoutMaterial": "Without material",
+      "workUnit": "Duration",
+      "fullDay": "Full day",
+      "hours": "Less than a day, in hours",
+      "timeFrom": "From",
+      "timeTo": "To",
+      "daySlot": "Part of the day",
+      "forenoon": "Forenoon",
+      "afternoon": "Afternoon",
+      "date": "Date required",
+      "preferredDate": "Preferred start date",
+      "durationDays": "Duration in days",
+      "skillRow": "Skill or worker type",
+      "skillCount": "Number",
+      "scope": "Job scope and description in brief",
+      "state": "State",
+      "district": "District",
+      "sector": "Sector",
+      "sectorOther": "Sector or area, if not in the list",
+      "address": "Address",
+      "firmName": "Firm or site name",
+      "contactName": "Your name",
+      "contactPhone": "Mobile number",
+      "contactEmail": "Email"
+    },
+    "hints": {
+      "skills": "List each skill you need and how many workers of that skill. Include helpers.",
+      "sector": "Choose the state first, then the district, then the sector.",
+      "noSectors": "No sectors are listed for this district yet. Type your sector or area below.",
+      "phone": "Your coordinator will call this number."
+    },
+    "oneDay": {
+      "title": "One day or smaller",
+      "intro": "For a short job of a few hours or a single day.",
+      "submit": "Submit request"
+    },
+    "turnKey": {
+      "title": "Turn-key lump sum",
+      "intro": "For a complete job at one agreed price. We survey the site before sending your estimate.",
+      "submit": "Submit request"
+    },
+    "bulk": {
+      "title": "Labour Bazaar",
+      "intro": "For workers in bulk on a construction site. We confirm the exact requirement with you, then allot the workers.",
+      "submit": "Submit request"
+    },
+    "success": {
+      "title": "Request submitted",
+      "body": "Your request is registered with Pro Engineering. No payment was required.",
+      "refLabel": "Booking reference",
+      "refHint": "Keep this reference for all future correspondence.",
+      "next1": "A coordinator will call you to confirm the details.",
+      "next2": "Where the job needs it, a supervisor will visit the site before the estimate is prepared.",
+      "next3": "No payment is due until you review and approve the scope and price.",
+      "accountTitle": "Complete your account",
+      "accountBody": "Sign in to follow this request and to raise more requests.",
+      "accountCta": "Go to client login",
+      "devTitle": "Test login for this request",
+      "devBody": "Password: Client2026. Use the Email Login tab on the client login page.",
+      "another": "Raise another request",
+      "home": "Back to home"
+    }
+  },
+  "partner": {
+    "eyebrow": "Work with us",
+    "howTitle": "How it works",
+    "workerLink": "Registering as an individual worker? Use worker registration.",
+    "sections": {
+      "identity": "Your details",
+      "firm": "Your firm",
+      "experience": "Experience",
+      "team": "Your team",
+      "coverage": "Where you can serve",
+      "engagement": "How you want to work with us",
+      "terms": "Commercial terms",
+      "declaration": "Declaration"
+    },
+    "fields": {
+      "fullName": "Full name",
+      "phone": "Mobile number",
+      "whatsappPhone": "WhatsApp number",
+      "email": "Email",
+      "companyName": "Firm or company name",
+      "firmType": "Type of firm",
+      "firmTypes": ["Individual", "Proprietorship", "Partnership", "Private limited company", "Other"],
+      "gstNumber": "GST number",
+      "panNumber": "PAN",
+      "yearEstablished": "Year established",
+      "officeAddress": "Office address",
+      "websiteLinks": "Website links",
+      "socialLinks": "Social media links",
+      "yearsExperience": "Years of experience",
+      "workKinds": "Kinds of work you take on",
+      "largestJob": "Largest job handled",
+      "clientReferences": "Client references",
+      "teamBasis": "How do you describe your team?",
+      "bySkill": "By skill, with a number for each",
+      "byPackage": "As a complete crew for a lump sum job",
+      "teamPackage": "Lump sum job your crew covers",
+      "teamRows": "Skills in your team and the approximate number of each",
+      "totalWorkers": "Total workers you can bring, approximately",
+      "state": "State",
+      "districts": "Districts you can serve",
+      "sectors": "Sectors you can serve",
+      "engagementTypes": "Tick all that apply",
+      "leadBasis": "Lead basis: I bring job leads and earn on them",
+      "subContractor": "Sub-contractor",
+      "labourProvider": "Labour provider",
+      "commercialTerms": "Commission or revenue share you expect, and any other terms",
+      "remarks": "Anything else we should know",
+      "declared": "I confirm that the details given above are correct."
+    },
+    "submit": "Submit registration",
+    "success": {
+      "title": "Registration received",
+      "body": "Thank you. Our team will review your registration and call you.",
+      "home": "Back to home"
+    },
+    "teamHead": {
+      "title": "Team Head registration",
+      "intro": "For a person who leads a working team, sometimes called a gang mate or team mate head.",
+      "how": "Your workers are registered on Pro Engineering. We book the team on jobs, and you earn a commission on the work they do."
+    },
+    "associate": {
+      "title": "Associate registration",
+      "intro": "For a person or firm with a strong labour supply network.",
+      "how": "The workers you bring are registered on Pro Engineering. We book them, we earn on the job, and we pay you a commission."
+    },
+    "contractor": {
+      "title": "Contractor registration",
+      "intro": "For a contracting firm that can take on a whole job.",
+      "how": "We may pass a complete job request to you. You deliver the work to the client, and Pro Engineering takes a percentage of the revenue."
+    }
+  },
+  "footer": {
+    "about": "Pro Engineering surveys, estimates, staffs and supervises construction and renovation work.",
+    "clientsTitle": "Clients",
+    "partnersTitle": "Workers and partners",
+    "companyTitle": "Company",
+    "contactTitle": "Contact",
+    "copyright": "Pro Engineering. All rights reserved."
+  }
+}

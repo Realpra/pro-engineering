@@ -429,6 +429,7 @@ export default async function AdminDashboardPage() {
 
   const quickNav = [
     { href: '/book', icon: '➕', label: 'New Job', desc: 'Create a job on a client\'s behalf', count: 0 },
+    { href: '/staff/intake', icon: '🌐', label: 'Website Intake', desc: 'Requests · partner registrations', count: 0 },
     { href: '/admin/workers', icon: '👷', label: 'Workers', desc: 'Final approval gate', count: pendingAdminApproval },
     { href: '/admin/policy', icon: '⚙️', label: 'Policy', desc: 'Premium · Contingency · BOCW · TDS', count: 0 },
     { href: '/admin/payments', icon: '💰', label: 'Payments', desc: 'Approvals · Decision 5', count: paymentsPendingAdmin + decision5Queue },
