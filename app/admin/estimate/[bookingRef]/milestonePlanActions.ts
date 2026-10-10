@@ -630,6 +630,28 @@ const SKU_TO_RATE: Record<string,string> = {
           canUseMultiskill: true,
           minSkillLevel: 'beginner',
         }] : []),
+        // Due-inspection, auto-attached to every real activity the moment the job's plan is
+        // generated (10 Oct 2026 correction: "dates for inspections filling from jobs
+        // initiated" -- not something a human adds by hand after the fact, every activity
+        // carries its own real inspection requirement from generation onward). Skipped for an
+        // activity whose own trade IS Supervisor (LAB-SUP-01/LAB-VTC-01) -- a supervisor
+        // logging/verifying his own supervision activity is not a real inspection. Anchors to
+        // the LAST day of the activity's own span via materialize.ts's daysNeeded<fullSpan
+        // rule -- "due inspection days are programmed... after sub-stage/activity completion",
+        // never spread across it. Runs through the exact same zone/deviance-walk/Day-by-Day
+        // board/delay-recast mechanism as any skilled trade, no special casing.
+        ...((TRADE[item.skuCode]||'Mason') !== 'Supervisor' ? [{
+          rowId: item.skuCode+'-insp1',
+          trade: 'Supervisor',
+          skillType: 'skilled' as const,
+          qty: 1,
+          startTime: '08:00',
+          endTime: '17:00',
+          hoursPerDay: 1,
+          daysNeeded: 1,
+          canUseMultiskill: false,
+          minSkillLevel: 'mid',
+        }] : []),
       ] : [],
     }
     byMS[mc].push(sub)
