@@ -226,6 +226,19 @@ export default function MilestonePlanTab({ bookingRef, jobCardType }: Props) {
     )
   }
 
+  // Real activity numbering (10 Oct 2026 correction: "sub-stages in milestone are not
+  // numbered") -- one running sequence across the whole plan in display order, not per-stage,
+  // so "Activity #14" means the same thing everywhere this plan is read.
+  const activityNumber = new Map<string, number>()
+  let seq = 0
+  for (const stage of stages) {
+    for (const sub of stage.subStages) {
+      seq += 1
+      activityNumber.set(`${stage.milestoneCode}::${sub.substageCode}`, seq)
+    }
+  }
+  const today = new Date().toISOString().slice(0, 10)
+
   return (
     <div className="space-y-4">
       {stages.length === 0 && (
@@ -281,12 +294,46 @@ export default function MilestonePlanTab({ bookingRef, jobCardType }: Props) {
                     <Fragment key={sub.substageCode}>
                     <tr className="cursor-pointer hover:bg-blue-50/30" onClick={()=>setExpandedSubstage(expandedSubstage===sub.substageCode?null:sub.substageCode)}>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">{expandedSubstage===sub.substageCode?'▼':'▶'}</span>
-                          <div>
-                            <p className="text-sm font-medium text-gray-800">{sub.substageCode} — {sub.substageName}</p>
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs text-gray-400 mt-0.5">{expandedSubstage===sub.substageCode?'▼':'▶'}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-bold text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">#{activityNumber.get(`${stage.milestoneCode}::${sub.substageCode}`)}</span>
+                              <p className="text-sm font-medium text-gray-800">{sub.substageCode} — {sub.substageName}</p>
+                              {sub.status === 'completed' ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-green-100 text-green-800 border-green-300">COMPLETED</span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-amber-100 text-amber-800 border-amber-300">NOT COMPLETED</span>
+                              )}
+                              {sub.earlyFinishDate && (
+                                <span className={`text-[10px] font-semibold ${sub.status!=='completed' && sub.earlyFinishDate<today ? 'text-red-600' : 'text-gray-500'}`}>
+                                  Target: {sub.earlyFinishDate}{sub.status!=='completed' && sub.earlyFinishDate<today ? ' (overdue)' : ''}
+                                </span>
+                              )}
+                            </div>
                             {sub.isCustom && <p className="text-xs text-[#2E74B5] mt-0.5">Added by coordinator</p>}
-                            {sub.tradeType && <p className="text-xs text-gray-500 mt-0.5">{sub.tradeType} · {sub.plannedDay}d · {sub.startTimeSlot||'Full Day'}</p>}
+
+                            {/* Skill-wise planned vs deployed (10 Oct 2026 correction: "all
+                                skills to be shown every where", never one aggregate number) --
+                                one chip per real labour_assignments trade row, each carrying its
+                                own real deployed/total count read from the Task Ledger. */}
+                            {(sub.labourAssignments && sub.labourAssignments.length > 0) ? (
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1" onClick={e=>e.stopPropagation()}>
+                                {sub.labourAssignments.map(la => {
+                                  const dep = (sub.skillDeployment||[]).find(d => d.skillCode === la.trade)
+                                  return (
+                                    <span key={la.rowId} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-[#1F3864] border-blue-200">
+                                      {la.trade} ({la.skillType === 'skilled' ? 'skilled' : 'helper'}) — need {la.qty}/day
+                                      {dep ? ` · ${dep.deployedSlots}/${dep.totalSlots} deployed` : ' · not yet materialized'}
+                                      {dep && dep.pendingDates.length > 0 && sub.status !== 'completed' && ` · ${dep.pendingDates.length} day(s) still open`}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              sub.tradeType && <p className="text-xs text-gray-500 mt-0.5">{sub.tradeType} · {sub.plannedDay}d · {sub.startTimeSlot||'Full Day'} <span className="text-gray-400">(not itemized by skill — using the plan&apos;s single aggregate count below)</span></p>
+                            )}
+
                             {sub.evidenceRequired && sub.evidenceRequired.length > 0 && (
                               <p className="text-xs text-gray-400 mt-0.5">{sub.evidenceRequired.join(', ')}</p>
                             )}

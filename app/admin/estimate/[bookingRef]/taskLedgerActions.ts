@@ -13,6 +13,7 @@ import { materializeTaskLedgerForSubstage } from '@/lib/scheduling-engine/materi
 import { matchSlot, confirmDevianceMatch, listCandidatesForSlot, assignCandidateToSlot, cancelBooking, type CandidateListResult } from '@/lib/scheduling-engine/match'
 import { recastForDelay, type RecastParams } from '@/lib/scheduling-engine/recast'
 import { fillSlotWithSavior } from '@/lib/scheduling-engine/saviors'
+import { getAvailabilityGrid, type AvailabilityToken } from '@/lib/scheduling-engine/availability'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
@@ -329,5 +330,127 @@ export async function logSaviorForSlot(params: {
     return {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Savior log failed.' }
+  }
+}
+
+// ── Day-by-day, skill-by-skill sequential deployment board (10 Oct 2026 correction) ────────
+//
+// "the design and layout is: for every day skill required has to be allotted one by one. the
+// display of available and required on the days on this job both are shown in above and below
+// rows bars... red (booked), green (available), amber (active other than booked, available)."
+//
+// One SKILL at a time (not the whole flat slot list): a REQUIRED row (one cell per day this
+// skill is needed on THIS sub-stage) plus one row per eligible candidate showing their own
+// real availability across that same date range -- red = booked full day, green = fully free,
+// amber = half-day active elsewhere (the one state in between, read straight off the already-
+// live AvailabilityToken, not a new concept). The Deployer books the earliest still-open day
+// for the candidate of their choice (any existing booking in this project's own Find
+// Candidates flow still works identically on the same slot); once every day for this skill is
+// booked or explicitly skipped, the board moves to the next skill. "Skipped for the time being"
+// is deliberately NOT persisted anywhere -- an ephemeral UI-only state (skippedSlotIds, passed
+// back in on the next call), exactly matching "for the time being": reload and it's back.
+
+export type SkillBoardDayCell = {
+  date: string
+  slotId: string
+  booked: boolean
+  workerName: string | null
+}
+
+export type SkillBoardCandidate = {
+  id: string
+  fullName: string
+  matchScore: string
+  devianceLevel: number
+  jobsCompleted: number | null
+  grid: Record<string, AvailabilityToken>
+}
+
+export type SkillBoard = {
+  skillCode: string
+  minProficiencyReq: number
+  days: SkillBoardDayCell[]
+  focusedSlotId: string | null
+  focusedDate: string | null
+  candidateVia: 'OWN_ZONE' | 'ADJOINING_ZONE' | 'NONE' | null
+  candidateLevel: number | null
+  candidates: SkillBoardCandidate[]
+}
+
+export async function getSkillDeploymentBoard(params: {
+  bookingRef: string
+  substageId: string
+  skillCode: string
+  skipSlotIds?: string[]
+}): Promise<{ error?: string; board?: SkillBoard }> {
+  const ctx = await requireAllocator()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabase } = ctx
+
+  const { data: rows, error: rowsError } = await (supabase as AnyClient)
+    .from('task_ledger')
+    .select('slot_id, target_date, assigned_worker_id, min_proficiency_req')
+    .eq('substage_id', params.substageId)
+    .eq('required_skill_code', params.skillCode)
+    .neq('slot_status', 'Cancelled_Delayed')
+    .order('target_date', { ascending: true })
+  if (rowsError) return { error: rowsError.message }
+  const slots = (rows ?? []) as { slot_id: string; target_date: string; assigned_worker_id: string | null; min_proficiency_req: number }[]
+  if (slots.length === 0) {
+    return { board: { skillCode: params.skillCode, minProficiencyReq: 0, days: [], focusedSlotId: null, focusedDate: null, candidateVia: null, candidateLevel: null, candidates: [] } }
+  }
+
+  const bookedWorkerIds = [...new Set(slots.map(s => s.assigned_worker_id).filter((id): id is string => !!id))]
+  const nameById = new Map<string, string>()
+  if (bookedWorkerIds.length > 0) {
+    const { data: namedWorkers } = await supabase.from('workers').select('id, full_name').in('id', bookedWorkerIds)
+    for (const w of (namedWorkers ?? []) as { id: string; full_name: string }[]) nameById.set(w.id, w.full_name)
+  }
+
+  const days: SkillBoardDayCell[] = slots.map(s => ({
+    date: s.target_date,
+    slotId: s.slot_id,
+    booked: !!s.assigned_worker_id,
+    workerName: s.assigned_worker_id ? (nameById.get(s.assigned_worker_id) ?? null) : null,
+  }))
+
+  const skip = new Set(params.skipSlotIds ?? [])
+  const focused = slots.find(s => !s.assigned_worker_id && !skip.has(s.slot_id))
+
+  let candidateVia: SkillBoard['candidateVia'] = null
+  let candidateLevel: number | null = null
+  let candidates: SkillBoardCandidate[] = []
+  if (focused) {
+    const result: CandidateListResult = await listCandidatesForSlot(supabase, focused.slot_id)
+    candidateVia = result.via
+    candidateLevel = result.level
+    if (result.candidates.length > 0) {
+      const grid = await getAvailabilityGrid(supabase, {
+        workerIds: result.candidates.map(c => c.id),
+        startDate: days[0].date,
+        endDate: days[days.length - 1].date,
+      })
+      candidates = result.candidates.map(c => ({
+        id: c.id,
+        fullName: c.full_name,
+        matchScore: c.match_score,
+        devianceLevel: c.deviance_level,
+        jobsCompleted: c.jobs_completed,
+        grid: Object.fromEntries(grid.get(c.id) ?? new Map()),
+      }))
+    }
+  }
+
+  return {
+    board: {
+      skillCode: params.skillCode,
+      minProficiencyReq: slots[0].min_proficiency_req,
+      days,
+      focusedSlotId: focused?.slot_id ?? null,
+      focusedDate: focused?.target_date ?? null,
+      candidateVia,
+      candidateLevel,
+      candidates,
+    },
   }
 }

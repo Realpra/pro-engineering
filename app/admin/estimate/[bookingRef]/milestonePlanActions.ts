@@ -136,6 +136,18 @@ export type LabourAssignment = {
   totalCost?: number
 }
 
+// Per-skill deployment status, read from the real Task Ledger (never guessed/typed by hand) --
+// "the skilled workers, all as one number... all skills to be shown every where" (10 Oct 2026
+// correction). One entry per distinct required_skill_code the Dynamic Scheduler has actually
+// materialized for this sub-stage, so a multi-trade sub-stage (e.g. a skilled trade + Helper)
+// shows each trade's own real booked-vs-needed count, not one combined figure.
+export type SkillDeploymentStatus = {
+  skillCode: string
+  totalSlots: number
+  deployedSlots: number
+  pendingDates: string[]
+}
+
 export type MilestonePlanSubstage = {
   id?: string
   substageCode: string
@@ -168,6 +180,7 @@ export type MilestonePlanSubstage = {
   subcoordinatorChecklist?: string[]
   coordinatorChecklist?: string[]
   labourAssignments?: LabourAssignment[]
+  skillDeployment?: SkillDeploymentStatus[]
 }
 
 export type MilestonePlanStage = {
@@ -264,6 +277,40 @@ export async function getMilestonePlanData(
   if (existingErr) return { error: (existingErr as { message: string }).message }
   const existingRows = (existingData ?? []) as JobMilestoneSubstageRow[]
 
+  // Real per-skill deployment status (10 Oct 2026 correction) -- read directly from the
+  // Dynamic Scheduler's own Task Ledger, grouped by (substage_id, required_skill_code), never
+  // from the plan's own flat skilled/unskilled aggregate. One Supabase call covering every
+  // sub-stage this booking has, reduced client-side -- this table has no GROUP BY RPC, and the
+  // row volume per booking is small (day-grain slots for one job, not the whole platform).
+  const existingSubstageIds = existingRows.map(r => r.id)
+  const skillDeploymentBySubstage = new Map<string, Map<string, SkillDeploymentStatus>>()
+  if (existingSubstageIds.length > 0) {
+    const { data: ledgerRows, error: ledgerErr } = await (supabase as any)
+      .from('task_ledger')
+      .select('substage_id, required_skill_code, slot_status, assigned_worker_id, target_date')
+      .in('substage_id', existingSubstageIds)
+      .neq('slot_status', 'Cancelled_Delayed')
+    if (ledgerErr) return { error: (ledgerErr as { message: string }).message }
+    for (const row of (ledgerRows ?? []) as { substage_id: string; required_skill_code: string; slot_status: string; assigned_worker_id: string | null; target_date: string }[]) {
+      if (!row.substage_id) continue
+      if (!skillDeploymentBySubstage.has(row.substage_id)) skillDeploymentBySubstage.set(row.substage_id, new Map())
+      const bySkill = skillDeploymentBySubstage.get(row.substage_id)!
+      if (!bySkill.has(row.required_skill_code)) {
+        bySkill.set(row.required_skill_code, { skillCode: row.required_skill_code, totalSlots: 0, deployedSlots: 0, pendingDates: [] })
+      }
+      const entry = bySkill.get(row.required_skill_code)!
+      entry.totalSlots += 1
+      if (row.assigned_worker_id) entry.deployedSlots += 1
+      else if (row.slot_status === 'Pending' && !entry.pendingDates.includes(row.target_date)) entry.pendingDates.push(row.target_date)
+    }
+  }
+  function skillDeploymentFor(substageId: string | undefined): SkillDeploymentStatus[] | undefined {
+    if (!substageId) return undefined
+    const bySkill = skillDeploymentBySubstage.get(substageId)
+    if (!bySkill) return undefined
+    return [...bySkill.values()].map(s => ({ ...s, pendingDates: s.pendingDates.sort() }))
+  }
+
   // Stage labour cost is derived from the booking's actual BOQ line items, not
   // from a (nonexistent) labour_rate_config row keyed by milestone_code.
   // Each stage's sku_codes list picks out which LAB-* BOQ line items belong to
@@ -346,6 +393,8 @@ export async function getMilestonePlanData(
           earlyFinishDate: existing?.early_finish_date??undefined,
           status: existing?.status ?? 'pending',
           isCustom: false,
+          labourAssignments: existing?.labour_assignments ?? [],
+          skillDeployment: skillDeploymentFor(existing?.id),
         }
       })
 
@@ -373,6 +422,7 @@ export async function getMilestonePlanData(
         earlyFinishDate: r.early_finish_date??undefined,
         isCustom: true,
         labourAssignments: r.labour_assignments ?? [],
+        skillDeployment: skillDeploymentFor(r.id),
       }))
     extraSubs.forEach(s => consumedKeys.add(`${st.milestone_code}::${s.substageCode}`))
 
@@ -420,6 +470,7 @@ export async function getMilestonePlanData(
         earlyFinishDate: r.early_finish_date??undefined,
         isCustom: true,
         labourAssignments: r.labour_assignments ?? [],
+        skillDeployment: skillDeploymentFor(r.id),
       }))
     stages.push({
       milestoneCode: code,

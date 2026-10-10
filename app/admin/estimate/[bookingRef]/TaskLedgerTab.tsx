@@ -47,9 +47,11 @@ import {
   findCandidatesForSlot,
   assignCandidate,
   cancelSlotBooking,
+  getSkillDeploymentBoard,
   type TaskLedgerSubstage,
   type TaskLedgerSlot,
   type PendingDecision,
+  type SkillBoard,
 } from './taskLedgerActions'
 import type { CandidateListResult } from '@/lib/scheduling-engine/match'
 
@@ -79,6 +81,7 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
   const [candidateList, setCandidateList] = useState<CandidateListResult | null>(null)
   const [recastCandidates, setRecastCandidates] = useState<Record<string, CandidateListResult>>({})
   const fetchedRecastRef = useRef<Set<string>>(new Set())
+  const [deployBoardFor, setDeployBoardFor] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -210,23 +213,51 @@ export default function TaskLedgerTab({ bookingRef }: Props) {
         ) : (
           <div className="divide-y divide-gray-100">
             {substages.map(s => {
-              const slotCount = slots.filter(sl => sl.substage_id === s.id).length
+              const substageSlots = slots.filter(sl => sl.substage_id === s.id)
+              const slotCount = substageSlots.length
+              const skillCodes = [...new Set(substageSlots.map(sl => sl.required_skill_code))]
               return (
-                <div key={s.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{s.substage_name ?? s.substage_code ?? s.id}</p>
-                    <p className="text-xs text-gray-500">
-                      {s.trade_type} · {s.early_start_date} → {s.early_finish_date} · {(s.skilled_workers_per_day ?? 0) + (s.unskilled_workers_per_day ?? 0)}/day · {slotCount} slot(s) materialized
-                    </p>
+                <div key={s.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{s.substage_name ?? s.substage_code ?? s.id}</p>
+                      <p className="text-xs text-gray-500">
+                        {s.trade_type} · {s.early_start_date} → {s.early_finish_date} · {(s.skilled_workers_per_day ?? 0) + (s.unskilled_workers_per_day ?? 0)}/day · {slotCount} slot(s) materialized
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {skillCodes.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDeployBoardFor(deployBoardFor === s.id ? null : s.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#1F3864] text-[#1F3864] hover:bg-[#1F3864]/5"
+                        >
+                          {deployBoardFor === s.id ? 'Hide Deployment Board' : 'Day-by-Day Deployment'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busy === s.id}
+                        onClick={() => handleMaterialize(s.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1F3864] text-white hover:bg-[#15294d] disabled:opacity-50"
+                      >
+                        {busy === s.id ? 'Working...' : 'Materialize'}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy === s.id}
-                    onClick={() => handleMaterialize(s.id)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1F3864] text-white hover:bg-[#15294d] disabled:opacity-50"
-                  >
-                    {busy === s.id ? 'Working...' : 'Materialize'}
-                  </button>
+                  {deployBoardFor === s.id && (
+                    <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+                      {skillCodes.map(code => (
+                        <SkillDeploymentBoard
+                          key={`${s.id}::${code}`}
+                          bookingRef={bookingRef}
+                          substageId={s.id}
+                          skillCode={code}
+                          onBooked={load}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -440,6 +471,140 @@ function CandidateListBody({ result, slotId, busy, onBook, autoRun }: {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// Day-by-day, skill-by-skill sequential board (10 Oct 2026 correction) -- one skill at a time,
+// a REQUIRED bar (one cell per day this skill is needed on this sub-stage: red = booked,
+// green = still open) above candidate AVAILABILITY bars across the exact same date range
+// (green = free all day, red = booked full day elsewhere, amber = half-day active elsewhere --
+// read straight off the engine's own AvailabilityToken, not a new state). Booking the focused
+// (earliest still-open) day auto-advances to the next one; "Skip for now" is ephemeral,
+// client-side only -- reload and a skipped day is back, matching "skipped for the time being."
+// Rows fold back by default once nobody's left to decide, so a long candidate list doesn't
+// dominate the screen when there's nothing left to do here.
+function tokenColorCls(token: string): string {
+  if (token === 'AVAILABLE_FULL_DAY') return 'bg-green-500'
+  if (token === 'BOOKED_FULL_DAY' || token === 'MARKED_UNAVAILABLE') return 'bg-red-500'
+  return 'bg-amber-400' // AM_BOOKED_PM_AVAILABLE / AM_AVAILABLE_PM_BOOKED -- half-day active elsewhere
+}
+
+function SkillDeploymentBoard({ bookingRef, substageId, skillCode, onBooked }: {
+  bookingRef: string
+  substageId: string
+  skillCode: string
+  onBooked: () => void
+}) {
+  const [board, setBoard] = useState<SkillBoard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [skipped, setSkipped] = useState<string[]>([])
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [foldedCandidates, setFoldedCandidates] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    getSkillDeploymentBoard({ bookingRef, substageId, skillCode, skipSlotIds: skipped }).then(res => {
+      if (res.board) setBoard(res.board)
+      setLoading(false)
+    })
+  }, [bookingRef, substageId, skillCode, skipped])
+
+  useEffect(() => { load() }, [load])
+
+  async function book(candidateId: string, matchScore: string, devianceLevel: number) {
+    if (!board?.focusedSlotId) return
+    setBusyId(candidateId)
+    setMsg(null)
+    const res = await assignCandidate({ bookingRef, slotId: board.focusedSlotId, workerId: candidateId, devianceLevel, matchScore })
+    setBusyId(null)
+    if (res.error) { setMsg(res.error); return }
+    setSkipped([])
+    load()
+    onBooked()
+  }
+
+  function skipFocused() {
+    if (board?.focusedSlotId) setSkipped(prev => [...prev, board.focusedSlotId!])
+  }
+
+  if (loading && !board) return <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">Loading {skillCode} board...</div>
+  if (!board || board.days.length === 0) return null
+
+  const allBooked = board.days.every(d => d.booked)
+  const visibleCandidates = foldedCandidates ? board.candidates.slice(0, 3) : board.candidates
+
+  return (
+    <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className={`px-3 py-2 flex items-center justify-between gap-2 ${allBooked ? 'bg-green-50' : 'bg-blue-50'}`}>
+        <p className="text-xs font-bold text-[#1F3864]">
+          {skillCode} <span className="text-gray-400 font-normal">(grade ≥{board.minProficiencyReq})</span>
+          {allBooked && <span className="ml-2 text-[10px] font-bold text-green-700">ALL {board.days.length} DAY(S) BOOKED</span>}
+        </p>
+        {!allBooked && board.focusedDate && <p className="text-[10px] text-gray-500">Deciding: {board.focusedDate}</p>}
+      </div>
+
+      <div className="px-3 py-2 overflow-x-auto">
+        <div className="flex items-center gap-1 mb-1">
+          <span className="w-28 shrink-0 text-[10px] font-semibold text-gray-500">Required</span>
+          {board.days.map(d => (
+            <div
+              key={d.slotId}
+              title={`${d.date} -- ${d.booked ? `Booked: ${d.workerName}` : 'Open'}`}
+              className={`w-7 h-5 shrink-0 rounded-sm flex items-center justify-center text-[8px] font-bold text-white ${
+                d.booked ? 'bg-red-500' : d.slotId === board.focusedSlotId ? 'bg-green-500 ring-2 ring-offset-1 ring-green-700' : 'bg-green-500'
+              }`}
+            >
+              {d.date.slice(8, 10)}
+            </div>
+          ))}
+        </div>
+
+        {!allBooked && board.candidates.length === 0 && (
+          <p className="text-xs text-gray-500 mt-2">
+            No eligible worker found for {board.focusedDate} -- own zone and adjoining zones both exhausted at every deviance level. Use Log Savior on this date&apos;s slot in the Task Ledger list below.
+          </p>
+        )}
+
+        {visibleCandidates.map(c => (
+          <div key={c.id} className="flex items-center gap-1 mt-1">
+            <span className="w-28 shrink-0 text-[10px] text-gray-700 truncate" title={c.fullName}>{c.fullName}</span>
+            {board.days.map(d => (
+              <div key={d.slotId} title={c.grid[d.date] ?? ''} className={`w-7 h-5 shrink-0 rounded-sm ${tokenColorCls(c.grid[d.date] ?? 'AVAILABLE_FULL_DAY')}`} />
+            ))}
+            {!allBooked && (
+              <button
+                type="button"
+                disabled={busyId === c.id}
+                onClick={() => book(c.id, c.matchScore, c.devianceLevel)}
+                className="ml-2 shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {busyId === c.id ? '...' : `Book ${board.focusedDate?.slice(5)}`}
+              </button>
+            )}
+          </div>
+        ))}
+
+        {board.candidates.length > 3 && (
+          <button type="button" onClick={() => setFoldedCandidates(v => !v)} className="mt-1 text-[10px] text-blue-600 hover:underline">
+            {foldedCandidates ? `Show all ${board.candidates.length} candidates` : 'Fold back to top 3'}
+          </button>
+        )}
+
+        {!allBooked && (
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-[10px] text-gray-400">
+              {board.candidateVia === 'ADJOINING_ZONE' ? 'Adjoining zone' : board.candidateVia === 'OWN_ZONE' ? 'Own zone' : ''}
+              {board.candidateLevel != null && `, deviance ${board.candidateLevel > 0 ? '+' : ''}${board.candidateLevel}`}
+            </p>
+            <button type="button" onClick={skipFocused} className="text-[10px] font-bold text-gray-500 border border-gray-300 rounded px-2 py-0.5 hover:border-gray-400">
+              Skip {board.focusedDate} for now
+            </button>
+          </div>
+        )}
+        {msg && <p className="text-[10px] text-red-600 mt-1">{msg}</p>}
+      </div>
     </div>
   )
 }

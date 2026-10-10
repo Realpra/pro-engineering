@@ -13,6 +13,16 @@ export type AvailabilityToken =
   | 'BOOKED_FULL_DAY'
   | 'MARKED_UNAVAILABLE'
 
+/** Pure: the same shift-window-set -> token rule used by deriveAndUpsertAvailability and the
+ *  batch grid reader below, factored out once so both stay in agreement. */
+function tokenFromWindows(isMarkedUnavailable: boolean, windows: Set<string>): AvailabilityToken {
+  if (isMarkedUnavailable) return 'MARKED_UNAVAILABLE'
+  if (windows.has('FULL_DAY') || (windows.has('AM') && windows.has('PM'))) return 'BOOKED_FULL_DAY'
+  if (windows.has('AM')) return 'AM_BOOKED_PM_AVAILABLE'
+  if (windows.has('PM')) return 'AM_AVAILABLE_PM_BOOKED'
+  return 'AVAILABLE_FULL_DAY'
+}
+
 /**
  * Recomputes one worker's real availability for one date from their actual Task Ledger
  * commitments (never trusts a stale stored value), and upserts the result into
@@ -43,20 +53,67 @@ export async function deriveAndUpsertAvailability(
     .in('slot_status', ['Pending', 'Completed'])
   if (taskError) throw new Error(`deriveAndUpsertAvailability (task_ledger): ${taskError.message}`)
 
-  const windows = new Set((commitments ?? []).map((c: { shift_window: string }) => c.shift_window))
-  let token: AvailabilityToken
-  if (windows.has('FULL_DAY') || (windows.has('AM') && windows.has('PM'))) {
-    token = 'BOOKED_FULL_DAY'
-  } else if (windows.has('AM')) {
-    token = 'AM_BOOKED_PM_AVAILABLE'
-  } else if (windows.has('PM')) {
-    token = 'AM_AVAILABLE_PM_BOOKED'
-  } else {
-    token = 'AVAILABLE_FULL_DAY'
-  }
-
+  const windows = new Set<string>((commitments ?? []).map((c: { shift_window: string }) => c.shift_window))
+  const token = tokenFromWindows(false, windows)
   await upsertLedgerRow(supabase, workerId, targetDate, token)
   return token
+}
+
+/**
+ * Day-by-day availability bars for a set of workers across a date range (10 Oct 2026
+ * correction: "the display of available and required on the days on this job... shown in
+ * above and below rows bars"). A pure batch READ, no upsert -- one query covering every
+ * worker/date in range instead of deriveAndUpsertAvailability's one-worker-one-date loop, since
+ * rendering N candidate rows x M days that way would be N*M round trips. Same token rule, same
+ * meaning, just computed in memory from one fetch.
+ */
+export async function getAvailabilityGrid(
+  supabase: AnyClient,
+  params: { workerIds: string[]; startDate: string; endDate: string }
+): Promise<Map<string, Map<string, AvailabilityToken>>> {
+  const grid = new Map<string, Map<string, AvailabilityToken>>()
+  if (params.workerIds.length === 0) return grid
+
+  const { data: workers, error: workersError } = await supabase
+    .from('workers')
+    .select('id, is_available')
+    .in('id', params.workerIds)
+  if (workersError) throw new Error(`getAvailabilityGrid (workers): ${workersError.message}`)
+  const unavailableById = new Map<string, boolean>(
+    (workers ?? []).map((w: { id: string; is_available: boolean | null }) => [w.id, w.is_available === false])
+  )
+
+  const { data: commitments, error: taskError } = await supabase
+    .from('task_ledger')
+    .select('assigned_worker_id, target_date, shift_window')
+    .in('assigned_worker_id', params.workerIds)
+    .gte('target_date', params.startDate)
+    .lte('target_date', params.endDate)
+    .in('slot_status', ['Pending', 'Completed'])
+  if (taskError) throw new Error(`getAvailabilityGrid (task_ledger): ${taskError.message}`)
+
+  const windowsByWorkerDate = new Map<string, Set<string>>()
+  for (const c of (commitments ?? []) as { assigned_worker_id: string; target_date: string; shift_window: string }[]) {
+    const key = `${c.assigned_worker_id}::${c.target_date}`
+    if (!windowsByWorkerDate.has(key)) windowsByWorkerDate.set(key, new Set())
+    windowsByWorkerDate.get(key)!.add(c.shift_window)
+  }
+
+  const dates: string[] = []
+  for (let d = new Date(params.startDate); d <= new Date(params.endDate); d.setDate(d.getDate() + 1)) {
+    dates.push(d.toISOString().slice(0, 10))
+  }
+
+  for (const workerId of params.workerIds) {
+    const byDate = new Map<string, AvailabilityToken>()
+    const isUnavailable = unavailableById.get(workerId) ?? false
+    for (const date of dates) {
+      const windows = windowsByWorkerDate.get(`${workerId}::${date}`) ?? new Set<string>()
+      byDate.set(date, tokenFromWindows(isUnavailable, windows))
+    }
+    grid.set(workerId, byDate)
+  }
+  return grid
 }
 
 async function upsertLedgerRow(
