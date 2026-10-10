@@ -1770,3 +1770,46 @@ exact `job_milestone_substages` shape, with a formula-driven Labour Costing shee
 total), "Cheaper"=Helper confirmed via AskUserQuestion not guessed, M3/M4 multi-day splits
 explicitly flagged as this session's own apportionment. No app code touched this entry.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 71 — 10 Oct 2026 — STACK DECISION RECORDED + PUBLIC WEBSITE SPECIFIED (NOT BUILT)
+Full detail in CLAUDE.md's matching entry and its STACK AND HOSTING PATH section. No app code
+written. Run from the owner's Windows folder, found 150 commits behind this branch and
+fast-forwarded to 6fa614f mid-session; facts below re-checked against 6fa614f.
+
+Stack record (front end): Next.js 16.2.9, React 19.2.4, TypeScript 5, Tailwind CSS 4,
+lucide-react icons; public site in charcoal + orange, dashboards stay navy.
+Stack record (back end): Next.js server actions + API routes on Node.js, Supabase database
+(PostgreSQL), Supabase Auth, supabase-js, 3 Vercel cron jobs, GitHub.
+Added in stages: AWS Mumbai server + Nginx + process manager + SSL + auto-deploy at go-live;
+S3 with the first upload feature; Redis 7 + job worker with the first notification feature;
+PostgreSQL 17 on AWS replacing Supabase is a separate later decision, not planned now.
+Not in the stack: Laravel, PHP 8.3, Horizon, Reverb (raised by the owner, compared piece by
+piece, not chosen -- a rewrite of 85 pages with no PHP team hired).
+
+Beta before AWS: the branch's Vercel preview is the test copy and `master` is live, on one
+shared production database; on AWS a private test address comes first, then the main domain
+is pointed at it; Vercel kept one week as fallback.
+Go-live on AWS, in order: (1) owner opens AWS account, picks Mumbai, gets domain; (2) server
+created, setup script installs Node.js, Nginx, process manager; (3) code copied from GitHub,
+settings added, app built and started; (4) SSL certificate; (5) the 3 Vercel cron jobs
+recreated as a server cron; (6) private-address test of every role against a checklist;
+(7) new domain added to Supabase Auth's allowed list; (8) test data cleaned out; (9) main
+domain pointed at AWS; (10) auto-deploy from GitHub switched on; (11) Vercel switched off
+after a week.
+
+Public website: owner supplied 21 reference screenshots plus their own two-door structure
+(demand side: one day or smaller / turn-key lump sum / Labour Bazaar bulk; supply side:
+worker / team head / associate / contractor). Spec, decisions and build order are in
+CLAUDE.md Session 71. Owner approved step 1, then paused it for the stack question.
+Word copy of the stack record: docs/PRO_ENGINEERING_STACK_RECORD.docx
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## NEXT SESSION — START HERE (Updated 10 Oct 2026, Session 71)
+- FIRST: `git fetch` and confirm the local folder matches origin before anything else
+- Resume step 1 of the public website once the owner says so: front page at `/` (replacing
+  the redirect in app/page.tsx) with the two doors, shared header/footer, and the Excel file
+  of all site text + draft job types per trade + turn-key packages
+- Confirm with the owner that "geo_layout" means the live `geo_hierarchy` table
+- AWS: write the server setup script, Nginx config, cron replacement, deployment setup, guide
+  and test checklist when the owner has the AWS account and domain ready
+- Everything from the earlier NEXT SESSION notes is still open

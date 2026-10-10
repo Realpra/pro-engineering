@@ -12,6 +12,34 @@ Read this at the start of every session.
 - GitHub: https://github.com/Realpra/pro-engineering
 - Supabase project: xhlpdbcrncpznrqpcrht
 
+## STACK AND HOSTING PATH (decided 10 Oct 2026, Session 71 — do not re-open unless the owner does)
+Front end: Next.js 16.2.9, React 19.2.4, TypeScript 5, Tailwind CSS 4, lucide-react icons.
+Public website theme is charcoal + orange; internal dashboards keep navy #1F3864.
+Back end: Next.js server actions + API routes on Node.js, Supabase database (PostgreSQL),
+Supabase Auth, supabase-js, 3 Vercel cron jobs (vercel.json), GitHub Realpra/pro-engineering.
+NOT part of the stack: Laravel, PHP 8.3, Horizon, Reverb. The owner raised "Nginx, PHP 8.3,
+PostgreSQL 17, Redis 7, Laravel 11 Horizon + Reverb, S3" as a previously finalised stack; no
+such code or note exists anywhere in this repo. After a piece-by-piece comparison the owner
+accepted staying on Next.js + Supabase and moving to AWS in stages:
+- Stage 3 (first, when the owner has an AWS account + domain): host this same app on an AWS
+  Mumbai server behind Nginx with a process manager, SSL, auto-deploy from GitHub. Database
+  stays on Supabase. Two things break if forgotten: the new domain must be added to Supabase
+  Auth's allowed URLs, and vercel.json's 3 cron jobs stop existing off Vercel -- they need a
+  server cron calling the same /api/cron/* paths.
+- Stage 1 (S3 for photos/documents) and Stage 2 (Redis 7 + background job worker for SMS,
+  reminders, reports): added with the first feature that needs each, not before.
+- Stage 4 (database off Supabase to plain PostgreSQL 17 on AWS): deferred, a separate later
+  decision. It is a partial back-end rewrite: 851 `.from('...')` data calls in 141 files and
+  118 Supabase Auth calls in 100 files (counted 10 Oct 2026 at commit 6fa614f) would change.
+Beta path: today the branch's Vercel preview is the test copy and `master` is live, both on
+the one production database (see SCHEMA FREEZE section). On AWS: a private test address on
+the server first, then the main domain is pointed at it; Vercel stays up one week as
+fallback. A second Supabase project for beta, or a test-data clean-out, is recommended
+before real clients arrive.
+AWS work cannot be done from a Claude session (no access to the owner's AWS account): it means
+writing scripts, the Nginx config, a setup guide and a test checklist for a person to run.
+Word copy of this record: docs/PRO_ENGINEERING_STACK_RECORD.docx
+
 ## LOCAL DEV SETUP (added 8 Oct 2026, ahead of the project owner's Windows -> Mac switch)
 Nothing in this project is OS-specific -- a plain Node/Next.js + git repo, same steps on Mac,
 Windows, or Linux. To pick up local work on any new machine:
@@ -3151,4 +3179,66 @@ skilled+>30jobs+>10yrs=5 ladder, confirmed 8 Oct 2026) was defined generically o
 `skill_level`/`jobs_completed`/`years_experience`, not per-trade, so it should already apply to
 Tiler correctly without any further change -- flagged here as an assumption carried over, not
 separately re-verified this entry.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+## SESSION 71 — 10 Oct 2026 — STACK DECISION RECORDED + PUBLIC WEBSITE SPECIFIED (NOT BUILT)
+- Run from the owner's Windows folder, which was 150 commits behind this branch (still at
+  3c1a59f, 24 Sep) until a push was rejected mid-session; fast-forwarded to 6fa614f then.
+  Everything recorded here was re-checked against 6fa614f. LESSON: run `git fetch` and
+  compare with origin before describing "what exists" from any local checkout.
+- No app code written. Two outcomes: the stack/hosting decision (STACK AND HOSTING PATH near
+  the top of this file) and an approved spec for a public website.
+- TODAY `/` has no page: app/page.tsx only redirects to /login. Nothing public links to
+  /book, /onboarding, /client/login or the worker login.
+- REFERENCE MATERIAL: owner supplied 21 screenshots of tradesmeninternational.com (header
+  with two main actions + two logins, services/trades menu, locations directory, resources,
+  blog, about, values, footer). Use for which sections exist only. Owner's instruction: name
+  is Pro Engineering everywhere, and colours, layout, shapes and wording must all differ so
+  there is no copying. Owner's Michael Page / Hays / Aerotek research notes were explicitly
+  withdrawn -- do not use them.
+- OWNER'S OWN STRUCTURE (the real spec, takes priority over the screenshots) -- two doors:
+  DEMAND SIDE (client), three request types:
+  - One day or smaller: trade -> job type for that trade -> job hours or days (how many) ->
+    slot (forenoon/afternoon) -> skills needed with a count of each -> brief job scope and
+    description -> date (7-day bar starting today) -> state, district, sector, address
+  - Turn-key lump sum: trade (e.g. Civil) -> package (kitchen renovation, bathroom
+    renovation, ...) -> with or without material -> state, district, sector, address
+  - Labour Bazaar = the bulk request: a site asks for e.g. 50-100 workers, describes the job,
+    proposes skills and a count of each, period; Pro Engineering finalises the requirement
+    with the client and then allots workers
+  SUPPLY SIDE ("want to work with us"), four registration types:
+  - Worker: existing /onboarding
+  - Team head (the owner's "gang mate" / "project worker team" -- one registration): brings a
+    team, declared by trade or by package with a count per skill; fills company, website
+    links, experience, approximate type and numbers; workers are onboarded onto Pro
+    Engineering, which books the work and pays the head a commission
+  - Associate: strong in labour supply; their workers are onboarded onto Pro Engineering,
+    which books, earns, and pays the associate a commission
+  - Contractor: may be given an entire job request and supplies the client; Pro Engineering
+    takes a percentage of revenue
+  Contractor/Associate/Team head also give GST number, team size, trades covered, sectors and
+  districts served, and tick any of: lead basis (brings job leads and earns on them),
+  sub-contractor, labour provider.
+- OTHER DECISIONS: all nine /book project types stay; a client raises a request with name +
+  phone only, then is asked to complete login details after submitting, and asked again on
+  each visit until filled (compare against the real client signup already built in Session
+  67 before changing anything -- Client is a FROZEN process); Tiler as a separate trade is
+  already done (commits 90c2ddf, f5ecf2f); location dropdowns follow the owner's "geo_layout"
+  = state -> district -> sector/name, which is presumably the live `geo_hierarchy` table --
+  confirm with the owner; photos/video come later (design with plain colour + icons);
+  Resources and Blog get placeholder rows.
+- DRAFTS GIVEN TO THE OWNER IN CHAT FOR CORRECTION (not saved anywhere yet): job types per
+  trade for one-day work, and turn-key packages with the skills on each crew.
+- DELIVERABLE THE OWNER EXPECTS: one Excel file listing every piece of site text (page,
+  section, position, current text, blank column for replacement) plus those two draft lists,
+  so the owner edits wording there. Site wording should live in one content file that matches
+  the Excel rows one to one.
+- APPROVED BUILD ORDER (owner said "go ahead" for step 1, then paused it for the stack
+  question; say-so needed to resume): (1) front page with the two doors + shared header/
+  footer + Excel file; (2) new client job-request form for one-day and turn-key; (3)
+  Contractor/Associate/Team head registration -- no tables, forms or roles exist for these;
+  (4) Labour Bazaar bulk request; (5) surrounding pages: Services, For Workers, Zones,
+  Resources, Blog, About, Values, Contact. Steps 2-4 add fields and tables, so each goes
+  through docs/SCHEMA_FREEZE_METHODOLOGY.md first; step 1 and step 5 touch no schema.
+- STILL NEEDED FROM OWNER: phone, email, office address; company values and story.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
