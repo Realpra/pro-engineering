@@ -1840,3 +1840,6 @@ in use and kept, 2 cron endpoints on 3 schedules).
   files by key; fill the Trade D / Trade E / A-B-C skeleton branches as they name them
 - Ask the owner before fast-forwarding `master`
 - Everything from the earlier NEXT SESSION notes is still open
+
+Update, 10 Oct 2026: `20261010_public_website_intake.sql` confirmed run live by the owner. The first
+NEXT SESSION item above is done; live-testing the six forms on the Vercel preview is now first.

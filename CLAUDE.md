@@ -3323,3 +3323,10 @@ state assumptions at the end, and deliver an Excel of all text for correction. B
 - Staying on `claude/gracious-knuth-vxwkc3`, NOT fast-forwarded to `master`: the migration has
   not been run, and the owner asked to be consulted before `master`.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
+`20261010_public_website_intake.sql` **confirmed run live** in Supabase by the project owner (10 Oct 2026,
+"Success. No rows returned"). The `guest_enquiries` request columns and the `supply_partners` table now
+exist in the live database, so the three request forms, the three partner registration forms and
+`/staff/intake` can save and load. Still not live-tested (no form submitted yet), still on
+`claude/gracious-knuth-vxwkc3`, not fast-forwarded to `master` -- owner to be asked first.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
