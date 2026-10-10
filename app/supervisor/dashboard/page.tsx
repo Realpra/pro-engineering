@@ -202,6 +202,35 @@ export default async function SupervisorDashboardPage() {
     : { data: [] }
   const siteIdToBookingRef = Object.fromEntries((routeSiteJobs ?? []).map(j => [j.id, j.booking_ref]))
 
+  // Real bookings from the Dynamic Scheduling Engine (task_ledger) -- this supervisor's own
+  // actual, dated deployments across every job (not scoped to guest_enquiries.supervisor_id,
+  // since the Dynamic Scheduler can book a supervisor onto any job's inspection requirement,
+  // not only the one job they're nominated supervisor_id on). Jobs at hand, in-progress
+  // sub-stage, and milestone inspection dates, read straight from the one real source of truth
+  // for this -- not a guess, not a second calendar.
+  const { data: myDeployments } = workerRecord
+    ? await supabase
+        .from('task_ledger')
+        .select('slot_id, booking_ref, substage_id, target_date, shift_window, required_skill_code, slot_status')
+        .eq('assigned_worker_id', workerRecord.id)
+        .neq('slot_status', 'Cancelled_Delayed')
+        .gte('target_date', todayLocal)
+        .order('target_date', { ascending: true })
+        .limit(20)
+    : { data: [] }
+
+  const deploymentBookingRefs = [...new Set((myDeployments ?? []).map(d => d.booking_ref))]
+  const { data: deploymentJobs } = deploymentBookingRefs.length > 0
+    ? await supabase.from('guest_enquiries').select('booking_ref, job_title, zone').in('booking_ref', deploymentBookingRefs)
+    : { data: [] }
+  const jobByBookingRef = Object.fromEntries((deploymentJobs ?? []).map(j => [j.booking_ref, j]))
+
+  const deploymentSubstageIds = [...new Set((myDeployments ?? []).map(d => d.substage_id).filter((v): v is string => !!v))]
+  const { data: deploymentSubstages } = deploymentSubstageIds.length > 0
+    ? await supabase.from('job_milestone_substages').select('id, substage_name, milestone_code').in('id', deploymentSubstageIds)
+    : { data: [] }
+  const substageByIdForDeployments = Object.fromEntries((deploymentSubstages ?? []).map(s => [s.id, s]))
+
   const { data: directives } = await supabase
     .from('site_instructions')
     .select('id, instruction_type, priority, instruction_text, issued_at, status')
@@ -743,6 +772,46 @@ export default async function SupervisorDashboardPage() {
             {(pendingSubstages ?? []).length === 0 && (
               <div className="px-5 py-6 text-center">
                 <p className="text-gray-400 text-sm">No pending inspections</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* DYNAMIC SCHEDULER — this supervisor's own real, dated bookings from task_ledger
+            (10 Oct 2026 correction: "no calendar populated based on jobs at hand, in progress
+            sub-stage, milestone inspections" -- this is that calendar, built for real, on the
+            actual screen this supervisor sees, not a separate admin-only tab nobody visits). */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">My Deployments — Jobs &amp; Inspections (Dynamic Scheduler)</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+            {(myDeployments ?? []).map(d => {
+              const job = jobByBookingRef[d.booking_ref]
+              const substage = d.substage_id ? substageByIdForDeployments[d.substage_id] : null
+              const isToday = d.target_date === todayLocal
+              const statusCls =
+                d.slot_status === 'Completed' ? 'bg-green-100 text-green-700 border-green-300'
+                : isToday ? 'bg-amber-100 text-amber-700 border-amber-300'
+                : 'bg-blue-100 text-blue-700 border-blue-300'
+              const statusLabel = d.slot_status === 'Completed' ? 'Completed' : isToday ? 'Today' : 'Planned'
+              return (
+                <div key={d.slot_id} className="px-5 py-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${statusCls}`}>{statusLabel}</span>
+                      <span className="text-xs text-gray-400 font-medium">{d.target_date} · {d.shift_window === 'FULL_DAY' ? 'Full Day' : `Half Day — ${d.shift_window}`}</span>
+                      {d.required_skill_code === 'Supervisor' && <span className="text-xs font-bold text-[#1F3864]">Inspection</span>}
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 leading-snug">{substage?.substage_name ?? d.required_skill_code}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{d.booking_ref} · {job?.job_title ?? ''} · {job?.zone ?? ''}{substage?.milestone_code ? ` · ${substage.milestone_code}` : ''}</p>
+                  </div>
+                </div>
+              )
+            })}
+            {(myDeployments ?? []).length === 0 && (
+              <div className="px-5 py-6 text-center">
+                <p className="text-gray-400 text-sm">No real-time bookings assigned yet via the Dynamic Scheduler.</p>
               </div>
             )}
           </div>
