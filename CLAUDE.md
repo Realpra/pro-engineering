@@ -3188,6 +3188,40 @@ Tiler correctly without any further change -- flagged here as an assumption carr
 separately re-verified this entry.
 - All work on PR #1, branch claude/gracious-knuth-vxwkc3
 
+## SESSION 70 CONTINUED FURTHER — 10 Oct 2026 — REAL WORKER LOGIN/DASHBOARD BUILT (commit 6fa614f)
+This entry was built the same day as Session 71 but its own log entry never got written before
+the session that built it ended -- added now, after the gap was noticed, at its real
+chronological position (it landed before Session 71's first commit, `42caa09`, re-confirmed via
+`git log`/commit timestamps, not guessed).
+
+Project owner's direct instruction ("not accepted: build it") after flagging that no
+`app/worker/` dashboard existed anywhere in this codebase. Investigated before building, not
+guessed: `createWorkerAuthAccount` (`app/onboarding/[trade]/actions.ts`, Session 65) already
+creates a real `users` row with `platform_role='worker'` and a real `login_email`/`Worker2026`
+password for every onboarded worker -- but `app/login/actions.ts`'s role-redirect chain had NO
+case for `'worker'` at all, so every worker who ever tried their real generated credentials hit
+"Unrecognised role" and could never reach anything. This explains CLAUDE.md's own long-standing
+PENDING item ("the generated Worker2026 login actually being used to sign in" -- never tested,
+Session 65/66): it could never have worked, confirmed now, not a new regression.
+
+**Fixed both halves**: `app/login/actions.ts` gets the missing `'worker'` ->
+`/worker/dashboard` redirect case. New `app/worker/dashboard/page.tsx` -- a real dashboard, same
+pattern as the Supervisor dashboard's own "My Deployments" section (the immediately preceding
+commit, `2ef3113`) -- resolves the worker's own `workers.id` via `auth_user_id`, shows their
+real profile (trade, worker code, zones, availability) and their real `task_ledger` bookings
+from the Dynamic Scheduler (upcoming + a short past list), with the same Planned/Today/Completed
+status badges already used elsewhere. New `app/worker/dashboard/SignOutButton.tsx`, same pattern
+as every other role's own sign-out button. No new migration -- every column read already exists
+live (`users.platform_role`, `workers.auth_user_id`/`trade`/`zones`/`is_available`,
+`task_ledger.*`).
+
+`npx tsc --noEmit`: exit 0, clean.
+
+**NOT live-tested** -- this sandbox has no Supabase network access. A real test (log in with a
+real worker's generated `login_email` + `Worker2026`, confirm the dashboard loads and shows real
+bookings once one exists) is still owed before this can be called frozen.
+- All work on PR #1, branch claude/gracious-knuth-vxwkc3
+
 ## SESSION 71 — 10 Oct 2026 — STACK DECISION RECORDED + PUBLIC WEBSITE SPECIFIED (NOT BUILT)
 - Run from the owner's Windows folder, which was 150 commits behind this branch (still at
   3c1a59f, 24 Sep) until a push was rejected mid-session; fast-forwarded to 6fa614f then.
