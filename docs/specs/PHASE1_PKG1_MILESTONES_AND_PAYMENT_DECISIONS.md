@@ -13,6 +13,45 @@ for a genuinely new concept; nothing existing is deleted (old paths are deprecat
 
 ---
 
+## 0. REVISION 30 Oct 2026 (after reading the LIVE database, read-only) — supersedes sections 2–4 where they differ
+
+Live check through the Supabase API showed that the tables this spec planned to CREATE already
+EXIST in the live database — built earlier, never (or no longer) used by any code, all empty.
+This confirms correction C1. The build will REUSE them and only add missing columns.
+
+| Spec item | Already live | Rows | Used by code |
+|---|---|---|---|
+| Payment decisions (sub-stage level, July design) | `milestone_payment_decisions` (decision_number/type, payment_pct/amount, hold_reason, rework_description, rework_cost_estimate, rework_timeline_days, redo_reason, previous_payments_reviewed, escalated_to_admin, admin_decision…) | 0 | none |
+| Payment decisions (stage level, 4 Jul edit) | `stage_payment_decisions` (decision_type, release_percent, payment_amount, held_amount, material_loss_estimate, rectification_items, affected_milestone_codes, coordinator/admin remarks, admin_approved_at/by) | 0 | none |
+| Decision flags on the stage | `milestone_payment_schedule.decision_1_approved … decision_5_redo`, `decision_remarks`, `rework_cost_*`, `rework_bears_cost`, `works_completed_this_milestone`, `payment_chain_level`, `above_limit_*` | 12 rows, no decision flag set | partly (rework_cost, above_limit) |
+| Retention pool | `retention_pool` (held_amount, release_condition, release_substage_code, released_by…) | 0 | none |
+| Sub-stage proposals | `substage_proposals` (proposal_type, current_approver_role, coordinator/admin/superadmin remarks, resolved_by…) plus `job_milestone_substages.is_proposed/proposed_by` | 0 | none |
+| Quality tests | `qip_templates` (job_type, milestone_number, template_code, version), `qip_template_checks` (check_number, description, minimum_standard, evidence_type, is_mandatory), `qip_check_results` (report_id, check_id, result, notes) | 0 | none |
+| Sub-stage checklist items | `substage_checklist_templates` | 80 | 3 files |
+| Hours / time slot per sub-stage | `job_milestone_substages.planned_hours`, `start_time_slot` (and same on `milestone_substage_templates`) | — | yes |
+| Sub-stage order | `milestone_substage_templates.sequence_order` exists (a code comment wrongly says it doesn't) | — | — |
+| Also found, not in any spec yet | `substage_constraints`, `substage_rfis` (raise/clear constraints, questions with responses), `milestone_templates` (6 rows), `milestones` (0) | | none |
+
+Revised build for Package 1:
+- **Decisions:** ONE of the two decision tables becomes the canonical record (owner's Q1 below); the
+  other is left untouched and marked deprecated (never deleted). The boolean flags on
+  `milestone_payment_schedule` are set from the same action so every existing reader stays correct.
+- **Retention pool, sub-stage proposals:** reuse the live tables as they are; add a link column to the
+  decision row only if missing.
+- **Quality tests:** reuse the QIP tables. Add only what D13 needs and they lack: `sector`/`vertical`
+  and `hold_hours` on `qip_templates`; `answer_type`, `options`, `sequence` on `qip_template_checks`;
+  `booking_ref`, `started_at`, `ended_at`, `photo_urls` on `qip_check_results` (`report_id` points to
+  a reports table that does not exist live — to be linked to the daily visit report instead).
+- **Billing split per stage:** still needs `labour_amount` / `material_amount` on
+  `milestone_payment_schedule` (not present live).
+- `substage_constraints` / `substage_rfis` / `milestone_templates` / `milestones`: recorded, NOT touched
+  in this package; owner to say later whether they belong to a later package.
+
+Q1 restated against the live tables: decide per STAGE → `stage_payment_decisions` is canonical;
+decide per SUB-STAGE → `milestone_payment_decisions` is canonical.
+
+---
+
 ## 1. What already exists (checked in code, 30 Oct 2026)
 
 | Concept | Where it lives today | Note |
