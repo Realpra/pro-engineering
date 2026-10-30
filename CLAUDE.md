@@ -108,6 +108,11 @@ Older text is NOT deleted; where it is wrong, a dated correction below says so.
   in its own repository. Ponding and pressure tests seeded from the 20 Jun blueprint as editable
   starting data.
 
+**State at close of Session 72 (30 Oct 2026)**: Admin add/edit/delete structure pushed (`090d2d6`,
+preview build READY). Two SQL files PENDING the owner's run: `20261030_admin_structure_quality_tests.sql`
+then `20261030_seed_quality_tests_ponding_pressure.sql`. Cloud sessions now have a read-only Supabase
+token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Package 1.
+
 **Phase order (owner, 30 Oct 2026)**
 - Phase I: complete the operations (procurement, Sub-Coordinator, milestones and payment decisions,
   margin, and the other operational gaps).

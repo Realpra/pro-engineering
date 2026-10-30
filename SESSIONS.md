@@ -1905,3 +1905,28 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
 - `npx tsc --noEmit` exit 0. Not clicked through yet.
 - NEXT: owner runs the 2 files (or authorises it), then local click-through; then the rest of
   Package 1 (reporting form, stage payment decisions, retention pool, proposals).
+
+## SESSION 72 CLOSED — 30 Oct 2026 — STATE AT CLOSE
+- Pushed to `claude/gracious-knuth-vxwkc3` (owner's yes): `3607e39` decisions register + 15 original
+  files in docs/original/; `63b448c` + `3111865` Package 1 spec (docs/specs/); `090d2d6` Admin
+  add/edit/delete structure (stage + sub-stage templates, /admin/quality-tests). `master` untouched.
+- Vercel preview build of `090d2d6`: READY
+  (https://pro-engineering-37z1gkz15-pro-engineering.vercel.app, uses the live database).
+- Access now working in cloud sessions: Supabase scoped READ-ONLY token (header secret for
+  api.supabase.com; use the /database/query/read-only route) and a Vercel token (api.vercel.com).
+  The token cannot run migrations -- the owner runs SQL in the Supabase SQL Editor.
+- PENDING, owner to run in Supabase SQL Editor, in order:
+  1. supabase/migrations/20261030_admin_structure_quality_tests.sql
+  2. supabase/migrations/20261030_seed_quality_tests_ponding_pressure.sql
+  Until (1) runs, /admin/quality-tests shows a load-error notice; milestones changes work without it.
+
+## NEXT SESSION — START HERE (Updated 30 Oct 2026, Session 72 closed)
+- Read CLAUDE.md's OWNER DECISIONS REGISTER first (D1-D21, phase order).
+- Ask whether the two 20261030 SQL files were run; verify read-only (qip columns + 3 policies,
+  2 tests with 7 + 6 steps).
+- Owner click-through on the preview: milestones DELETE + 100% total + sub-stage add/edit/delete;
+  Quality Tests add/edit/delete.
+- Then Package 1 remainder (docs/specs/PHASE1_PKG1_MILESTONES_AND_PAYMENT_DECISIONS.md, section 0):
+  milestone reporting form (single path), stage_payment_decisions with release % (D19), retention
+  pool, sub-stage proposals. Admin adds the 6th bathroom stage (D20).
+- Rules: ask before every push, migration and live test; no invented data; no MVP.
