@@ -440,6 +440,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/coordinators', icon: '🧭', label: 'Coordinators', desc: 'Zone coverage · job routing', count: unroutedJobs },
     { href: '/admin/allocation', icon: '📊', label: 'Allocation Overview', desc: 'Capacity matrix · escalations · client closure', count: 0 },
     { href: '/admin/trade-questions', icon: '📝', label: 'Question Bank', desc: 'Per-trade skill assessment questions', count: 0 },
+    { href: '/admin/quality-tests', icon: '🧪', label: 'Quality Tests', desc: 'Per-job test steps (ponding, pressure…)', count: 0 },
   ]
 
   return (

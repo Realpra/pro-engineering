@@ -1884,3 +1884,24 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
 - Read CLAUDE.md's OWNER DECISIONS REGISTER first.
 - Phase I build plan to be agreed with the owner item by item, then built.
 - If network access is set up: check the live schema read-only before any migration.
+
+## SESSION 72 CONTINUED — 30 Oct 2026 — LIVE ACCESS WORKING; ADMIN ADD/EDIT/DELETE STRUCTURE BUILT
+- Supabase (read-only scoped token) and Vercel access set up by the owner and confirmed working.
+  Live read-only check found the Package 1 tables already exist, unused and empty
+  (stage_payment_decisions, milestone_payment_decisions, retention_pool, substage_proposals,
+  qip_templates/checks/results); spec revised to reuse them. QIP tables had RLS on with NO policy
+  (app could not read/write them).
+- Owner's answers (CLAUDE.md D19-D21): decision is milestone-linked; bathroom = 6 stages (Admin adds
+  the 6th); Admin can add/edit/delete in its repository.
+- BUILT: /admin/milestones -- DELETE on stage templates, per-job-type payment-% total (must be 100),
+  full sub-stage template add/edit/activate/delete inside each stage
+  (SubstageTemplatesPanel.tsx, substageTemplateActions.ts). New /admin/quality-tests -- tests and
+  their steps, add/edit/activate/delete, answer types (pass/fail, yes/no, options, number, photo,
+  timer start/end, text); dashboard tile. Templates in use by a job/report cannot be deleted --
+  plain message says deactivate instead.
+- 2 DATABASE FILES WRITTEN, NOT RUN: 20261030_admin_structure_quality_tests.sql (QIP columns + access
+  rules), 20261030_seed_quality_tests_ponding_pressure.sql (2 tests from the 20 Jun blueprint).
+  Both run twice cleanly on a local Postgres copy. The quality-tests screen needs the first file run.
+- `npx tsc --noEmit` exit 0. Not clicked through yet.
+- NEXT: owner runs the 2 files (or authorises it), then local click-through; then the rest of
+  Package 1 (reporting form, stage payment decisions, retention pool, proposals).

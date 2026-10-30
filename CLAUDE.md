@@ -99,6 +99,14 @@ Older text is NOT deleted; where it is wrong, a dated correction below says so.
   `docs/original/Supervisor_Visit_REBUILT_v3_27Sep26.xlsx` are the latest (e.g. GPS distance is
   recorded but never blocks entry; Site Visit Manager substitutes for Supervisor and submits up to
   him; one milestone path only; no hard block on a critical snag).
+- D19 (30 Oct, Package 1 Q1) Payment decision is MILESTONE-linked (per stage): the live, unused
+  `stage_payment_decisions` table is the canonical record; `milestone_payment_decisions`
+  (sub-stage level) is left untouched and unused, never deleted.
+- D20 (Q2) Bathroom job has 6 stages. The live template has 5 (M0-M4); Admin adds the 6th through
+  the new add/edit/delete structure and re-balances the % to 100 (not invented by Claude).
+- D21 (Q3/Q4) Admin can add, edit and delete stage templates, sub-stage templates and quality tests
+  in its own repository. Ponding and pressure tests seeded from the 20 Jun blueprint as editable
+  starting data.
 
 **Phase order (owner, 30 Oct 2026)**
 - Phase I: complete the operations (procurement, Sub-Coordinator, milestones and payment decisions,

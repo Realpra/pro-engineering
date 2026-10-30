@@ -8,6 +8,7 @@ import MilestoneTabs, {
   type Payment,
   type Substage,
 } from './MilestoneTabs'
+import type { SubstageTemplate } from './SubstageTemplatesPanel'
 
 export default async function AdminMilestonesPage() {
   const supabase = await createClient()
@@ -32,6 +33,7 @@ export default async function AdminMilestonesPage() {
     { data: paymentsData },
     { data: substagesData },
     { data: enquiries },
+    { data: substageTemplatesData },
   ] = await Promise.all([
     sb
       .from('milestone_stage_templates')
@@ -57,6 +59,10 @@ export default async function AdminMilestonesPage() {
     sb
       .from('guest_enquiries')
       .select('id, booking_ref, contact_name, job_title, zone'),
+    sb
+      .from('milestone_substage_templates')
+      .select('*')
+      .order('sequence_order', { ascending: true }),
   ])
 
   const templates = (templatesData ?? []) as MilestoneTemplate[]
@@ -139,6 +145,7 @@ export default async function AdminMilestonesPage() {
 
         <MilestoneTabs
           templates={templates}
+          substageTemplates={(substageTemplatesData ?? []) as SubstageTemplate[]}
           scopeChanges={scopeChanges}
           payments={payments}
           substages={substages}

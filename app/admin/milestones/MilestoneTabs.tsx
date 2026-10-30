@@ -16,6 +16,8 @@ import {
   type MilestoneActionResult,
   type MilestoneTemplateInput,
 } from './actions'
+import { deleteMilestoneStageTemplate } from './substageTemplateActions'
+import SubstageTemplatesPanel, { type SubstageTemplate } from './SubstageTemplatesPanel'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -727,6 +729,19 @@ function TemplateRowActions({
     router.refresh()
   }
 
+  async function remove() {
+    if (!confirm(`Delete stage template "${template.milestone_code ?? ''} ${template.milestone_name ?? ''}"? This cannot be undone.`)) return
+    setBusy(true)
+    setError(null)
+    const res = await deleteMilestoneStageTemplate(template.id)
+    setBusy(false)
+    if ('error' in res) {
+      setError(res.error)
+      return
+    }
+    router.refresh()
+  }
+
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex flex-wrap gap-1.5">
@@ -752,6 +767,17 @@ function TemplateRowActions({
           }`}
         >
           {busy ? '…' : active ? 'DEACTIVATE' : 'ACTIVATE'}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation()
+            remove()
+          }}
+          className="px-2.5 py-1 rounded-lg text-xs font-bold border border-red-600 text-red-600 bg-white hover:bg-red-50 disabled:opacity-50"
+        >
+          DELETE
         </button>
       </div>
       <Err msg={error} />
@@ -860,11 +886,13 @@ function TemplateGroup({
   jobCategory,
   rows,
   adminUserId,
+  substageTemplates,
 }: {
   vertical: string
   jobCategory: string
   rows: MilestoneTemplate[]
   adminUserId: string
+  substageTemplates: SubstageTemplate[]
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -883,6 +911,32 @@ function TemplateGroup({
       <div className="bg-[#1F3864] text-white rounded-lg px-3 py-2 text-sm font-semibold">
         {vertical || '—'} <span className="text-blue-200">/</span> {jobCategory || '—'}
       </div>
+      {(() => {
+        // Payment % of the ACTIVE stages, per job type -- must add up to 100.
+        const byJobType = new Map<string, number>()
+        for (const r of rows) {
+          if (r.is_active !== true) continue
+          const k = r.job_type ?? '—'
+          byJobType.set(k, (byJobType.get(k) ?? 0) + num(r.payment_percent))
+        }
+        return (
+          <div className="flex flex-wrap gap-2">
+            {[...byJobType.entries()].map(([jt, total]) => {
+              const ok = Math.abs(total - 100) < 0.001
+              return (
+                <span
+                  key={jt}
+                  className={`text-xs font-semibold rounded-full px-3 py-1 border ${
+                    ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-300'
+                  }`}
+                >
+                  {jt}: active stages total {total}%{ok ? ' ✓' : ' — must be 100%'}
+                </span>
+              )
+            })}
+          </div>
+        )
+      })()}
       <div className={`${cardClass}`}>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -1005,7 +1059,13 @@ function TemplateGroup({
                               />
                             </div>
                           ) : (
-                            <TemplateDetail template={t} />
+                            <>
+                              <TemplateDetail template={t} />
+                              <SubstageTemplatesPanel
+                                stageTemplateId={t.id}
+                                rows={substageTemplates.filter((s) => s.stage_template_id === t.id)}
+                              />
+                            </>
                           )}
                         </td>
                       </tr>
@@ -1024,9 +1084,11 @@ function TemplateGroup({
 function MilestoneStageManagementTab({
   templates,
   adminUserId,
+  substageTemplates,
 }: {
   templates: MilestoneTemplate[]
   adminUserId: string
+  substageTemplates: SubstageTemplate[]
 }) {
   const [showAdd, setShowAdd] = useState(false)
 
@@ -1105,6 +1167,7 @@ function MilestoneStageManagementTab({
             jobCategory={g.jobCategory}
             rows={g.rows}
             adminUserId={adminUserId}
+            substageTemplates={substageTemplates}
           />
         ))
       )}
@@ -2004,6 +2067,7 @@ function SubstageProposalsTab({
 
 export default function MilestoneTabs({
   templates,
+  substageTemplates,
   scopeChanges,
   payments,
   substages,
@@ -2011,6 +2075,7 @@ export default function MilestoneTabs({
   adminUserId,
 }: {
   templates: MilestoneTemplate[]
+  substageTemplates: SubstageTemplate[]
   scopeChanges: ScopeChange[]
   payments: Payment[]
   substages: Substage[]
@@ -2054,7 +2119,11 @@ export default function MilestoneTabs({
       </div>
 
       {tab === 'stages' && (
-        <MilestoneStageManagementTab templates={templates} adminUserId={adminUserId} />
+        <MilestoneStageManagementTab
+          templates={templates}
+          adminUserId={adminUserId}
+          substageTemplates={substageTemplates}
+        />
       )}
       {tab === 'contract' && (
         <ScopeContractChangesTab
