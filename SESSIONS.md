@@ -1860,3 +1860,27 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
 - AWS: scripts, Nginx config, cron replacement, guide and checklist once the owner has the AWS
   account and domain
 - Everything from the earlier NEXT SESSION notes is still open
+
+## SESSION 72 — 29-30 Oct 2026 — FULL AUDIT AGAINST THE ORIGINAL DESIGN, OWNER DECISIONS RECORDED (NO APP CODE)
+- Owner moved from Claude Chat to Claude Code because the decided build had been cut down without
+  their decision. Read the Claude Chat history, the June-September logs and 16 original design files,
+  and checked every decision against the code. Result: 61 decided items cut, partial or unconfirmed
+  (A1-A61), published as the "Pro Engineering Completion Audit" page
+  (https://claude.ai/artifact/DnpRoM4CQ5SsoghN5c7mxt).
+- Owner answered in writing on 30 Oct. All answers are in CLAUDE.md's new OWNER DECISIONS REGISTER
+  (standing rules, corrections C1-C6, decisions D1-D18, phase order). Key ones: no MVP; worker pay
+  separate from premium; token % set by Admin (0 skips it); platform fee Admin-editable; route compile
+  stays 20:00 as a guide; Urban Company list out of scope; phases reordered (operations first).
+- The lost "27 stages" were found: the 27 bathroom sub-stages on the Site Incharge dashboard (codes
+  still in generateSubstagesFromBOQ). The travel-leg layout was the Sub-Coordinator shift planner,
+  never built.
+- 16 original design files stored in docs/original/. The four monthly logs, the chat history and the
+  owner's reply file were NOT stored: they contain staff login passwords — owner to decide.
+- Network access for Supabase/Vercel: owner agreed; hosts and keys still to be added in the
+  environment settings (a new session is needed after that).
+- No app code changed. Nothing pushed without asking.
+
+## NEXT SESSION — START HERE (Updated 30 Oct 2026, Session 72)
+- Read CLAUDE.md's OWNER DECISIONS REGISTER first.
+- Phase I build plan to be agreed with the owner item by item, then built.
+- If network access is set up: check the live schema read-only before any migration.
