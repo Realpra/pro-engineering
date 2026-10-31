@@ -403,7 +403,7 @@ export default function EstimateConsole({
       setPolicyContingencyMax(res.repoContingencyPct)
       setAdminContingencyLimit(res.adminContingencyLimitPct)
       setPolicyJobType(res.policyJobType)
-      setContingencyRepoMsg(res.contingencyMessage)
+      setContingencyRepoMsg(res.contingencyMessage ?? res.premiumMessage)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -924,7 +924,7 @@ export default function EstimateConsole({
             </div>
             <p className="text-[11px] text-gray-500 mt-1">
               {policyContingencyMax !== null
-                ? `From Admin's repository (${policyJobType ?? '—'}): ${policyContingencyMax}%. Admin approves up to ${adminContingencyLimit ?? 5}%; above that Super Admin.`
+                ? `From Admin's repository (${policyJobType ?? '—'}): ${policyContingencyMax}%. Admin approves up to ${adminContingencyLimit ?? '—'}%; above that Super Admin.`
                 : (contingencyRepoMsg ?? 'Reading Admin\'s repository…')}
             </p>
             {policyContingencyMax !== null && contingencyPct !== policyContingencyMax && (
@@ -933,7 +933,7 @@ export default function EstimateConsole({
                 Use repository value ({policyContingencyMax}%)
               </button>
             )}
-            {generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) > (adminContingencyLimit ?? 5) && (
+            {adminContingencyLimit !== null && generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) > adminContingencyLimit && (
               <p className="text-[11px] font-semibold text-amber-700 mt-1">
                 Saved contingency {generatedBOQ?.contingency_percent}% is above Admin&apos;s limit — Super Admin approves.
               </p>
@@ -947,7 +947,7 @@ export default function EstimateConsole({
               </button>
             </form>
           )}
-          {platformRole === 'admin' && generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) <= (adminContingencyLimit ?? 5) && (
+          {platformRole === 'admin' && adminContingencyLimit !== null && generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) <= adminContingencyLimit && (
             <form action={async () => { await approveBoqField(generatedBOQ.id, 'contingency', adminUserId) }}>
               <button type="submit" className="mt-1 text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-lg w-full">
                 ✓ Approve Contingency

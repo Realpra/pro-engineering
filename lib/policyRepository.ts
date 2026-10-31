@@ -22,8 +22,10 @@ export const JOB_CARD_TO_CATEGORY: Record<string, string> = {
 // The repository job type the current BOQ engine builds from (generateBOQ's SKU filter).
 export const CURRENT_BOQ_JOB_TYPE = 'bathroom-renovation'
 
-// Owner's figure, used only if a row predates the admin_approval_limit_pct column.
-export const DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT = 5
+// Owner, 31 Oct 2026: the repository holds the full job type x category x tier matrix. No
+// built-in figure is ever used: if a combination is missing the estimate stops and Admin is
+// asked to fill it in (Policy screen).
+export const REPOSITORY_FILL_HINT = 'Admin to add it on Admin -> Policy (Rate Policy tab), then generate again.'
 
 type GeoRow = { id: string; name: string; level: string | null; parent_id: string | null }
 
@@ -111,7 +113,7 @@ export type ContingencyPolicyRow = {
 export type ContingencyLookup = {
   row: ContingencyPolicyRow | null
   contingencyPct: number | null
-  adminLimitPct: number
+  adminLimitPct: number | null
   message: string | null
 }
 
@@ -124,7 +126,7 @@ export async function lookupContingency(supabase: any, opts: {
 }): Promise<ContingencyLookup> {
   const category = JOB_CARD_TO_CATEGORY[opts.jobCardType ?? ''] ?? null
   if (!opts.jobType || !category || !opts.tier) {
-    return { row: null, contingencyPct: null, adminLimitPct: DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT,
+    return { row: null, contingencyPct: null, adminLimitPct: null,
       message: 'Job type, job category or tier is not known, so no contingency row can be selected.' }
   }
   const { data, error } = await supabase
@@ -134,7 +136,7 @@ export async function lookupContingency(supabase: any, opts: {
     .eq('job_category', category)
     .eq('tier', opts.tier)
   if (error) {
-    return { row: null, contingencyPct: null, adminLimitPct: DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT, message: error.message }
+    return { row: null, contingencyPct: null, adminLimitPct: null, message: error.message }
   }
   const today = new Date().toISOString().slice(0, 10)
   const rows = ((data ?? []) as ContingencyPolicyRow[]).filter((r) => inForce(r, today))
@@ -148,14 +150,14 @@ export async function lookupContingency(supabase: any, opts: {
   eligible.sort((a, b) => rank(a) - rank(b) || String(b.effective_from ?? '').localeCompare(String(a.effective_from ?? '')))
   const row = eligible[0] ?? null
   if (!row) {
-    return { row: null, contingencyPct: null, adminLimitPct: DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT,
-      message: `No contingency row in Admin's repository for ${opts.jobType} / ${category} / ${opts.tier} in force today for this location.` }
+    return { row: null, contingencyPct: null, adminLimitPct: null,
+      message: `Admin's repository has no contingency value for ${opts.jobType} / ${category} / ${opts.tier} in force today for this location. ${REPOSITORY_FILL_HINT}` }
   }
   const limit = row.admin_approval_limit_pct
   return {
     row,
     contingencyPct: Number(row.contingency_pct ?? 0),
-    adminLimitPct: limit == null ? DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT : Number(limit),
+    adminLimitPct: limit == null ? null : Number(limit),
     message: null,
   }
 }
@@ -194,7 +196,7 @@ export async function lookupPremium(supabase: any, opts: {
   const row = rows[0] as any
   if (!row) {
     return { premiumPct: null, minDeviationPct: null, maxDeviationPct: null,
-      message: `No premium row in the repository for ${opts.jobType} / ${category} / ${opts.tier} in force today.` }
+      message: `Admin's repository has no platform premium value for ${opts.jobType} / ${category} / ${opts.tier} in force today. ${REPOSITORY_FILL_HINT}` }
   }
   return {
     premiumPct: row.premium_pct == null ? null : Number(row.premium_pct),

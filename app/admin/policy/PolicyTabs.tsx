@@ -484,7 +484,7 @@ function ContingencyRow({ row, adminUserId, geoName }: { row: ContingencyPolicy;
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.min_deviation_pct)}</td>
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.max_deviation_pct)}</td>
         <td className="px-3 py-2.5 text-sm text-gray-800">{geoName}</td>
-        <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.admin_approval_limit_pct ?? 5)}</td>
+        <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.admin_approval_limit_pct ?? null)}</td>
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtDate(row.effective_from)}</td>
         <td className="px-3 py-2.5 text-sm">
           <span className={row.is_active ? 'text-green-600 font-semibold' : 'text-gray-400'}>

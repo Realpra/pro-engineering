@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { logJobMovement } from '@/lib/jobMovementLog'
-import { CURRENT_BOQ_JOB_TYPE, DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT, lookupContingency, lookupPremium } from '@/lib/policyRepository'
+import { CURRENT_BOQ_JOB_TYPE, lookupContingency, lookupPremium } from '@/lib/policyRepository'
 import { revalidatePath } from 'next/cache'
 
 // ── processClientRemarks ───────────────────────────────────────────────────────
@@ -566,14 +566,14 @@ export async function sendToClient(
 export async function getPolicyRate(
   bookingRef: string,
 ): Promise<{
-  premiumPct: number
-  minDeviationPct: number
-  maxDeviationPct: number
-  allowedMin: number
-  allowedMax: number
+  premiumPct: number | null
+  minDeviationPct: number | null
+  maxDeviationPct: number | null
+  allowedMin: number | null
+  allowedMax: number | null
   policyJobType: string | null
   repoContingencyPct: number | null
-  adminContingencyLimitPct: number
+  adminContingencyLimitPct: number | null
   contingencyMessage: string | null
   premiumMessage: string | null
 }> {
@@ -598,16 +598,18 @@ export async function getPolicyRate(
     }),
   ])
 
-  const premiumPct      = premium.premiumPct ?? 12
-  const minDeviationPct = premium.minDeviationPct ?? -5
-  const maxDeviationPct = premium.maxDeviationPct ?? 10
+  // No built-in figures: a missing repository value is reported, never substituted.
+  const premiumPct      = premium.premiumPct
+  const minDeviationPct = premium.minDeviationPct
+  const maxDeviationPct = premium.maxDeviationPct
+  const band = premiumPct != null && minDeviationPct != null && maxDeviationPct != null
 
   return {
     premiumPct,
     minDeviationPct,
     maxDeviationPct,
-    allowedMin:               premiumPct + minDeviationPct,
-    allowedMax:               premiumPct + maxDeviationPct,
+    allowedMin:               band ? premiumPct + minDeviationPct : null,
+    allowedMax:               band ? premiumPct + maxDeviationPct : null,
     policyJobType,
     repoContingencyPct:       contingency.contingencyPct,
     adminContingencyLimitPct: contingency.adminLimitPct,
@@ -783,14 +785,17 @@ export async function generateBOQ(
   // back to a built-in 12%.
   const policyJobType = CURRENT_BOQ_JOB_TYPE
   const premiumLookup = await lookupPremium(supabase, { jobType: policyJobType, jobCardType, tier })
-  if (premiumLookup.message) console.log('[generateBOQ] premium lookup:', premiumLookup.message)
-  // 12 is the long-standing fallback kept only for a job with no premium row.
-  const policyPremiumPct = premiumLookup.premiumPct ?? 12
   const contingencyLookup = await lookupContingency(supabase, {
     jobType: policyJobType, jobCardType, tier, locationName: job?.zone ?? null,
   })
-  if (contingencyLookup.message) console.log('[generateBOQ] contingency lookup:', contingencyLookup.message)
-  const repoContingencyPct = contingencyLookup.contingencyPct ?? 0
+  // Owner, 31 Oct 2026: the repository holds the full matrix; a missing value stops the
+  // estimate and asks Admin to fill it in. No built-in figure is substituted.
+  if (premiumLookup.premiumPct == null) return { error: premiumLookup.message ?? 'Platform premium missing in the repository.' }
+  if (!contingencyLookup.row || contingencyLookup.contingencyPct == null) {
+    return { error: contingencyLookup.message ?? 'Contingency missing in the repository.' }
+  }
+  const policyPremiumPct = premiumLookup.premiumPct
+  const repoContingencyPct = contingencyLookup.contingencyPct
 
   const zoneName = job?.zone ?? 'Noida Sector 62'
   let finalGeoId = '66666666-0000-0000-0000-000000000001'
@@ -1334,16 +1339,19 @@ export async function approveBoqField(
       .select('booking_ref, contingency_percent, contingency_policy_id')
       .eq('id', boqId)
       .maybeSingle()
-    let limit = DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT
-    if (cb?.contingency_policy_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pol } = await (supabase as any)
-        .from('contingency_policy')
-        .select('admin_approval_limit_pct')
-        .eq('id', cb.contingency_policy_id)
-        .maybeSingle()
-      if (pol?.admin_approval_limit_pct != null) limit = Number(pol.admin_approval_limit_pct)
+    if (!cb?.contingency_policy_id) {
+      return { success: false, error: 'This estimate was not generated from the repository contingency value. Generate it again first.' }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pol } = await (supabase as any)
+      .from('contingency_policy')
+      .select('admin_approval_limit_pct')
+      .eq('id', cb.contingency_policy_id)
+      .maybeSingle()
+    if (pol?.admin_approval_limit_pct == null) {
+      return { success: false, error: 'The repository row for this contingency has no Admin approval limit. Super Admin to set it.' }
+    }
+    const limit = Number(pol.admin_approval_limit_pct)
     if (role === 'admin' && Number(cb?.contingency_percent ?? 0) > limit) {
       return { success: false, error: `Contingency ${cb?.contingency_percent}% is above Admin's limit of ${limit}%. Super Admin approves it.` }
     }

@@ -183,6 +183,7 @@ export default async function EstimatePage({
   // If no draft BOQ exists for this booking, generate one. Always fetch fresh
   // from boq_generated so column values are current.
   let generatedBOQ: GeneratedBOQ | null = null
+  let autoGenerateError: string | null = null
 
   if (report) {
     // Only generate if no row exists yet, or if line_items is empty.
@@ -205,7 +206,8 @@ export default async function EstimatePage({
       existingRow.line_items.length > 0
 
     if (!hasContent) {
-      await generateBOQ(bookingRef, 'budget', 'LM')
+      const gen = await generateBOQ(bookingRef, 'budget', 'LM')
+      if (gen.error) autoGenerateError = gen.error
     }
 
     // Always fetch the full row after potential generate so we get correct values
@@ -338,6 +340,13 @@ export default async function EstimatePage({
 
       <EstimateSendBackPanel bookingRef={bookingRef} canSendBack={canSendBack} lastSendBack={lastSendBack} />
 
+      {autoGenerateError && (
+        <div className="max-w-6xl mx-auto mt-4 px-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+            Estimate not generated: {autoGenerateError}
+          </div>
+        </div>
+      )}
       <EstimateConsole
         bookingRef={bookingRef}
         report={report as Record<string, unknown> | null}

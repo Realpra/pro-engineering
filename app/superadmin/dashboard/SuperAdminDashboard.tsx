@@ -792,7 +792,7 @@ export default function SuperAdminDashboard({
                               className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#2E74B5]/40"
                             />
                           ) : (
-                            `${row.admin_approval_limit_pct ?? 5}%`
+                            (row.admin_approval_limit_pct == null ? '—' : `${row.admin_approval_limit_pct}%`)
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -829,7 +829,7 @@ export default function SuperAdminDashboard({
                               onClick={() => {
                                 setEditingContingencyId(row.id)
                                 setEditContingencyMax(String(row.contingency_pct ?? ''))
-                                setEditContingencyLimit(String(row.admin_approval_limit_pct ?? 5))
+                                setEditContingencyLimit(String(row.admin_approval_limit_pct ?? ''))
                                 setEditReason('')
                               }}
                               className="px-3 py-1 rounded-lg border border-gray-200 text-gray-600 text-xs font-bold hover:bg-gray-50"

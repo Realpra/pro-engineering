@@ -2054,3 +2054,8 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
 - Migration `20261031_contingency_repository_and_admin_limit.sql` tested twice on local Postgres 16;
   run live by the owner and verified read-only (4 columns, check, index; 27 rows at limit 5).
   tsc clean; no new lint errors. Local commits, awaiting push go-ahead.
+- Self-check against live data (read-only, owner asked not to trust Claude Chat's builds): lookup
+  returns the repository row for both live estimates; region/date precedence tested with in-memory
+  rows; found and fixed a real fault (district ranked above region for Sector 62's two zones).
+- D43: removed every built-in fallback; a missing repository value stops generation with a message
+  asking Admin to fill it (also shown when the estimate page auto-generates). Live matrix 27/27.

@@ -201,6 +201,10 @@ token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Pac
 - D41 Admin Approval Limit for contingency: up to 5% Admin approves; beyond 5% Super Admin. Stored
   per row (contingency_policy.admin_approval_limit_pct, default 5, Super Admin edits it). Enforced:
   Admin cannot approve above it; the estimate cannot go to the client until contingency is approved.
+- D43 No built-in figures and no "missing information" path: the repository holds the full job
+  type x category x tier matrix (live: 27 of 27 in force for contingency and for premium). If a
+  combination is ever missing, the estimate stops and asks Admin to fill it in on Admin -> Policy;
+  nothing is substituted (the old 12% / 5% / -5..+10 fallbacks are removed). Built.
 - D42 (owner's explanation, recorded, no code change) Premium / rebate is profit-oriented and set by
   Super Admin: higher premium in a niche, a rebate (e.g. -5%: 100 becomes 95) in a competitive space.
 - Corrects the older note "editing Contingency from the Admin page has NO EFFECT": against the live
