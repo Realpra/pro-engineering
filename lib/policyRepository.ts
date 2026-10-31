@@ -67,8 +67,23 @@ export async function resolveGeoChain(supabase: any, locationName: string | null
     }
     frontier = next
   }
+
+  // Order by level, most specific first (owner's hierarchy State > District > Region > Zone >
+  // Sector), not by discovery order: a sector's two zones can have parents at different
+  // levels, which put a district ahead of a region.
+  const { data: lv } = await supabase.from('geo_hierarchy').select('id, level').in('id', chain)
+  const levelOf = new Map(((lv ?? []) as { id: string; level: string | null }[]).map((r) => [r.id, r.level]))
+  const rank = (id: string) => {
+    const i = LEVEL_ORDER.indexOf(levelOf.get(id) ?? '')
+    return i === -1 ? LEVEL_ORDER.length : i
+  }
   return chain
+    .map((id, i) => ({ id, i }))
+    .sort((a, b) => rank(a.id) - rank(b.id) || a.i - b.i)
+    .map((x) => x.id)
 }
+
+const LEVEL_ORDER = ['pincode', 'sector', 'zone', 'region', 'district', 'city', 'state', 'country']
 
 function inForce(row: { is_active?: boolean | null; effective_from?: string | null; effective_until?: string | null }, today: string) {
   if (row.is_active === false) return false
