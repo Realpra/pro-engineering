@@ -50,6 +50,16 @@ function startOfWeek(d: Date): Date {
   return copy
 }
 
+// Calendar date in India (YYYY-MM-DD), offset by whole days.
+function istDate(offsetDays: number): string {
+  const d = new Date(Date.now() + 5.5 * 3600 * 1000 + offsetDays * 86400 * 1000)
+  return d.toISOString().slice(0, 10)
+}
+
+function istHour(): number {
+  return new Date(Date.now() + 5.5 * 3600 * 1000).getUTCHours()
+}
+
 function countBy(rows: AnyRecord[], field: string): Record<string, number> {
   const out: Record<string, number> = {}
   for (const row of rows) {
@@ -130,6 +140,7 @@ export default async function AdminDashboardPage() {
     usersRaw,
     clientResponsesRaw,
     premiumApprovalsRaw,
+    labourSlotsRaw,
   ] = await Promise.all([
     safeSelect(
       sb.from('workers').select(
@@ -167,6 +178,18 @@ export default async function AdminDashboardPage() {
       sb.from('premium_approval_requests').select(
         'id, booking_ref, requested_pct, policy_pct, boq_total, reason, status, created_at',
       ).eq('status', 'pending'),
+    ),
+    // Labour deployment check (owner, 31 Oct 2026): today's and tomorrow's Dynamic
+    // Scheduler slots still without a worker or a Savior. 9 pm IST is the day-end
+    // cut-off by which tomorrow's labour should be deployed.
+    safeSelect(
+      sb.from('task_ledger')
+        .select('slot_id, booking_ref, target_date, assigned_worker_id, filled_via_saviors_id')
+        .eq('slot_status', 'Pending')
+        .is('assigned_worker_id', null)
+        .is('filled_via_saviors_id', null)
+        .gte('target_date', istDate(0))
+        .lte('target_date', istDate(1)),
     ),
   ])
 
@@ -236,6 +259,28 @@ export default async function AdminDashboardPage() {
   // Coordinator or Sub-Coordinator (zone-based) before anyone can act on them --
   // see app/admin/coordinators/.
   const unroutedJobs = enquiriesRaw.filter((e) => e.is_active && !e.driving_role).length
+  // New job requests = arrived but not yet routed to a Coordinator/Sub-Coordinator.
+  // Pending job requests = routed, but still at the request stage (no site visit
+  // or estimate progress yet).
+  const REQUEST_STAGE = ['new', 'enquiry']
+  const newJobRequests = enquiriesRaw.filter(
+    (e) => e.is_active && !e.driving_role && REQUEST_STAGE.includes(String(e.status ?? 'new').toLowerCase()),
+  ).length
+  const pendingJobRequests = enquiriesRaw.filter(
+    (e) => e.is_active && !!e.driving_role && REQUEST_STAGE.includes(String(e.status ?? 'new').toLowerCase()),
+  ).length
+
+  // ── labour not deployed ──────────────────────────────────────────────────────
+  const today = istDate(0)
+  const tomorrow = istDate(1)
+  const pastNinePm = istHour() >= 21
+  const undeployedToday = labourSlotsRaw.filter((t) => t.target_date === today).length
+  const undeployedTomorrow = labourSlotsRaw.filter((t) => t.target_date === tomorrow).length
+  const labourNotDeployed = undeployedToday + undeployedTomorrow
+  const labourLabel = pastNinePm
+    ? `Labour Not Deployed by 9 pm (today ${undeployedToday} · tomorrow ${undeployedTomorrow})`
+    : `Labour Not Yet Deployed — 9 pm cut-off (today ${undeployedToday} · tomorrow ${undeployedTomorrow})`
+
   const pipelineCounts: Record<string, number> = Object.fromEntries(PIPELINE_STAGES.map((s) => [s, 0]))
   for (const e of enquiriesRaw) pipelineCounts[stageForStatus(e.status)] += 1
   const activeJobs = enquiriesRaw.filter((e) => {
@@ -464,10 +509,13 @@ export default async function AdminDashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-8">
         {/* ALERT STRIP */}
-        {(pendingAdminApproval > 0 || paymentsPendingAdmin > 0 || decision5Queue > 0 || escalatedLogs > 0 || unacknowledgedInstructions > 0) && (
+        {(newJobRequests > 0 || pendingJobRequests > 0 || labourNotDeployed > 0 || pendingAdminApproval > 0 || paymentsPendingAdmin > 0 || decision5Queue > 0 || escalatedLogs > 0 || unacknowledgedInstructions > 0) && (
           <div className="bg-red-600 rounded-2xl px-5 py-4">
             <p className="text-white font-bold text-sm mb-2">Immediate attention required:</p>
             <div className="flex flex-wrap gap-2">
+              <AlertPill href="/admin/coordinators" label="New Job Requests" count={newJobRequests} className="bg-red-900" />
+              <AlertPill href="/staff/intake" label="Pending Job Requests" count={pendingJobRequests} className="bg-[#F97316]" />
+              <AlertPill href="/coordinator/dynamic-scheduler" label={labourLabel} count={labourNotDeployed} className={pastNinePm ? 'bg-red-900' : 'bg-red-700'} />
               <AlertPill href="/admin/workers" label="Pending Worker Approvals" count={pendingAdminApproval} className="bg-[#F97316]" />
               <AlertPill href="/admin/payments" label="Payments Pending" count={paymentsPendingAdmin} className="bg-red-700" />
               <AlertPill href="/admin/payments" label="Decision 5 Queue" count={decision5Queue} className="bg-red-900" />
