@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, Loader2, Copy } from 'lucide-react'
 import { getBooking, saveBooking, clearBooking, JOB_TYPE_DB_MAP } from '@/lib/booking'
 import { createClient } from '@/lib/supabase-client'
-import { createClientDevAuthAccount } from '@/app/book/actions'
+import { createClientDevAuthAccount, recordJobCreated } from '@/app/book/actions'
 import { cn, formatDate } from '@/lib/utils'
 
 type Stage = 'select' | 'processing' | 'success' | 'error'
@@ -86,6 +86,9 @@ export default function SubmitPage() {
       setStage('select')
       return
     }
+
+    // Job movement log: record the job's creation (never blocks the booking).
+    await recordJobCreated(ref).catch(() => {})
 
     // The site-visit screen collects a requested date/slot but never wrote it
     // anywhere -- confirmed real gap (Client field inventory). Non-fatal if

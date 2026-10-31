@@ -1,9 +1,8 @@
-// A worker waiting for Admin's final approval carries one of two status values
-// today: 'coordinator_approved' (written by Coordinator's Workers page,
-// app/coordinator/workers/actions.ts) and 'pending_admin_approval' (written by
-// the zone-registry assessment, app/coordinator/zone-registry/actions.ts).
-// Both mean the same thing. Admin's screens read both, so no worker is hidden.
-// Which single value to keep is an open decision for the owner (31 Oct 2026).
+// "Waiting for Admin's final approval" is one value: 'pending_admin_approval'
+// (owner, 31 Oct 2026 -- onboarding is final only at Admin; Coordinator's interim
+// allowance is the separate coordinator_deployable_at flag). Coordinator's Workers
+// page used to write 'coordinator_approved' for the same state; it no longer does,
+// but readers still accept it so no older row is hidden.
 export const AWAITING_ADMIN_STATUSES = ['coordinator_approved', 'pending_admin_approval']
 
 export function isAwaitingAdmin(status: string | null | undefined): boolean {

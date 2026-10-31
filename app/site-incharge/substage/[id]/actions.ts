@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { syncMilestonePaymentStatus } from '@/lib/milestones'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
@@ -42,6 +43,11 @@ export async function updateSubstageStatus(
 
   if (status === 'completed' && updated) {
     await syncMilestonePaymentStatus(supabase, updated.booking_ref, updated.milestone_code)
+    await logJobMovement(supabase, {
+      bookingRef: updated.booking_ref, stage: 'milestone', action: 'forwarded',
+      itemType: 'job_milestone_substage', itemId: substageId, toRole: 'sub_coordinator',
+      remarks: `Sub-stage submitted as complete (${completionPct}%)`,
+    })
   }
 
   revalidatePath('/site-incharge/dashboard')

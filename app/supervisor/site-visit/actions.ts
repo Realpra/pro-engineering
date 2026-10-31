@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAny = any
@@ -90,7 +91,7 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
 
   const { data: report, error: fetchErr } = await supabase
     .from('site_visit_reports')
-    .select('booking_ref, slot_id, supervisor_id, screen02_scope_intent, screen06_walls, screen14_labour')
+    .select('booking_ref, slot_id, supervisor_id, report_type, screen02_scope_intent, screen06_walls, screen14_labour')
     .eq('id', reportId)
     .single()
 
@@ -182,6 +183,13 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
     .eq('booking_ref', report.booking_ref)
 
   if (enquiryErr) return { error: enquiryErr.message }
+
+  if ((report as SupabaseAny).report_type !== 'daily_execution') {
+    await logJobMovement(supabase, {
+      bookingRef: report.booking_ref, stage: 'survey', action: 'forwarded',
+      itemType: 'site_visit_report', itemId: reportId, toRole: 'coordinator',
+    })
+  }
 
   // supervisor_daily_routes.report_status/report_submitted_at are read by 5
   // files across Supervisor/Coordinator/Sub-Coordinator (dashboard, route

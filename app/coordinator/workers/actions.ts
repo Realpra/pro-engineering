@@ -11,10 +11,17 @@ import { revalidatePath } from 'next/cache'
 // (app/admin/workers/WorkerTabs.tsx) -- so this single write is what pushes
 // the worker into Admin's queue, in parallel, not as a second sequential
 // step requiring its own "send to admin" action.
+//
+// Owner, 31 Oct 2026: onboarding is final only when Admin approves. Coordinator's
+// interim allowance is his own separate act (markWorkerDeployableAdhoc below), not
+// a side effect of sending the worker up. So this now writes the one "waiting for
+// Admin" value the zone-registry assessment already writes, 'pending_admin_approval'.
+// 'coordinator_approved' is no longer written; readers still accept it for any
+// older row (lib/workerApprovalStatus.ts).
 export async function approveWorkerToAdmin(workerId: string, remark: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase.from('workers').update({
-    approval_status: 'coordinator_approved',
+    approval_status: 'pending_admin_approval',
     coordinator_recommendation: remark || null,
   }).eq('id', workerId)
   if (error) return { error: error.message }

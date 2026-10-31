@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { allocateWorkerRange } from '../../coordinator/allocate/[bookingRef]/actions'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 async function requireAdminOrAbove() {
   const supabase = await createClient()
@@ -124,6 +125,10 @@ export async function routeJobToDriver(
     })
     .eq('booking_ref', bookingRef)
   if (error) return { error: error.message }
+  await logJobMovement(ctx.supabase, {
+    bookingRef, stage: 'routing', action: 'forwarded',
+    fromUserId: ctx.userId, toRole: driverRole, toUserId: driverUserId,
+  })
   revalidatePath('/admin/coordinators')
   revalidatePath('/admin/dashboard')
   return {}

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isAwaitingAdmin } from '@/lib/workerApprovalStatus'
 import Link from 'next/link'
 import CoordinatorReviewActions from './CoordinatorReviewActions'
 
@@ -31,7 +32,7 @@ export default async function CoordinatorWorkersPage() {
   // workers.approval_status (Worker Onboarding freeze, Session 65) -- confirmed dead filters,
   // both queues were always empty. 'sub_coordinator_reviewed' is the real value.
   const pendingCoordinator = (allWorkers ?? []).filter(w => w.approval_status === 'sub_coordinator_reviewed')
-  const activeWorkers = (allWorkers ?? []).filter(w => w.approval_status === 'coordinator_approved')
+  const activeWorkers = (allWorkers ?? []).filter(w => isAwaitingAdmin(w.approval_status))
   const approaching120 = (allWorkers ?? []).filter(w => (w.total_deployments ?? 0) >= 100 && w.is_active)
   const bocwPending = (allWorkers ?? []).filter(w => w.is_active && w.approval_status !== 'approved')
 
@@ -107,7 +108,7 @@ export default async function CoordinatorWorkersPage() {
             </div>
             <div>
               <p className="text-green-400 font-bold text-2xl">{activeWorkers.length}</p>
-              <p className="text-blue-300 text-xs">Active</p>
+              <p className="text-blue-300 text-xs">With Admin</p>
             </div>
             <div>
               <p className={`font-bold text-2xl ${approaching120.length > 0 ? 'text-red-400' : 'text-white'}`}>{approaching120.length}</p>
@@ -222,7 +223,7 @@ export default async function CoordinatorWorkersPage() {
         {/* ACTIVE WORKERS */}
         {activeWorkers.length > 0 && (
           <section>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Active Workers — {activeWorkers.length}</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Sent to Admin — Waiting for Final Approval — {activeWorkers.length}</p>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
               {activeWorkers.map(w => (
                 <div key={w.id} className="px-5 py-3 flex items-start justify-between gap-3">

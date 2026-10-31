@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { regeneratePlanForRevisedEstimate } from '@/app/admin/estimate/[bookingRef]/milestonePlanActions'
 import { redistributeMilestonePayments, notifyCoordinatorsOfRevision } from '@/app/admin/estimate/[bookingRef]/actions'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 type ActionResult = { success?: true; error?: string }
 
@@ -142,6 +143,12 @@ export async function submitOverallResponse(
     if (error) return { error: error.message }
   }
 
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'client',
+    action: responseType === 'accepted' ? 'client_accepted' : responseType === 'rejected' ? 'client_rejected' : 'client_review',
+    itemType: 'boq_generated', itemId: boqId, fromRole: 'client', toRole: 'coordinator', remarks,
+  })
+
   revalidatePath(`/client/dashboard/${bookingRef}`)
   return { success: true }
 }
@@ -262,6 +269,10 @@ export async function submitScopeChangeClientDecision(
       .update({ client_acceptance: 'rejected', decision_timestamp: now, updated_at: now })
       .eq('id', requestId)
     if (error) return { error: error.message }
+    await logJobMovement(supabase, {
+      bookingRef, stage: 'scope_change', action: 'client_rejected',
+      itemType: 'scope_change_request', itemId: requestId, fromRole: 'client', toRole: 'admin',
+    })
     revalidatePath(`/client/dashboard/${bookingRef}`)
     return { success: true }
   }
@@ -389,6 +400,11 @@ export async function submitScopeChangeClientDecision(
   if (regenResult.error) return { error: `Scope change accepted, but plan regeneration failed: ${regenResult.error}` }
   if (redistributeResult.error) return { error: `Scope change accepted, but payment redistribution failed: ${redistributeResult.error}` }
 
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'scope_change', action: 'client_accepted',
+    itemType: 'scope_change_request', itemId: requestId, fromRole: 'client', toRole: 'admin',
+    remarks: 'Revised estimate accepted; plan and payments redefined',
+  })
   revalidatePath(`/client/dashboard/${bookingRef}`)
   return { success: true }
 }

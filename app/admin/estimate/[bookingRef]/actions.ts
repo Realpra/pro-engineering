@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // ── processClientRemarks ───────────────────────────────────────────────────────
 
@@ -505,6 +506,7 @@ export async function sendForAdminApproval(
     .eq('status', 'draft')
 
   if (error) return { error: (error as { message: string }).message }
+  await logJobMovement(supabase, { bookingRef, stage: 'estimate', action: 'forwarded', itemType: 'boq_generated', toRole: 'admin' })
   return {}
 }
 
@@ -528,6 +530,7 @@ export async function sendToClient(
 
   if (boqResult.error) return { error: (boqResult.error as { message: string }).message }
   if (enquiryResult.error) return { error: (enquiryResult.error as { message: string }).message }
+  await logJobMovement(supabase, { bookingRef, stage: 'estimate', action: 'approved', itemType: 'boq_generated', toRole: 'client' })
   return {}
 }
 

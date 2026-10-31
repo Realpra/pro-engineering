@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // issued_to previously accepted literal sentinel strings ('all_supervisors',
 // 'site_incharge', 'site_head') verbatim -- but every reader (Supervisor's
@@ -80,6 +81,10 @@ export async function sendBackSubstage(substageId: string, remarks: string) {
     updated_at: new Date().toISOString(),
   }).eq('id', substageId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    substageId, stage: 'milestone', action: 'returned',
+    itemType: 'job_milestone_substage', itemId: substageId, toRole: 'site_incharge', remarks,
+  })
   revalidatePath('/sub-coordinator/approvals')
   return { success: true }
 }
@@ -92,6 +97,10 @@ export async function approveSubstageToCoordinator(substageId: string) {
     updated_at: new Date().toISOString(),
   }).eq('id', substageId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    substageId, stage: 'milestone', action: 'forwarded',
+    itemType: 'job_milestone_substage', itemId: substageId, toRole: 'coordinator',
+  })
   revalidatePath('/sub-coordinator/approvals')
   return { success: true }
 }

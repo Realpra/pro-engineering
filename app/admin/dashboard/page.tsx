@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import LogoutButton from './LogoutButton'
 import PremiumApprovalsPanel from './PremiumApprovalsPanel'
 import { isAwaitingAdmin } from '@/lib/workerApprovalStatus'
+import { classifyJob, pendingByJob, type MovementRow } from '@/lib/jobMovementLog'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -142,6 +143,7 @@ export default async function AdminDashboardPage() {
     clientResponsesRaw,
     premiumApprovalsRaw,
     labourSlotsRaw,
+    movementRaw,
   ] = await Promise.all([
     safeSelect(
       sb.from('workers').select(
@@ -154,7 +156,7 @@ export default async function AdminDashboardPage() {
       ),
     ),
     safeSelect(
-      sb.from('guest_enquiries').select('id, booking_ref, job_title, status, job_type, zone, contact_name, is_active, created_at, driving_role'),
+      sb.from('guest_enquiries').select('id, booking_ref, job_title, status, job_type, zone, contact_name, is_active, created_at, driving_role, confirmed_for_execution_at'),
     ),
     safeSelect(sb.from('site_instructions').select('id, booking_ref, instruction_type, admin_acknowledged_at, issued_at')),
     safeSelect(sb.from('daily_site_logs').select('id, booking_ref, escalate_to_admin, decision_on_log, log_date')),
@@ -191,6 +193,12 @@ export default async function AdminDashboardPage() {
         .is('filled_via_saviors_id', null)
         .gte('target_date', istDate(0))
         .lte('target_date', istDate(1)),
+    ),
+    // Job movement log (supabase/migrations/20261031_job_movement_log.sql) -- the
+    // send-backs that decide whether a job is "new" or "pending".
+    safeSelect(
+      sb.from('job_movement_log')
+        .select('booking_ref, stage, action, counts_as_return, resets_return_count, item_type, item_id, created_at'),
     ),
   ])
 
@@ -260,15 +268,17 @@ export default async function AdminDashboardPage() {
   // Coordinator or Sub-Coordinator (zone-based) before anyone can act on them --
   // see app/admin/coordinators/.
   const unroutedJobs = enquiriesRaw.filter((e) => e.is_active && !e.driving_role).length
-  // New job requests = arrived but not yet routed to a Coordinator/Sub-Coordinator.
-  // Pending job requests = routed, but still at the request stage (no site visit
-  // or estimate progress yet).
-  const REQUEST_STAGE = ['new', 'enquiry']
-  const newJobRequests = enquiriesRaw.filter(
-    (e) => e.is_active && !e.driving_role && REQUEST_STAGE.includes(String(e.status ?? 'new').toLowerCase()),
-  ).length
-  const pendingJobRequests = enquiriesRaw.filter(
-    (e) => e.is_active && !!e.driving_role && REQUEST_STAGE.includes(String(e.status ?? 'new').toLowerCase()),
+  // Owner, 31 Oct 2026 (no time limit): a job sent back for correction more than
+  // once on the same item (survey, estimate, sub-stage) is a PENDING job; a job
+  // moving cleanly upward is a NEW job. Decisions and client acts never count; a
+  // client rejection/review re-runs the process and resets the count
+  // (lib/jobMovementLog.ts). Both counts cover active jobs not yet confirmed for
+  // execution, except pending, which also includes jobs in execution.
+  const pendingRef = pendingByJob(movementRaw as MovementRow[])
+  const activeJobRows = enquiriesRaw.filter((e) => e.is_active && stageForStatus(e.status) !== 'Completed')
+  const pendingJobRequests = activeJobRows.filter((e) => pendingRef[e.booking_ref]).length
+  const newJobRequests = activeJobRows.filter(
+    (e) => classifyJob(!!pendingRef[e.booking_ref], e.status, e.confirmed_for_execution_at) === 'new',
   ).length
 
   // ── labour not deployed ──────────────────────────────────────────────────────
@@ -487,6 +497,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/allocation', icon: '📊', label: 'Allocation Overview', desc: 'Capacity matrix · escalations · client closure', count: 0 },
     { href: '/admin/trade-questions', icon: '📝', label: 'Question Bank', desc: 'Per-trade skill assessment questions', count: 0 },
     { href: '/admin/quality-tests', icon: '🧪', label: 'Quality Tests', desc: 'Per-job test steps (ponding, pressure…)', count: 0 },
+    { href: '/admin/job-movements', icon: '🧾', label: 'Job Movement Log', desc: 'Every movement of every job, in time order', count: pendingJobRequests },
   ]
 
   return (
@@ -514,8 +525,8 @@ export default async function AdminDashboardPage() {
           <div className="bg-red-600 rounded-2xl px-5 py-4">
             <p className="text-white font-bold text-sm mb-2">Immediate attention required:</p>
             <div className="flex flex-wrap gap-2">
-              <AlertPill href="/admin/coordinators" label="New Job Requests" count={newJobRequests} className="bg-red-900" />
-              <AlertPill href="/staff/intake" label="Pending Job Requests" count={pendingJobRequests} className="bg-[#F97316]" />
+              <AlertPill href="/admin/job-movements?filter=new" label="New Job Requests" count={newJobRequests} className="bg-red-900" />
+              <AlertPill href="/admin/job-movements?filter=pending" label="Pending Job Requests" count={pendingJobRequests} className="bg-[#F97316]" />
               <AlertPill href="/coordinator/dynamic-scheduler" label={labourLabel} count={labourNotDeployed} className={pastNinePm ? 'bg-red-900' : 'bg-red-700'} />
               <AlertPill href="/admin/workers" label="Pending Worker Approvals" count={pendingAdminApproval} className="bg-[#F97316]" />
               <AlertPill href="/admin/payments" label="Payments Pending" count={paymentsPendingAdmin} className="bg-red-700" />

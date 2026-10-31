@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // PENDING #25 (Session 62, HIGH PRIORITY, confirmed unresolved through
 // Session 67): /supervisor/approval/[id] never existed as a route at all,
@@ -31,6 +32,10 @@ export async function supervisorApproveSubstage(
     })
     .eq('id', substageId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    substageId, stage: 'milestone', action: 'approved',
+    itemType: 'job_milestone_substage', itemId: substageId, toRole: 'sub_coordinator',
+  })
   revalidatePath('/supervisor/approvals')
   revalidatePath('/supervisor/dashboard')
   return { success: true }
@@ -55,6 +60,10 @@ export async function supervisorSendBackSubstage(
     })
     .eq('id', substageId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    substageId, stage: 'milestone', action: 'returned',
+    itemType: 'job_milestone_substage', itemId: substageId, toRole: 'site_incharge', remarks: reason,
+  })
   revalidatePath('/supervisor/approvals')
   revalidatePath('/supervisor/dashboard')
   return { success: true }

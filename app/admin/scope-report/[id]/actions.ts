@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,11 @@ export async function submitToNextLevel(
 
   if (submissionResult.error) return { error: submissionResult.error.message }
   if (statusResult.error) return { error: statusResult.error.message }
+  await logJobMovement(supabase, {
+    siteVisitReportId: reportId, stage: 'survey', action: 'forwarded',
+    itemType: 'site_visit_report', itemId: reportId,
+    fromUserId: userData.id, fromRole: userData.platform_role, toRole: submittedToRole, remarks: notes,
+  })
   return {}
 }
 
@@ -132,6 +138,11 @@ export async function approveAndSendToAdmin(
 
   if (reportResult.error) return { error: reportResult.error.message }
   if (submissionResult.error) return { error: submissionResult.error.message }
+  await logJobMovement(supabase, {
+    siteVisitReportId: reportId, stage: 'survey', action: 'approved',
+    itemType: 'site_visit_report', itemId: reportId,
+    fromUserId: userData.id, fromRole: userData.platform_role, toRole: 'admin', remarks: coordinatorNotes,
+  })
   return {}
 }
 
@@ -174,6 +185,11 @@ export async function returnToSubCoordinator(
   if (reportResult.error) return { error: reportResult.error.message }
   if (submissionResult.error) return { error: submissionResult.error.message }
   if (enquiryResult.error) return { error: enquiryResult.error.message }
+  await logJobMovement(supabase, {
+    bookingRef: bookingRef || null, siteVisitReportId: reportId, stage: 'survey', action: 'returned',
+    itemType: 'site_visit_report', itemId: reportId,
+    fromUserId: userData.id, fromRole: userData.platform_role, toRole: 'sub_coordinator', remarks: submissionNote,
+  })
   return {}
 }
 
@@ -221,5 +237,10 @@ export async function returnToSupervisor(
   if (reportResult.error) return { error: reportResult.error.message }
   if (submissionResult.error) return { error: submissionResult.error.message }
   if (enquiryResult.error) return { error: enquiryResult.error.message }
+  await logJobMovement(supabase, {
+    bookingRef: bookingRef || null, siteVisitReportId: reportId, stage: 'survey', action: 'returned',
+    itemType: 'site_visit_report', itemId: reportId,
+    fromUserId: userData.id, fromRole: userData.platform_role, toRole: 'supervisor', remarks: submissionNote,
+  })
   return {}
 }

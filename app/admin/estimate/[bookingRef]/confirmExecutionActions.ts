@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // The single "job is ready for execution" gate (project owner's explicit
 // decision, 1 Oct 2026, unifying two previously-disconnected signals:
@@ -55,6 +56,13 @@ export async function confirmJobForExecution(params: {
     .update(updatePayload)
     .eq('booking_ref', params.bookingRef)
   if (error) return { error: error.message }
+
+  await logJobMovement(supabase, {
+    bookingRef: params.bookingRef, stage: 'execution', action: 'decided',
+    fromUserId: user.id, fromRole: profile?.platform_role ?? null,
+    toRole: 'coordinator', toUserId: params.coordinatorUserId,
+    remarks: 'Confirmed for execution',
+  })
 
   revalidatePath(`/admin/estimate/${params.bookingRef}`)
   revalidatePath('/admin/dashboard')

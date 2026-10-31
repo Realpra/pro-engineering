@@ -3,6 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 export type MilestoneActionResult = { success: true } | { error: string }
 
@@ -246,6 +247,11 @@ export async function adminApproveScopeContractChange(
     })
     .eq('id', requestId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    bookingRef: request.booking_ref, stage: 'scope_change', action: 'decided',
+    itemType: 'scope_change_request', itemId: requestId, fromUserId: adminUserId, toRole: 'client',
+    remarks: 'Scope change approved, sent to client for decision' + (remarks ? `: ${remarks}` : ''),
+  })
   revalidatePath(PATH)
   revalidatePath(`/admin/estimate/${request.booking_ref}`)
   return { success: true }
@@ -275,6 +281,11 @@ export async function adminRejectScopeContractChange(
     })
     .eq('id', requestId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    scopeChangeRequestId: requestId, stage: 'scope_change', action: 'decided',
+    itemType: 'scope_change_request', itemId: requestId, fromUserId: adminUserId,
+    remarks: `Scope change rejected` + (remarks ? `: ${remarks}` : ''),
+  })
   revalidatePath(PATH)
   return { success: true }
 }
@@ -331,6 +342,10 @@ export async function adminApproveSubstage(
     })
     .eq('id', substageId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    substageId, stage: 'milestone', action: 'approved',
+    itemType: 'job_milestone_substage', itemId: substageId, fromUserId: adminUserId,
+  })
   revalidatePath(PATH)
   return { success: true }
 }
@@ -359,6 +374,11 @@ export async function adminRejectSubstage(
     })
     .eq('id', substageId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    substageId, stage: 'milestone', action: 'returned',
+    itemType: 'job_milestone_substage', itemId: substageId, fromUserId: adminUserId,
+    toRole: 'site_incharge', remarks: rejectionReason,
+  })
   revalidatePath(PATH)
   return { success: true }
 }

@@ -113,6 +113,34 @@ preview build READY). Two SQL files PENDING the owner's run: `20261030_admin_str
 then `20261030_seed_quality_tests_ponding_pressure.sql`. Cloud sessions now have a read-only Supabase
 token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Package 1.
 
+**Decisions of 31 Oct 2026 (Session 73)**
+- D22 Changes to a job, two kinds. (i) Splitting or merging a milestone or sub-stage: the moment it
+  is started, the screen asks which milestones (or sub-stages) it affects, and those are edited,
+  added or made nil, keeping 100%. Applies to running jobs AND stage templates. (ii) Real changes
+  (added work, changed or deleted items, same or other type): these are all correlated, so ONE
+  revised estimate is made (no separate sub-estimate block -- supersedes the 31 Oct morning idea),
+  run through the whole new-job process; on acceptance progress till date is filled in (finished
+  sub-stages, plus the completed % of one in progress), the revised estimate shows "done till date"
+  beside "balance", the balance is scheduled afresh like a new job, then worker deployment is
+  adjusted. NOT BUILT YET.
+- D23 Admin dashboard urgent attention adds: New Job Requests, Pending Job Requests, Labour not
+  deployed by the 9 pm day-end (from the Dynamic Scheduler's task_ledger). Built.
+- D24 New vs pending job, no time limit: a job sent back for correction twice on the same item
+  (routing, survey, estimate, milestone/sub-stage) is PENDING; the first send-back is normal.
+  Decisions (premium, confirm for execution, scope-change decision) and client acts are never
+  counted; a client rejection or request for review re-runs the process and resets the count.
+  A job moving cleanly upward is NEW. Admin gets a time-ordered movement log of every job with
+  the action taken (job_movement_log, /admin/job-movements). Built; SQL pending.
+- D25 Worker onboarding is final only when Admin approves. Coordinator's interim allowance is his
+  own separate act (coordinator_deployable_at, "Mark Deployable (Adhoc)"). "Waiting for Admin" is
+  one value: 'pending_admin_approval' (Coordinator's Workers page no longer writes
+  'coordinator_approved'; readers still accept it for older rows).
+
+**State at Session 73 (31 Oct 2026)**: both 20261030 SQL files confirmed run live and verified
+read-only. Commits on the branch NOT YET PUSHED (owner to say): dashboard alerts, worker
+approvals fix, job movement log. SQL PENDING the owner's run:
+`supabase/migrations/20261031_job_movement_log.sql`. Next: D22 build.
+
 **Phase order (owner, 30 Oct 2026)**
 - Phase I: complete the operations (procurement, Sub-Coordinator, milestones and payment decisions,
   margin, and the other operational gaps).

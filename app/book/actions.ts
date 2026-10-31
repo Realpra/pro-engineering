@@ -1,6 +1,8 @@
 'use server'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
 
@@ -77,4 +79,23 @@ export async function createClientDevAuthAccount(
   } catch (e: any) {
     return { error: e.message }
   }
+}
+
+// Job movement log (owner, 31 Oct 2026): records the job's first movement, its
+// creation through /book. /book/submit inserts the job from the browser, so this
+// runs server-side afterwards. It writes only once per job, so a repeated call
+// adds nothing.
+export async function recordJobCreated(bookingRef: string): Promise<void> {
+  const admin = adminClient()
+  const { data: existing } = await admin
+    .from('job_movement_log').select('id')
+    .eq('booking_ref', bookingRef).eq('action', 'created').limit(1)
+  if (existing && existing.length > 0) return
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  await logJobMovement(admin, {
+    bookingRef, stage: 'request', action: 'created',
+    fromUserId: user?.id ?? null, fromRole: user ? null : 'client', toRole: 'admin',
+    remarks: 'Full project enquiry (/book)',
+  })
 }

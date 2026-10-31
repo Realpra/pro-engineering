@@ -3,6 +3,7 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createClientDevAuthAccount } from '@/app/book/actions'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // The public site runs anonymously -- geo_hierarchy's RLS only grants SELECT to
 // `authenticated`, and both inserts below are public form submissions. Same
@@ -134,6 +135,11 @@ export async function submitJobRequest(
     // dev/beta account /book/submit creates (createClientDevAuthAccount).
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    await logJobMovement(admin, {
+      bookingRef: ref, stage: 'request', action: 'created',
+      fromUserId: user?.id ?? null, fromRole: user ? null : 'client', toRole: 'admin',
+      remarks: `Website request: ${input.requestType}`,
+    })
     if (user) {
       const { data: profile } = await admin.from('users').select('platform_role').eq('id', user.id).maybeSingle()
       if (profile?.platform_role === 'client') {

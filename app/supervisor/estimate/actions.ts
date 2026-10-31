@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { generateBOQ } from '@/app/admin/estimate/[bookingRef]/actions'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
 
@@ -95,6 +96,13 @@ export async function submitSupervisorEstimateReview(params: {
     }
   }
 
+  await logJobMovement(supabase, {
+    bookingRef: params.bookingRef, stage: 'estimate',
+    action: params.action === 'confirm' ? 'approved' : 'returned',
+    itemType: 'boq_generated', itemId: boq.id,
+    fromUserId: params.supervisorUserId, toRole: 'coordinator',
+    remarks: [params.action, params.reason].filter(Boolean).join(': '),
+  })
   revalidatePath('/supervisor/estimate')
   return {}
 }

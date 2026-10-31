@@ -3,6 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 export type ScopeActionResult = { success: true } | { error: string }
 
@@ -278,6 +279,11 @@ export async function adminApproveScopeChange(
     })
     .eq('id', requestId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    bookingRef: request.booking_ref, stage: 'scope_change', action: 'decided',
+    itemType: 'scope_change_request', itemId: requestId, fromUserId: adminUserId, toRole: 'client',
+    remarks: 'Scope change approved, sent to client for decision' + (remarks ? `: ${remarks}` : ''),
+  })
   revalidatePath('/admin/scope')
   revalidatePath(`/admin/estimate/${request.booking_ref}`)
   return { success: true }
@@ -307,6 +313,11 @@ export async function adminRejectScopeChange(
     })
     .eq('id', requestId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    scopeChangeRequestId: requestId, stage: 'scope_change', action: 'decided',
+    itemType: 'scope_change_request', itemId: requestId, fromUserId: adminUserId,
+    remarks: `Scope change rejected` + (remarks ? `: ${remarks}` : ''),
+  })
   revalidatePath('/admin/scope')
   return { success: true }
 }
@@ -331,6 +342,11 @@ export async function adminPartialApproveScopeChange(
     })
     .eq('id', requestId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    scopeChangeRequestId: requestId, stage: 'scope_change', action: 'decided',
+    itemType: 'scope_change_request', itemId: requestId, fromUserId: adminUserId,
+    remarks: `Scope change partly approved` + (remarks ? `: ${remarks}` : ''),
+  })
   revalidatePath('/admin/scope')
   return { success: true }
 }

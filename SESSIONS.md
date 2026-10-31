@@ -1930,3 +1930,43 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
   milestone reporting form (single path), stage_payment_decisions with release % (D19), retention
   pool, sub-stage proposals. Admin adds the 6th bathroom stage (D20).
 - Rules: ask before every push, migration and live test; no invented data; no MVP.
+
+## SESSION 73 — 31 Oct 2026 — DASHBOARD ALERTS, WORKER APPROVAL FIX, JOB MOVEMENT LOG
+- Verified read-only that both 20261030 SQL files landed live: all 14 new QIP columns, the 3
+  policies, RLS on, TST-PONDING-01 (M2, 24 h, 7 steps) and TST-PRESSURE-01 (M1, 3 h, 6 steps).
+  Owner clicked through Quality Tests: OK.
+- Owner's decisions D22-D25 recorded in CLAUDE.md (changes to a job; dashboard items; new vs
+  pending job with a movement log; onboarding final at Admin, one "waiting for Admin" value).
+- Built (local commits, NOT pushed -- owner to say):
+  - Admin dashboard "Immediate attention": New Job Requests, Pending Job Requests (both from the
+    movement log, D24), Labour not deployed for today/tomorrow (task_ledger slots Pending with no
+    worker or Savior), turning dark red after 9 pm IST. New "Job Movement Log" tile.
+  - Pending Worker Approvals: Admin's Workers page, its count and the dashboard read only
+    'coordinator_approved'; the zone-registry path writes 'pending_admin_approval', so 18 live
+    workers never reached Admin. Admin now reads both (lib/workerApprovalStatus.ts); Coordinator's
+    Workers page now writes 'pending_admin_approval' (D25), list relabelled "Sent to Admin".
+  - Job movement log: new table job_movement_log (FK enquiry_id -> guest_enquiries.id, since
+    booking_ref has no unique constraint; stage/action CHECKs; counts_as_return and
+    resets_return_count stored on each row). lib/jobMovementLog.ts logJobMovement never blocks
+    the person's action. Wired into: website request + /book creation (new server action
+    recordJobCreated), routing, survey submit (site surveys only, not daily execution visits),
+    survey forward/approve/return x2, estimate to Admin / to client, Supervisor estimate review
+    (Revise/Modify = returned), premium approve/reject (Admin + Superadmin, decisions),
+    client accept/reject/review, confirm for execution (decision), scope change approve/partial/
+    reject (Admin, 2 places, decisions) and the client's scope-change decision, sub-stage
+    submitted (Site Incharge), forwarded (Sub-Coordinator), approved/sent back (Sub-Coordinator,
+    Supervisor, Admin). New page /admin/job-movements: per-job timeline, filters New / Pending /
+    In execution.
+  - Assumption stated to the owner: send-backs are counted per item (one survey report, one
+    estimate, one sub-stage), so two different sub-stages each sent back once do not make the job
+    pending. Movements before the log went live cannot be recovered.
+- Migration 20261031_job_movement_log.sql tested twice on local Postgres 16 (idempotent, CHECK
+  rejects a bad stage). NOT YET RUN live. Until it runs, logging fails silently (server console
+  only) and /admin/job-movements shows a load notice; nothing else changes.
+- npx tsc --noEmit exit 0. Nothing live-tested.
+
+## NEXT SESSION — START HERE (Updated 31 Oct 2026, Session 73)
+- Ask the owner to push the local commits; ask them to run 20261031_job_movement_log.sql.
+- Then build D22 (split/merge with affected-milestone prompt, for running jobs and templates; one
+  revised estimate with done-till-date + balance, balance rescheduled, deployment adjusted).
+- Rest of Package 1 still waits for the owner's agreement.

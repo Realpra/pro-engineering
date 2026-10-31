@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { applyApprovedPremium } from '@/lib/applyApprovedPremium'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 export async function approvePremiumRequestAsAdmin(
   id: string,
@@ -35,6 +36,11 @@ export async function approvePremiumRequestAsAdmin(
   // PENDING #15 re-link: the approval is now real, not just a status flip.
   const applyResult = await applyApprovedPremium(supabase, request.boq_id, request.booking_ref, request.requested_pct)
   if (applyResult.error) return { success: false, error: `Approved, but failed to apply to the live estimate: ${applyResult.error}` }
+  await logJobMovement(supabase, {
+    bookingRef: request.booking_ref, stage: 'premium', action: 'decided',
+    itemType: 'premium_approval_request', itemId: id, fromUserId: user.id,
+    remarks: `Premium ${request.requested_pct}% approved`,
+  })
 
   return { success: true }
 }
@@ -60,5 +66,10 @@ export async function rejectPremiumRequestAsAdmin(
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
+  await logJobMovement(supabase, {
+    premiumRequestId: id, stage: 'premium', action: 'decided',
+    itemType: 'premium_approval_request', itemId: id, fromUserId: user.id,
+    remarks: `Premium rejected: ${rejectionReason}`,
+  })
   return { success: true }
 }
