@@ -2059,3 +2059,8 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
   rows; found and fixed a real fault (district ranked above region for Sector 62's two zones).
 - D43: removed every built-in fallback; a missing repository value stops generation with a message
   asking Admin to fill it (also shown when the estimate page auto-generates). Live matrix 27/27.
+- Owner found on the preview: the turn-key (lump sum) request asked for skills and number of
+  personnel. Fault from Session 71's website build (this repo, not Claude Chat): the skills-and-
+  numbers step showed on all three request types and a lump-sum pick pre-filled a crew. Fixed: the
+  step shows only for one-day and Labour Bazaar; turn-key sends no skills. Owner's decided turn-key
+  flow: trade > lump sum job > with/without material > date > location > name and phone.

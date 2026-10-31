@@ -82,12 +82,11 @@ export default function RequestForm({ type }: { type: RequestType }) {
     setLumpSumPackage('')
   }
 
-  // Choosing a lump sum job pre-fills the crew it normally needs, one of each,
-  // for the client to adjust.
+  // Owner's decided turn-key flow: trade > lump sum job > with/without material > date >
+  // location. The client does not state personnel; Pro Engineering plans the crew.
+  // (Fixed 31 Oct 2026: the skills-and-numbers step had been shown on lump sum too.)
   function selectPackage(name: string) {
     setLumpSumPackage(name)
-    const crew = tradeDef?.lumpSum.find(p => p.name === name)?.skills ?? []
-    if (crew.length > 0) setSkillsRequired(crew.map(s => ({ skill: s, count: 1 })))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -110,7 +109,7 @@ export default function RequestForm({ type }: { type: RequestType }) {
       timeFrom, timeTo,
       daySlot: daySlot || undefined,
       durationDays: durationDays ? Number(durationDays) : undefined,
-      skillsRequired, scopeDescription, preferredDate,
+      skillsRequired: type === 'turn_key' ? [] : skillsRequired, scopeDescription, preferredDate,
       ...location, address, firmName,
       contactName, contactPhone, contactEmail,
     })
@@ -261,10 +260,12 @@ export default function RequestForm({ type }: { type: RequestType }) {
         )}
       </Section>
 
-      <Section step={++step} title={f.sections.skills}>
-        <p className="sm:col-span-2 text-sm text-stone-600">{f.hints.skills}</p>
-        <SkillRows rows={skillsRequired} onChange={setSkillsRequired} />
-      </Section>
+      {type !== 'turn_key' && (
+        <Section step={++step} title={f.sections.skills}>
+          <p className="sm:col-span-2 text-sm text-stone-600">{f.hints.skills}</p>
+          <SkillRows rows={skillsRequired} onChange={setSkillsRequired} />
+        </Section>
+      )}
 
       <Section step={++step} title={f.sections.scope}>
         <Field label={f.fields.scope} wide>
