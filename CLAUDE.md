@@ -215,6 +215,13 @@ token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Pac
   `20261031_contingency_repository_and_admin_limit.sql` RUN LIVE (verified read-only: 4 columns, check,
   index; all 27 rows at limit 5). Commit 095d7c6 + record awaiting the owner's push go-ahead.
 
+- D44 (owner, 31 Oct 2026) Screens: functionality comes first -- everything must work. New cards,
+  panels and pages built so far (the audit list of 31 Oct) stay for now and are reviewed when the full
+  run is tested. Any new screen work keeps to the same lines as what is already built (existing page
+  patterns and styles); a genuinely new layout is proposed to the owner first.
+- D45 Turn-key (lump sum) request: trade > lump sum job > with/without material > date > location >
+  name and phone; no skills/personnel step (fixed 2fd7baf).
+
 **State at Session 73 (31 Oct 2026)**: both 20261030 SQL files confirmed run live and verified
 read-only. Commits on the branch NOT YET PUSHED (owner to say): dashboard alerts, worker
 approvals fix, job movement log, second-round decisions (D26-D34 builds). `20261031_job_movement_log.sql`
