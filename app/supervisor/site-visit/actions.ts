@@ -190,14 +190,44 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
     if (enquiryErr) return { error: enquiryErr.message }
   }
 
+  // Site Visit Manager substitutes for the Supervisor and always submits UP to the job's
+  // Supervisor (owner, 27 Sep / 31 Oct 2026): tell that Supervisor a report awaits him.
+  const { data: { user: submitter } } = await supabase.auth.getUser()
+  const { data: submitterProfile } = submitter
+    ? await supabase.from('users').select('platform_role').eq('id', submitter.id).maybeSingle()
+    : { data: null }
+  // A Site Manager (Site Head) taking a visit in the Supervisor's absence also submits up to him.
+  const byVisitManager = ['site_visit_manager', 'site_incharge'].includes(submitterProfile?.platform_role ?? '')
+  if (byVisitManager) {
+    const { data: job } = await supabase.from('guest_enquiries').select('supervisor_id').eq('booking_ref', report.booking_ref).maybeSingle()
+    const { data: supWorker } = job?.supervisor_id
+      ? await supabase.from('workers').select('auth_user_id').eq('id', job.supervisor_id).maybeSingle()
+      : { data: null }
+    if (supWorker?.auth_user_id) {
+      await supabase.from('site_instructions').insert({
+        booking_ref: report.booking_ref,
+        instruction_type: 'revised',
+        instruction_category: 'report',
+        priority: 'medium',
+        instruction_text: `Site Visit Manager submitted a ${isDailyExecution ? 'daily execution visit' : 'site survey'} report for ${report.booking_ref} -- please review and process.`,
+        issued_by: submitter?.id ?? null,
+        issued_to: supWorker.auth_user_id,
+        issued_at: new Date().toISOString(),
+        status: 'pending',
+        is_active: true,
+      })
+    }
+  }
+
   await logJobMovement(supabase, isDailyExecution
     ? {
         bookingRef: report.booking_ref, stage: 'site_visit', action: 'completed',
-        itemType: 'site_visit_report', itemId: reportId, remarks: 'Daily execution visit report submitted',
+        itemType: 'site_visit_report', itemId: reportId, toRole: byVisitManager ? 'supervisor' : null,
+        remarks: byVisitManager ? 'Daily execution visit report submitted by Site Visit Manager, up to Supervisor' : 'Daily execution visit report submitted',
       }
     : {
         bookingRef: report.booking_ref, stage: 'survey', action: 'forwarded',
-        itemType: 'site_visit_report', itemId: reportId, toRole: 'coordinator',
+        itemType: 'site_visit_report', itemId: reportId, toRole: byVisitManager ? 'supervisor' : 'coordinator',
       })
 
   // supervisor_daily_routes.report_status/report_submitted_at are read by 5

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import SiteVisitManager from './SiteVisitManager'
+import { isVisitRole } from '@/lib/visitRoles'
 
 export default async function SiteVisitPage({
   searchParams,
@@ -18,7 +19,8 @@ export default async function SiteVisitPage({
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  // Site Manager (Site Head) may also take a visit in the Supervisor's absence (owner, 31 Oct 2026).
+  if (!isVisitRole(profile?.platform_role) && profile?.platform_role !== 'site_incharge') redirect('/login')
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 

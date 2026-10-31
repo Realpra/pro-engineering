@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../../dashboard/SignOutButton'
 import ApprovalActions from './ApprovalActions'
+import { isVisitRole } from '@/lib/visitRoles'
 
 // PENDING #25 -- see actions.ts for full context. Every "Review & Approve"
 // link across Dashboard/Approvals/Inspections already points here; this is
@@ -19,7 +20,7 @@ export default async function SupervisorApprovalDetailPage({ params }: { params:
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const { data: substage } = await supabase
     .from('job_milestone_substages')

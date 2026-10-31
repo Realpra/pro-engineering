@@ -56,6 +56,7 @@ export default async function ClientDashboardPage({
     { data: substagesData },
     { data: responseData },
     { data: scopeChangesData },
+    { data: objectionsData },
   ] = await Promise.all([
     supabase.from('guest_enquiries').select('*').eq('booking_ref', bookingRef).single(),
     supabase
@@ -93,6 +94,13 @@ export default async function ClientDashboardPage({
       .eq('booking_ref', bookingRef)
       .eq('admin_decision', 'approved')
       .order('admin_decided_at', { ascending: false }),
+    // Client's own invoice objections and the replies (owner, 31 Oct 2026, D30).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('client_invoice_objections')
+      .select('id, milestone_payment_id, objection_type, description, status, resolution, revised_amount, reply_to_client, raised_at')
+      .eq('booking_ref', bookingRef)
+      .order('raised_at', { ascending: false }),
   ])
 
   if (!enquiryData) {
@@ -128,6 +136,7 @@ export default async function ClientDashboardPage({
       clientResponse={responseData ?? null}
       supervisor={supervisor ?? null}
       scopeChanges={scopeChangesData ?? []}
+      objections={objectionsData ?? []}
     />
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { logVisitRequest, scheduleVisitRequest, cancelVisitRequest } from './actions'
+import { logVisitRequest, scheduleVisitRequest, cancelVisitRequest, deferVisitForClientNextSlot } from './actions'
 
 export type VisitRequest = {
   id: string
@@ -40,12 +40,14 @@ export default function VisitRequestsPanel({
   supervisors,
   loggedByUserId,
   loggedByRole,
+  visitManagers = [],
 }: {
   requests: VisitRequest[]
   jobMap: Record<string, JobInfo>
   supervisors: SupervisorOption[]
   loggedByUserId: string
   loggedByRole: 'coordinator' | 'admin'
+  visitManagers?: SupervisorOption[]
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -229,10 +231,19 @@ export default function VisitRequestsPanel({
                   {scheduling === req.id ? (
                     <div className="px-5 pb-4 space-y-2 bg-gray-50 border-t border-gray-100 pt-3">
                       <select value={schedSupervisor} onChange={e => setSchedSupervisor(e.target.value)} className={inputClass}>
-                        <option value="">Select supervisor…</option>
-                        {supervisors.map(s => (
-                          <option key={s.id} value={s.id}>{s.full_name}</option>
-                        ))}
+                        <option value="">Select supervisor or Site Visit Manager…</option>
+                        <optgroup label="Supervisors">
+                          {supervisors.map(s => (
+                            <option key={s.id} value={s.id}>{s.full_name}</option>
+                          ))}
+                        </optgroup>
+                        {visitManagers.length > 0 && (
+                          <optgroup label="Site Visit Managers">
+                            {visitManagers.map(s => (
+                              <option key={s.id} value={s.id}>{s.full_name}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                       <div className="grid grid-cols-3 gap-2">
                         <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} className={inputClass} />
@@ -290,6 +301,23 @@ export default function VisitRequestsPanel({
                   <p className="text-sm font-semibold text-gray-700">{req.booking_ref}</p>
                   <p className="text-xs text-gray-400">{CATEGORY_LABEL[req.visit_category] ?? req.visit_category}</p>
                 </div>
+                {req.status === 'scheduled' && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      const note = window.prompt('Client cannot make it / visit cannot happen — reason (client will be asked for the next slot):')
+                      if (!note) return
+                      setBusy(true); setError(null)
+                      const res = await deferVisitForClientNextSlot({ requestId: req.id, note, byUserId: loggedByUserId, byRole: loggedByRole })
+                      setBusy(false)
+                      if (res.error) setError(res.error); else router.refresh()
+                    }}
+                    className="text-xs font-semibold text-amber-700 border border-amber-400 rounded-lg px-2 py-1 disabled:opacity-50"
+                  >
+                    Defer — next slot
+                  </button>
+                )}
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                   req.status === 'scheduled' ? 'bg-green-100 text-green-700' :
                   req.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'

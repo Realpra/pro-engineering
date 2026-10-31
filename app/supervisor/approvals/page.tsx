@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { isVisitRole } from '@/lib/visitRoles'
 
 function slaCountdown(submittedAt: string | null): string {
   if (!submittedAt) return '—'
@@ -68,7 +69,7 @@ export default async function ApprovalsPage() {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import InstructionForm from './InstructionForm'
+import { isVisitRole } from '@/lib/visitRoles'
 
 export default async function SupervisorInstructionPage({
   searchParams,
@@ -17,7 +18,7 @@ export default async function SupervisorInstructionPage({
     .select('platform_role')
     .eq('id', user.id)
     .maybeSingle()
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   let siteInchargeRecipient: { id: string; name: string } | null = null
   if (site) {

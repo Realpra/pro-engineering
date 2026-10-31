@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
 
@@ -110,6 +111,60 @@ export async function submitLTF(params: {
     : await (supabase as any).from('ltf_feeds').insert(payload)
 
   if (error) return { error: error.message }
+  revalidatePath('/site-incharge/dashboard')
+  return {}
+}
+
+// Owner, 31 Oct 2026 (D32): the Site Head may start a change of scope -- addition, deletion or
+// new work -- as "site demands" or "client requests". It then takes the same route as every
+// scope change: Supervisor/Coordinator review, Admin approval with the revised estimate, the
+// client's decision, then the plan and payments are redefined.
+export async function submitSiteHeadScopeChange(params: {
+  bookingRef: string
+  changeType: 'addition' | 'deletion' | 'substitution'
+  source: 'site_demand' | 'client_request'
+  description: string
+  roughItems: { description: string; qty: number; unit: string; amount: number }[]
+  timelineImpactDays: number
+}): Promise<{ error?: string }> {
+  if (params.description.trim().length < 20) return { error: 'Describe the change (at least 20 characters).' }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not signed in.' }
+  // requested_by holds the requester's workers.id, the same as Supervisor's Extra Works.
+  const { data: worker } = await supabase.from('workers').select('id').eq('auth_user_id', user.id).maybeSingle()
+  const now = new Date().toISOString()
+  const items = params.roughItems.filter(it => it.description.trim())
+  const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+  const isDeletion = params.changeType === 'deletion'
+
+  const { error } = await supabase.from('scope_change_requests').insert({
+    booking_ref: params.bookingRef,
+    change_type: params.changeType,
+    change_status: 'submitted',
+    raised_by_role: 'site_incharge',
+    trigger_type: params.source === 'client_request' ? 'client_demand' : 'technical_recommendation',
+    client_request: params.source === 'client_request' ? params.description.trim() : null,
+    description: params.description.trim(),
+    site_head_rough_estimate: items,
+    site_head_remarks: params.description.trim(),
+    site_head_submitted_at: now,
+    proposed_additions: isDeletion ? [] : items,
+    proposed_deletions: isDeletion ? items : [],
+    cost_impact_additions: isDeletion ? 0 : total,
+    cost_impact_deletions: isDeletion ? total : 0,
+    cost_impact_net: isDeletion ? -total : total,
+    timeline_impact_days: Math.round(params.timelineImpactDays || 0),
+    requested_at: now,
+    requested_by: worker?.id ?? null,
+  })
+  if (error) return { error: error.message }
+
+  await logJobMovement(supabase, {
+    bookingRef: params.bookingRef, stage: 'scope_change', action: 'raised', fromUserId: user.id,
+    fromRole: 'site_incharge', toRole: 'supervisor',
+    remarks: `${params.source === 'client_request' ? 'Client requests' : 'Site demands'} (${params.changeType}): ${params.description.trim()}`,
+  })
   revalidatePath('/site-incharge/dashboard')
   return {}
 }

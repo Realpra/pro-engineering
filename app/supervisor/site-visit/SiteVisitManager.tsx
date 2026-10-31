@@ -1104,7 +1104,15 @@ export default function SiteVisitManager({
               <p className="text-4xl mb-3">✅</p>
               <p className="text-green-700 font-bold text-lg">Site Visit Submitted</p>
               <p className="text-gray-500 text-sm mt-1">Report submitted · Escrow triggered · Safety ticket sent</p>
-              <p className="text-gray-400 text-xs mt-1">Status: scope_report_submitted</p>
+              <p className="text-gray-400 text-xs mt-1">The job stays at its current stage. Turn each problem found into a corrective action next.</p>
+              {reportId && (
+                <Link
+                  href={`/supervisor/site-visit/corrective/${reportId}`}
+                  className="inline-block mt-4 mr-2 bg-amber-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl"
+                >
+                  Record Corrective Actions →
+                </Link>
+              )}
               <Link
                 href="/supervisor/dashboard"
                 className="inline-block mt-4 bg-[#1F3864] text-white text-xs font-bold px-5 py-2.5 rounded-xl"

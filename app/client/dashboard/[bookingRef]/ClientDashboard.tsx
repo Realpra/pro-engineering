@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import InvoiceObjectionBox, { type ClientObjection } from './InvoiceObjectionBox'
 import {
   markClientViewed,
   submitLineItemResponse,
@@ -25,6 +26,7 @@ interface ClientDashboardProps {
   clientResponse: AnyRecord | null
   supervisor: { full_name: string } | null
   scopeChanges: AnyRecord[]
+  objections?: ClientObjection[]
 }
 
 function money(v: unknown): string {
@@ -117,6 +119,7 @@ export default function ClientDashboard({
   clientResponse,
   supervisor,
   scopeChanges,
+  objections = [],
 }: ClientDashboardProps) {
   const router = useRouter()
   const [busyKey, setBusyKey] = useState<string | null>(null)
@@ -1040,6 +1043,9 @@ export default function ClientDashboard({
                     {busyKey === `pay-${m.id}` ? 'Working…' : `PAY ${milestoneBadgeLabel(m)} NOW`}
                   </button>
                 </div>
+              )}
+              {m.milestone_code !== 'M0' && ['admin_approved', 'client_payment_pending'].includes(m.status) && !m.payment_released_at && (
+                <InvoiceObjectionBox bookingRef={enquiry.booking_ref} milestoneId={m.id} objections={objections} />
               )}
               {m.status === 'client_payment_pending' && !m.payment_released_at && (
                 <div className="px-4 pb-3">

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
 import PrintCertificateButton from './PrintCertificateButton'
+import { isVisitRole } from '@/lib/visitRoles'
 
 function formatDate(d: string | null) {
   if (!d) return '—'
@@ -30,7 +31,7 @@ export default async function CertificatePage() {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 

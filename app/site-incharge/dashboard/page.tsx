@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import SignOutButton from './SignOutButton'
 import RequestResourcesButton from './RequestResourcesButton'
 import LTFSubmitButton from './LTFSubmitButton'
+import SiteHeadScopeChangeButton from './SiteHeadScopeChangeButton'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseAnyForVisits = any
 import Link from 'next/link'
 
 function greeting(hour: number) {
@@ -106,6 +110,24 @@ export default async function SiteInchargeDashboardPage() {
         .eq('shift_date', today)
         .maybeSingle()
     : { data: null }
+
+  // Owner, 31 Oct 2026 (D28): in the Supervisor's absence a visit may be given to this job's
+  // Site Manager (the Site Head). Visits assigned to this worker are listed here.
+  const { data: assignedVisits } = workerRecord
+    ? await (supabase as SupabaseAnyForVisits)
+        .from('supervisor_daily_routes')
+        .select('id, scheduled_date, slot_start, slot_end, slot_type, site_id, visit_status')
+        .eq('supervisor_id', workerRecord.id)
+        .gte('scheduled_date', today)
+        .in('visit_status', ['scheduled', 'in_progress'])
+        .order('scheduled_date', { ascending: true })
+    : { data: [] }
+  const visitSiteIds = Array.from(new Set(((assignedVisits ?? []) as { site_id: string | null }[]).map(v => v.site_id).filter((v): v is string => Boolean(v))))
+  const { data: visitSites } = visitSiteIds.length > 0
+    ? await supabase.from('guest_enquiries').select('id, booking_ref').in('id', visitSiteIds)
+    : { data: [] }
+  const visitBookingRef = Object.fromEntries((visitSites ?? []).map(j => [j.id, j.booking_ref]))
+  const SURVEY_SLOT_TYPES = ['scope_survey', 'client_visit', 'estimate_visit']
 
   const now = new Date()
   const istHour = (now.getUTCHours() + 5 + Math.floor((now.getUTCMinutes() + 30) / 60)) % 24
@@ -225,6 +247,37 @@ export default async function SiteInchargeDashboardPage() {
               siteInchargeUserId={user.id}
               bookingRef={activeJob.booking_ref}
             />
+            <SiteHeadScopeChangeButton bookingRef={activeJob.booking_ref} />
+            <a href="/objections" className="block w-full text-center rounded-xl border border-gray-300 text-gray-700 font-semibold py-2.5 text-sm">
+              Client Invoice Objections
+            </a>
+          </section>
+        )}
+
+        {(assignedVisits ?? []).length > 0 && (
+          <section>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+              Visits assigned to you ({(assignedVisits ?? []).length})
+            </p>
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+              {((assignedVisits ?? []) as { id: string; scheduled_date: string; slot_start: string | null; slot_end: string | null; slot_type: string | null; site_id: string | null }[]).map(v => {
+                const ref = v.site_id ? visitBookingRef[v.site_id] : null
+                const href = SURVEY_SLOT_TYPES.includes(v.slot_type ?? '') && ref
+                  ? `/site-survey/${ref}`
+                  : `/supervisor/site-visit?slot=${v.id}`
+                return (
+                  <div key={v.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{ref ?? 'Site'}</p>
+                      <p className="text-xs text-gray-500">
+                        {v.scheduled_date} · {v.slot_start ?? '—'}–{v.slot_end ?? '—'} · {(v.slot_type ?? 'inspection').replace('_', ' ')}
+                      </p>
+                    </div>
+                    <a href={href} className="shrink-0 text-xs font-bold text-white bg-[#1F3864] rounded-lg px-3 py-1.5">Open visit</a>
+                  </div>
+                )
+              })}
+            </div>
           </section>
         )}
 

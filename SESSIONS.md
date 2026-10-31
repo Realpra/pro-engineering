@@ -2001,3 +2001,33 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
 - Batch 2, not built: D27 corrective-actions screen; D28 Supervisor-refusal / Site Visit Manager /
   client next-slot path; D30 invoice-objection chain; D32 Site Head scope-change initiation; then
   D22 split/merge + revised estimate. Estimate development (D29) waits for its own session.
+
+## SESSION 73 CONTINUED — 31 Oct 2026 — BATCH 2 BUILT (D36-D39)
+- `20261031_job_movement_log_widen_and_request_decision.sql` run live; verified read-only.
+- Owner's answers recorded as D36-D39 in CLAUDE.md.
+- Built (local commit, NOT pushed -- D35):
+  - Site Visit Manager role (`site_visit_manager`, lib/visitRoles.ts): logs in to the Supervisor
+    screens; a report submitted by a Site Visit Manager (or a Site Manager taking the visit) goes
+    up to the job's Supervisor (site_instructions + log). Login setup in
+    docs/SITE_VISIT_MANAGER_LOGIN.md (owner creates each one; no invented people).
+  - Coordinator's declined-visit panel: reassign to another Supervisor, a Site Visit Manager or the
+    job's Site Manager; or defer and ask the client for the next slot. Scheduling picker lists Site
+    Visit Managers. Scheduled visits get "Defer — next slot" (client unavailable). Site Head's
+    dashboard lists visits assigned to him; /supervisor/site-visit admits the Site Head.
+  - Daily-visit corrective actions: /supervisor/site-visit/corrective/[reportId], reached from the
+    visit success screen. Lists every "No" checklist item and risk flag (lib/visitFindings.ts);
+    each gets redo/attend (direction to Site Head), more resources (Coordinators), delay (Supervisor
+    recasts the job's next open day slot via the Dynamic Scheduler, cascading later days; or the
+    Site Head is directed to recast and send it back), or other. Success screen no longer claims
+    "scope_report_submitted".
+  - Client invoice objections: client "Object to this invoice" on an approved/pending milestone
+    invoice; /objections inbox for Site Head, Supervisor, Coordinator, Admin, Super Admin; each level
+    adds the factual position and moves it up (levels with no one assigned are skipped); the
+    deciding level admits (milestone payment_amount corrected) or clarifies, and replies; the client
+    sees the reply on the dashboard. Links on every role's dashboard; Admin alert pill.
+  - Site Head "Raise a Change of Scope" (addition/deletion/change of item, site demands/client
+    requests) into the existing scope change route (scope_change_requests site_head_* columns).
+- New SQL `20261031_invoice_objections_and_visit_corrective_actions.sql` (tested twice locally;
+  `current_role` renamed `holder_role` -- a reserved word). NOT YET RUN.
+- npx tsc --noEmit exit 0. Nothing live-tested. Super Admin login broken (SU-472225) blocks
+  deciding objections on jobs >= Rs1L.

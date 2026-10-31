@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ReportForm from './ReportForm'
+import { isVisitRole } from '@/lib/visitRoles'
 
 const LABELS: Record<string, string> = {
   method: 'Method Improvement Proposal',
@@ -26,7 +27,7 @@ export default async function NewReportPage({
     .select('platform_role')
     .eq('id', user.id)
     .maybeSingle()
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const { data: workerRecord } = await supabase
     .from('workers')

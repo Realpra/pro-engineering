@@ -172,13 +172,34 @@ token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Pac
 - D35 Pushes: the owner approves pushes once a module or task is complete and ready; until then
   work stays in local commits.
 
+**Decisions of 31 Oct 2026, batch 2 (Session 73)**
+- D36 Site Visit Manager is a separate login role (`site_visit_manager`) with a workers row (trade
+  'Site Visit Manager'); same visit screens as Supervisor; always submits up to the job's
+  Supervisor. Site Manager = the Site Head designated for a job; in the Supervisor's absence a visit
+  can also be given to him. Supervisor refusal: Coordinator sends another Supervisor, a Site Visit
+  Manager or the Site Manager, or defers and asks the client for the next slot; client unavailable
+  -> next slot asked. (Built.)
+- D37 Invoice objection: Site Head > Supervisor > Coordinator > Admin > Super Admin, decided one
+  level above the routine role for the job value: below Rs1L (Coordinator) -> Admin; Rs1L-5L
+  (Admin) -> Super Admin; above Rs5L -> Super Admin. Admit (invoice corrected) or clarify, reply to
+  client. Routine payment flow is separate. (Built; table client_invoice_objections.)
+- D38 Daily-visit corrective actions as proposed; for a delay the Supervisor recasts the milestone
+  himself or directs the Site Head to recast and send it to him. (Built; table
+  visit_corrective_actions.)
+- D39 Site Head may start a change of scope (addition/deletion/new work, "site demands" or "client
+  requests"); every scope or milestone change takes the estimate approval route. Until the Estimate
+  build, use the existing estimates (bathroom renovation etc.). (Site Head initiation built.)
+
 **State at Session 73 (31 Oct 2026)**: both 20261030 SQL files confirmed run live and verified
 read-only. Commits on the branch NOT YET PUSHED (owner to say): dashboard alerts, worker
 approvals fix, job movement log, second-round decisions (D26-D34 builds). `20261031_job_movement_log.sql`
 RUN LIVE (verified). SQL PENDING the owner's run: `20261031_job_movement_log_widen_and_request_decision.sql`
-(needed before the dashboard/movement-log page read `request_decision`). Not built yet: D27 actionables
-screen, D28 refusal/deferral path, D30 invoice-objection chain, D32 Site Head scope-change initiation,
-D22 split/merge + revised estimate.
+(needed before the dashboard/movement-log page read `request_decision`) -- RUN LIVE (verified).
+Batch 2 built locally (D36-D39); SQL PENDING the owner's run:
+`20261031_invoice_objections_and_visit_corrective_actions.sql`. Site Visit Manager logins to be
+created by the owner (docs/SITE_VISIT_MANAGER_LOGIN.md). Super Admin login is still broken
+(SU-472225), so objections on jobs of Rs1L and above cannot be decided until it is fixed. Next:
+D22 split/merge with the existing estimates.
 
 **Phase order (owner, 30 Oct 2026)**
 - Phase I: complete the operations (procurement, Sub-Coordinator, milestones and payment decisions,

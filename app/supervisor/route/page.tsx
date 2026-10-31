@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
 import ConfirmDayPlanButton from './ConfirmDayPlanButton'
+import { isVisitRole } from '@/lib/visitRoles'
 
 // SA-ROUTE (June log line 40012-40016): "New page at /supervisor/route.
 // Reads from supervisor_schedule, ltf_feeds, site_visit_reports. Shows:
@@ -47,7 +48,7 @@ export default async function SupervisorRoutePage() {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 

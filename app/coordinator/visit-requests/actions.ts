@@ -193,3 +193,106 @@ export async function cancelVisitRequest(requestId: string): Promise<{ error?: s
   revalidatePath('/coordinator/visit-requests')
   return {}
 }
+
+// Owner, 31 Oct 2026 (D28): when a Supervisor cannot do a visit, the Coordinator may give it
+// to another Supervisor, to any Site Visit Manager, or -- in the Supervisor's absence -- to the
+// job's Site Manager (the Site Head designated for the job). The declined slot is reassigned
+// to that person's workers row and goes back to 'scheduled'.
+export async function reassignVisit(params: {
+  slotId: string
+  workerId: string
+  assigneeLabel: string
+  byUserId: string
+}): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('supervisor_daily_routes')
+    .update({
+      supervisor_id: params.workerId,
+      visit_status: 'scheduled',
+      override_confirmed_at: new Date().toISOString(),
+      override_confirmed_by: params.byUserId,
+      planned_by: 'coordinator',
+    })
+    .eq('id', params.slotId)
+  if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    routeSlotId: params.slotId, stage: 'site_visit', action: 'reassigned', fromUserId: params.byUserId,
+    itemType: 'supervisor_daily_route', itemId: params.slotId, remarks: `Visit reassigned to ${params.assigneeLabel}`,
+  })
+  revalidatePath('/coordinator/visit-requests')
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  revalidatePath('/site-incharge/dashboard')
+  return {}
+}
+
+const REQUEST_CATEGORIES = ['scope_survey', 'client_visit', 'estimate_visit']
+
+// Owner, 31 Oct 2026 (D28): the visit is deferred and the client is asked for the next slot --
+// either because the client cannot make it, or because no one can be sent. The slot is marked
+// 'deferred'; a pre-estimate visit (survey/client/estimate) goes back into the request queue as
+// pending, so it is scheduled again when the client gives the next date.
+export async function deferVisitForClientNextSlot(params: {
+  slotId?: string | null
+  requestId?: string | null
+  note: string
+  byUserId: string
+  byRole: 'coordinator' | 'admin'
+}): Promise<{ error?: string }> {
+  if (!params.note.trim()) return { error: 'Say why the visit is deferred.' }
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
+  let slotId = params.slotId ?? null
+  if (!slotId && params.requestId) {
+    const { data: req } = await sb.from('site_visit_requests').select('scheduled_route_id').eq('id', params.requestId).maybeSingle()
+    slotId = req?.scheduled_route_id ?? null
+  }
+
+  let bookingRef: string | null = null
+  let slotType: string | null = null
+  if (slotId) {
+    const { data: slot } = await sb.from('supervisor_daily_routes').select('site_id, slot_type').eq('id', slotId).maybeSingle()
+    slotType = slot?.slot_type ?? null
+    if (slot?.site_id) {
+      const { data: job } = await sb.from('guest_enquiries').select('booking_ref').eq('id', slot.site_id).maybeSingle()
+      bookingRef = job?.booking_ref ?? null
+    }
+    const { error } = await sb.from('supervisor_daily_routes').update({ visit_status: 'deferred' }).eq('id', slotId)
+    if (error) return { error: error.message }
+  }
+
+  if (params.requestId) {
+    const { data: req, error } = await sb
+      .from('site_visit_requests')
+      .update({
+        status: 'pending', scheduled_route_id: null, requested_date: null,
+        notes: `Deferred -- ask client for next slot: ${params.note.trim()}`, updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.requestId)
+      .select('booking_ref')
+      .maybeSingle()
+    if (error) return { error: error.message }
+    bookingRef = bookingRef ?? req?.booking_ref ?? null
+  } else if (bookingRef && slotType && REQUEST_CATEGORIES.includes(slotType)) {
+    const { error } = await sb.from('site_visit_requests').insert({
+      booking_ref: bookingRef, visit_category: slotType, requested_by_role: params.byRole,
+      requested_by: params.byUserId, source: 'other', status: 'pending',
+      notes: `Deferred -- ask client for next slot: ${params.note.trim()}`,
+    })
+    if (error) return { error: error.message }
+  }
+
+  await logJobMovement(supabase, {
+    bookingRef, routeSlotId: slotId, stage: 'site_visit', action: 'rescheduled', fromUserId: params.byUserId,
+    itemType: slotId ? 'supervisor_daily_route' : 'site_visit_request', itemId: slotId ?? params.requestId ?? null,
+    remarks: `Visit deferred, client to give next slot: ${params.note.trim()}`,
+  })
+  revalidatePath('/coordinator/visit-requests')
+  revalidatePath('/supervisor/route')
+  revalidatePath('/supervisor/route/plan')
+  return {}
+}

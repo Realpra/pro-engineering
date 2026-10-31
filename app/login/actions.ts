@@ -21,7 +21,7 @@ export async function loginAction(formData: FormData) {
     }
     const role = profile?.platform_role?.trim()
     if (role === 'super_admin') redirect('/superadmin/dashboard')
-    else if (role === 'supervisor') redirect('/supervisor/dashboard')
+    else if (role === 'supervisor' || role === 'site_visit_manager') redirect('/supervisor/dashboard')
     else if (role === 'sub_coordinator') redirect('/sub-coordinator/dashboard')
     else if (role === 'site_incharge') redirect('/site-incharge/dashboard')
     else if (role === 'client') redirect('/client/dashboard')

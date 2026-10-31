@@ -144,6 +144,7 @@ export default async function AdminDashboardPage() {
     premiumApprovalsRaw,
     labourSlotsRaw,
     movementRaw,
+    objectionsRaw,
   ] = await Promise.all([
     safeSelect(
       sb.from('workers').select(
@@ -200,6 +201,8 @@ export default async function AdminDashboardPage() {
       sb.from('job_movement_log')
         .select('booking_ref, stage, action, counts_as_return, resets_return_count, item_type, item_id, created_at'),
     ),
+    // Client invoice objections now with Admin (owner, 31 Oct 2026, D30).
+    safeSelect(sb.from('client_invoice_objections').select('id, holder_role, status').eq('status', 'open').eq('holder_role', 'admin')),
   ])
 
   // ── lookups ──────────────────────────────────────────────────────────────────
@@ -288,6 +291,7 @@ export default async function AdminDashboardPage() {
   const undeployedToday = labourSlotsRaw.filter((t) => t.target_date === today).length
   const undeployedTomorrow = labourSlotsRaw.filter((t) => t.target_date === tomorrow).length
   const labourNotDeployed = undeployedToday + undeployedTomorrow
+  const objectionsWithAdmin = objectionsRaw.length
   const labourLabel = pastNinePm
     ? `Labour Not Deployed by 9 pm (today ${undeployedToday} · tomorrow ${undeployedTomorrow})`
     : `Labour Not Yet Deployed — 9 pm cut-off (today ${undeployedToday} · tomorrow ${undeployedTomorrow})`
@@ -498,6 +502,7 @@ export default async function AdminDashboardPage() {
     { href: '/admin/trade-questions', icon: '📝', label: 'Question Bank', desc: 'Per-trade skill assessment questions', count: 0 },
     { href: '/admin/quality-tests', icon: '🧪', label: 'Quality Tests', desc: 'Per-job test steps (ponding, pressure…)', count: 0 },
     { href: '/admin/job-movements', icon: '🧾', label: 'Job Movement Log', desc: 'Every movement of every job, in time order', count: pendingJobRequests },
+    { href: '/objections', icon: '⚖️', label: 'Invoice Objections', desc: 'Client objections to milestone invoices', count: objectionsWithAdmin },
   ]
 
   return (
@@ -521,13 +526,14 @@ export default async function AdminDashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-8">
         {/* ALERT STRIP */}
-        {(newJobRequests > 0 || pendingJobRequests > 0 || labourNotDeployed > 0 || pendingAdminApproval > 0 || paymentsPendingAdmin > 0 || decision5Queue > 0 || escalatedLogs > 0 || unacknowledgedInstructions > 0) && (
+        {(newJobRequests > 0 || pendingJobRequests > 0 || labourNotDeployed > 0 || objectionsWithAdmin > 0 || pendingAdminApproval > 0 || paymentsPendingAdmin > 0 || decision5Queue > 0 || escalatedLogs > 0 || unacknowledgedInstructions > 0) && (
           <div className="bg-red-600 rounded-2xl px-5 py-4">
             <p className="text-white font-bold text-sm mb-2">Immediate attention required:</p>
             <div className="flex flex-wrap gap-2">
               <AlertPill href="/admin/job-movements?filter=new" label="New Job Requests" count={newJobRequests} className="bg-red-900" />
               <AlertPill href="/admin/job-movements?filter=pending" label="Pending Job Requests" count={pendingJobRequests} className="bg-[#F97316]" />
               <AlertPill href="/coordinator/dynamic-scheduler" label={labourLabel} count={labourNotDeployed} className={pastNinePm ? 'bg-red-900' : 'bg-red-700'} />
+              <AlertPill href="/objections" label="Client Invoice Objections" count={objectionsWithAdmin} className="bg-red-700" />
               <AlertPill href="/admin/workers" label="Pending Worker Approvals" count={pendingAdminApproval} className="bg-[#F97316]" />
               <AlertPill href="/admin/payments" label="Payments Pending" count={paymentsPendingAdmin} className="bg-red-700" />
               <AlertPill href="/admin/payments" label="Decision 5 Queue" count={decision5Queue} className="bg-red-900" />

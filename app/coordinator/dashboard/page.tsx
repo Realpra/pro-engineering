@@ -162,6 +162,7 @@ export default async function CoordinatorDashboardPage() {
     { href: '/coordinator/scope-reports', icon: '📋', label: 'Scope Reports', count: (scopeReports ?? []).length, urgent: (scopeReports ?? []).length > 0 },
     { href: '/coordinator/estimate', icon: '📐', label: 'Estimate Console', count: clientRemarks.length, urgent: clientRemarks.length > 0 },
     { href: '/coordinator/clients', icon: '👤', label: 'Clients', count: null, urgent: false },
+    { href: '/objections', icon: '⚖️', label: 'Invoice Objections', count: null, urgent: false },
     { href: '/coordinator/procurement', icon: '🚚', label: 'Procurement', count: null, urgent: false },
     { href: '/coordinator/payments', icon: '💰', label: 'Payments', count: totalPendingPayments, urgent: overduePayments.length > 0 },
     { href: '/coordinator/zone-registry', icon: '🗺', label: 'Zone Registry', count: null, urgent: false },

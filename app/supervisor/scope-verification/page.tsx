@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import { isVisitRole } from '@/lib/visitRoles'
 
 // This page was a confirmed fully-dead mockup (PENDING #26, reconfirmed by
 // a full read this pass): every input uncontrolled, every button with no
@@ -37,7 +38,7 @@ export default async function ScopeVerificationPage({
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 

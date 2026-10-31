@@ -5,6 +5,7 @@ import SignOutButton from './SignOutButton'
 import SiteHeadNotReadyButton from './SiteHeadNotReadyButton'
 import SOSButton from './SOSButton'
 import LTFSubmitButton from './LTFSubmitButton'
+import { isVisitRole } from '@/lib/visitRoles'
 
 function greeting(hour: number) {
   if (hour < 12) return 'Good morning'
@@ -129,7 +130,7 @@ export default async function SupervisorDashboardPage() {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profile?.platform_role !== 'supervisor') redirect('/login')
+  if (!isVisitRole(profile?.platform_role)) redirect('/login')
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Supervisor'
 
@@ -337,6 +338,7 @@ export default async function SupervisorDashboardPage() {
             { href: '/supervisor/extra-works', label: '🔧 Extra Works', badge: false },
             { href: '/supervisor/directives', label: '📣 Directives', badge: false },
             { href: '/supervisor/reports', label: '📝 Reports', badge: false },
+            { href: '/objections', label: '⚖️ Invoice Objections', badge: false },
             { href: '/supervisor/certificate', label: '🏅 Certificate', badge: false },
             { href: '/book', label: '+ New Job', badge: false },
           ].map(item => (

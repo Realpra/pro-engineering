@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import VisitRequestsPanel, { type VisitRequest, type SupervisorOption } from './VisitRequestsPanel'
 import DeclinedVisitsPanel, { type DeclinedSlot } from './DeclinedVisitsPanel'
+import { SITE_VISIT_MANAGER_TRADE } from '@/lib/visitRoles'
 
 export default async function VisitRequestsPage() {
   const supabase = await createClient()
@@ -20,7 +21,7 @@ export default async function VisitRequestsPage() {
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'Coordinator'
   const loggedByRole: 'coordinator' | 'admin' = profile?.platform_role === 'coordinator' ? 'coordinator' : 'admin'
 
-  const [{ data: requestsRaw }, { data: supervisors }, { data: declinedRaw }] = await Promise.all([
+  const [{ data: requestsRaw }, { data: supervisors }, { data: declinedRaw }, { data: visitManagers }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('site_visit_requests')
@@ -48,6 +49,8 @@ export default async function VisitRequestsPage() {
       .is('override_confirmed_at', null)
       .is('pending_confirmed_at', null)
       .order('declined_at', { ascending: false }),
+    // Site Visit Managers (owner, 31 Oct 2026): substitutes for a Supervisor on a visit.
+    supabase.from('workers').select('id, full_name').eq('trade', SITE_VISIT_MANAGER_TRADE).eq('is_active', true).order('full_name'),
   ])
 
   const requests = (requestsRaw ?? []) as VisitRequest[]
@@ -62,9 +65,20 @@ export default async function VisitRequestsPage() {
 
   const declinedSiteIds = Array.from(new Set(declinedSlots.map(s => s.site_id).filter((v): v is string => Boolean(v))))
   const { data: declinedSites } = declinedSiteIds.length > 0
-    ? await supabase.from('guest_enquiries').select('id, booking_ref').in('id', declinedSiteIds)
+    ? await supabase.from('guest_enquiries').select('id, booking_ref, site_incharge_id').in('id', declinedSiteIds)
     : { data: [] }
   const bookingRefBySiteId = Object.fromEntries((declinedSites ?? []).map(j => [j.id, j.booking_ref]))
+
+  // The job's Site Manager (its designated Site Head) can take the visit in the Supervisor's absence.
+  const siteManagerIds = Array.from(new Set((declinedSites ?? []).map(j => j.site_incharge_id).filter((v): v is string => Boolean(v))))
+  const { data: siteManagers } = siteManagerIds.length > 0
+    ? await supabase.from('workers').select('id, full_name').in('id', siteManagerIds)
+    : { data: [] }
+  const siteManagerNameById = Object.fromEntries((siteManagers ?? []).map(w => [w.id, w.full_name ?? 'Site Manager']))
+  const siteManagerBySiteId: Record<string, { id: string; name: string }> = {}
+  for (const j of declinedSites ?? []) {
+    if (j.site_incharge_id) siteManagerBySiteId[j.id] = { id: j.site_incharge_id, name: siteManagerNameById[j.site_incharge_id] ?? 'Site Manager' }
+  }
 
   const supervisorNameById = Object.fromEntries((supervisors ?? []).map(s => [s.id, s.full_name ?? 'Supervisor']))
 
@@ -90,6 +104,10 @@ export default async function VisitRequestsPage() {
           bookingRefBySiteId={bookingRefBySiteId}
           supervisorNameById={supervisorNameById}
           overriddenByUserId={user.id}
+          byRole={loggedByRole}
+          supervisors={(supervisors ?? []) as SupervisorOption[]}
+          visitManagers={(visitManagers ?? []) as SupervisorOption[]}
+          siteManagerBySiteId={siteManagerBySiteId}
         />
         <VisitRequestsPanel
           requests={requests}
@@ -97,6 +115,7 @@ export default async function VisitRequestsPage() {
           supervisors={(supervisors ?? []) as SupervisorOption[]}
           loggedByUserId={user.id}
           loggedByRole={loggedByRole}
+          visitManagers={(visitManagers ?? []) as SupervisorOption[]}
         />
       </main>
     </div>

@@ -141,6 +141,12 @@ export default async function SuperAdminDashboardPage() {
             >
               Website Intake
             </Link>
+            <Link
+              href="/objections"
+              className="text-xs font-bold text-white bg-[#2E74B5] px-3 py-1.5 rounded-lg"
+            >
+              Invoice Objections
+            </Link>
             <span className="text-blue-300 text-sm hidden sm:block">{user.email}</span>
             <span className="text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
               Super Admin
