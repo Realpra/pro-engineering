@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { applyApprovedPremium } from '@/lib/applyApprovedPremium'
 import { logJobMovement } from '@/lib/jobMovementLog'
+import { writePolicyChange } from '@/lib/policyChangeLog'
 
 async function requireSuperAdmin() {
   const supabase = await createClient()
@@ -41,20 +42,15 @@ export async function updatePremiumPolicy(
         .from('platform_premium_policy')
         .update({ premium_pct: newPct, updated_at: new Date().toISOString() })
         .eq('id', id),
-      (supabase as any)
-        .from('policy_change_log')
-        .insert({
-          table_name: 'platform_premium_policy',
-          record_id: id,
-          changed_by: user.id,
-          old_value: { premium_pct: current?.premium_pct },
-          new_value: { premium_pct: newPct },
-          change_reason: reason,
-        }),
+      writePolicyChange(supabase, {
+        policyType: 'platform_premium_policy', recordId: id, field: 'premium_pct',
+        oldValue: current?.premium_pct ?? null, newValue: newPct,
+        reason, changedBy: user.id, changedByRole: 'super_admin',
+      }),
     ])
 
     if (updateResult.error) return { success: false, error: updateResult.error.message }
-    if (logResult.error) console.error('[updatePremiumPolicy] log error:', logResult.error.message)
+    if (logResult.error) console.error('[updatePremiumPolicy] log error:', logResult.error)
 
     return { success: true }
   } catch (e) {
@@ -64,45 +60,35 @@ export async function updatePremiumPolicy(
 
 export async function updateContingencyPolicy(
   id: string,
-  newMaxPct: number,
   newAdminLimitPct: number,
   reason: string,
 ): Promise<{ success: boolean; error?: string }> {
+  // Owner, 31 Oct 2026: contingency % itself is Admin's repository value (edited on
+  // /admin/policy). Super Admin sets the Admin Approval Limit (owner: 5%): up to it Admin
+  // approves an estimate's contingency, above it Super Admin. The old version wrote
+  // max_contingency_pct / admin_approval_limit_pct, neither of which existed live.
   try {
     const { supabase, user } = await requireSuperAdmin()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: current } = await (supabase as any)
       .from('contingency_policy')
-      .select('max_contingency_pct, admin_approval_limit_pct')
+      .select('admin_approval_limit_pct')
       .eq('id', id)
       .single()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [updateResult, logResult] = await Promise.all([
-      (supabase as any)
-        .from('contingency_policy')
-        .update({
-          max_contingency_pct: newMaxPct,
-          admin_approval_limit_pct: newAdminLimitPct,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id),
-      (supabase as any)
-        .from('policy_change_log')
-        .insert({
-          table_name: 'contingency_policy',
-          record_id: id,
-          changed_by: user.id,
-          old_value: { max_contingency_pct: current?.max_contingency_pct, admin_approval_limit_pct: current?.admin_approval_limit_pct },
-          new_value: { max_contingency_pct: newMaxPct, admin_approval_limit_pct: newAdminLimitPct },
-          change_reason: reason,
-        }),
-    ])
-
+    const updateResult = await (supabase as any)
+      .from('contingency_policy')
+      .update({ admin_approval_limit_pct: newAdminLimitPct, updated_at: new Date().toISOString() })
+      .eq('id', id)
     if (updateResult.error) return { success: false, error: updateResult.error.message }
-    if (logResult.error) console.error('[updateContingencyPolicy] log error:', logResult.error.message)
 
+    await writePolicyChange(supabase, {
+      policyType: 'contingency_policy', recordId: id, field: 'admin_approval_limit_pct',
+      oldValue: current?.admin_approval_limit_pct ?? null, newValue: newAdminLimitPct,
+      reason, changedBy: user.id, changedByRole: 'super_admin',
+    })
     return { success: true }
   } catch (e) {
     return { success: false, error: (e as Error).message }

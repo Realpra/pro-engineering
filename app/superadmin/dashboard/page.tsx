@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
+import { toSuperAdminLogRow } from '@/lib/policyChangeLog'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import SuperAdminDashboard from './SuperAdminDashboard'
@@ -33,8 +34,8 @@ export default async function SuperAdminDashboardPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('contingency_policy')
-      .select('id, vertical, job_category, tier, max_contingency_pct, admin_approval_limit_pct')
-      .order('vertical').order('job_category').order('tier'),
+      .select('id, vertical, job_category, job_type, tier, contingency_pct, admin_approval_limit_pct, geo_id, effective_from, is_active')
+      .order('job_type').order('job_category').order('tier'),
     // Super admin sees requests above the admin-approval threshold (boq_total > 100000)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
@@ -46,7 +47,7 @@ export default async function SuperAdminDashboardPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('policy_change_log')
-      .select('id, table_name, old_value, new_value, change_reason, created_at')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(50),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,7 +95,7 @@ export default async function SuperAdminDashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingApprovals = (approvalsResult.data ?? []) as any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const changeHistory = (historyResult.data ?? []) as any[]
+  const changeHistory = ((historyResult.data ?? []) as any[]).map(toSuperAdminLogRow)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const boqTemplates = (boqTemplatesResult.data ?? []) as any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

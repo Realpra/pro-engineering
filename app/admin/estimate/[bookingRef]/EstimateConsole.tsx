@@ -377,6 +377,9 @@ export default function EstimateConsole({
   const [policyAllowedMin, setPolicyAllowedMin] = useState<number | null>(null)
   const [policyAllowedMax, setPolicyAllowedMax] = useState<number | null>(null)
   const [policyContingencyMax, setPolicyContingencyMax] = useState<number | null>(null)
+  const [adminContingencyLimit, setAdminContingencyLimit] = useState<number | null>(null)
+  const [policyJobType, setPolicyJobType] = useState<string | null>(null)
+  const [contingencyRepoMsg, setContingencyRepoMsg] = useState<string | null>(null)
   const [platformPremiumPct, setPlatformPremiumPct] = useState<number>(generatedBOQ?.platform_premium_pct ?? 12)
   const [approvalReason, setApprovalReason] = useState('')
   const [approvalSubmitting, setApprovalSubmitting] = useState(false)
@@ -391,15 +394,16 @@ export default function EstimateConsole({
 
   useEffect(() => {
     if (!generatedBOQ) return
-    const jcMap: Record<string, string> = { L: 'labour-only', M: 'material-supply', LM: 'turnkey' }
-    const vertical = job.job_type ?? 'civil-engineering'
-    const jobCategory = jcMap[generatedBOQ.job_card_type] ?? 'labour-only'
-    const boqTier = generatedBOQ.tier ?? 'budget'
-    getPolicyRate(vertical, jobCategory, boqTier).then(res => {
+    // Owner, 31 Oct 2026: policy values come from Admin's repository, resolved server-side
+    // from this estimate's job type / category / tier and the job's region.
+    getPolicyRate(bookingRef).then(res => {
       setPolicyPremiumPct(res.premiumPct)
       setPolicyAllowedMin(res.allowedMin)
       setPolicyAllowedMax(res.allowedMax)
-      setPolicyContingencyMax(res.contingencyMax)
+      setPolicyContingencyMax(res.repoContingencyPct)
+      setAdminContingencyLimit(res.adminContingencyLimitPct)
+      setPolicyJobType(res.policyJobType)
+      setContingencyRepoMsg(res.contingencyMessage)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -918,16 +922,39 @@ export default function EstimateConsole({
             <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
               <span>0%</span><span>15%</span>
             </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              {policyContingencyMax !== null
+                ? `From Admin's repository (${policyJobType ?? '—'}): ${policyContingencyMax}%. Admin approves up to ${adminContingencyLimit ?? 5}%; above that Super Admin.`
+                : (contingencyRepoMsg ?? 'Reading Admin\'s repository…')}
+            </p>
+            {policyContingencyMax !== null && contingencyPct !== policyContingencyMax && (
+              <button type="button" onClick={() => setContingencyPct(policyContingencyMax)}
+                className="mt-1 text-[11px] font-semibold text-[#1F3864] underline">
+                Use repository value ({policyContingencyMax}%)
+              </button>
+            )}
+            {generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) > (adminContingencyLimit ?? 5) && (
+              <p className="text-[11px] font-semibold text-amber-700 mt-1">
+                Saved contingency {generatedBOQ?.contingency_percent}% is above Admin&apos;s limit — Super Admin approves.
+              </p>
+            )}
           </div>
 
-          {platformRole === 'admin' && generatedBOQ?.contingency_status === 'proposed' && (
+          {platformRole === 'super_admin' && generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) > 0 && (
+            <form action={async () => { await approveBoqField(generatedBOQ.id, 'contingency', adminUserId) }}>
+              <button type="submit" className="mt-1 text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-lg w-full">
+                ✓ Approve Contingency (Super Admin)
+              </button>
+            </form>
+          )}
+          {platformRole === 'admin' && generatedBOQ?.contingency_status === 'proposed' && Number(generatedBOQ?.contingency_percent ?? 0) <= (adminContingencyLimit ?? 5) && (
             <form action={async () => { await approveBoqField(generatedBOQ.id, 'contingency', adminUserId) }}>
               <button type="submit" className="mt-1 text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-lg w-full">
                 ✓ Approve Contingency
               </button>
             </form>
           )}
-          {platformRole === 'admin' && generatedBOQ?.contingency_status === 'approved' && (
+          {['admin', 'super_admin'].includes(platformRole) && generatedBOQ?.contingency_status === 'approved' && (
             <span className="mt-1 text-xs font-bold text-green-600 block">✓ Contingency Approved</span>
           )}
 
@@ -993,7 +1020,7 @@ export default function EstimateConsole({
                     </span>
                   )}
                   {policyContingencyMax !== null && (
-                    <span className="text-xs text-gray-400">· contingency max {policyContingencyMax}%</span>
+                    <span className="text-xs text-gray-400">· repository contingency {policyContingencyMax}%</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">

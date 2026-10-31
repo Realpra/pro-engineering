@@ -190,6 +190,27 @@ token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Pac
   requests"); every scope or milestone change takes the estimate approval route. Until the Estimate
   build, use the existing estimates (bathroom renovation etc.). (Site Head initiation built.)
 
+**Decisions of 31 Oct 2026, batch 3 (Session 73)**
+- D40 Contingency (for the unforeseen; item-quantity-rate value 100 + 5% = 105) is an Admin-decided
+  value in Admin's repository, different for every type, job and region, and evolving over time.
+  Every such value is EXTRACTED from the repository in the build, never typed in. Built: lookup
+  by the estimate's repository job type (today the BOQ's catalogue job type,
+  'bathroom-renovation'), job category (L/M/LM), tier and region (sector > zone > region >
+  district > state > all locations), rows in force today only (lib/policyRepository.ts); Admin
+  adds dated, regional rows on /admin/policy; generateBOQ now applies it to the total.
+- D41 Admin Approval Limit for contingency: up to 5% Admin approves; beyond 5% Super Admin. Stored
+  per row (contingency_policy.admin_approval_limit_pct, default 5, Super Admin edits it). Enforced:
+  Admin cannot approve above it; the estimate cannot go to the client until contingency is approved.
+- D42 (owner's explanation, recorded, no code change) Premium / rebate is profit-oriented and set by
+  Super Admin: higher premium in a niche, a rebate (e.g. -5%: 100 becomes 95) in a competitive space.
+- Corrects the older note "editing Contingency from the Admin page has NO EFFECT": against the live
+  schema it was the other way round -- Admin's screen wrote the real columns; Super Admin's screen and
+  the estimate lookup used max_contingency_pct / admin_approval_limit_pct, which never existed.
+  Also found and fixed: policy_change_log writes used columns that do not exist, so no policy change
+  was ever recorded (lib/policyChangeLog.ts now writes the live columns).
+  SQL PENDING the owner's run: `20261031_contingency_repository_and_admin_limit.sql` (must run before
+  the code reaches any deploy: generateBOQ writes its new boq_generated columns).
+
 **State at Session 73 (31 Oct 2026)**: both 20261030 SQL files confirmed run live and verified
 read-only. Commits on the branch NOT YET PUSHED (owner to say): dashboard alerts, worker
 approvals fix, job movement log, second-round decisions (D26-D34 builds). `20261031_job_movement_log.sql`

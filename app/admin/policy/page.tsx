@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { toAdminLogRow } from '@/lib/policyChangeLog'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import PolicyTabs, {
@@ -8,6 +9,7 @@ import PolicyTabs, {
   type ComplianceConfig,
   type BusinessRule,
   type PolicyChangeLog,
+  type GeoOption,
 } from './PolicyTabs'
 
 export default async function AdminPolicyPage() {
@@ -33,6 +35,7 @@ export default async function AdminPolicyPage() {
     { data: compliance },
     { data: rules },
     { data: logs },
+    { data: geoRows },
   ] = await Promise.all([
     supabase.from('platform_premium_policy').select('*').order('vertical').order('job_category'),
     supabase.from('contingency_policy').select('*').order('vertical').order('job_category'),
@@ -44,7 +47,8 @@ export default async function AdminPolicyPage() {
       .eq('is_active', true)
       .order('rule_category')
       .order('rule_name'),
-    supabase.from('policy_change_log').select('*').order('changed_at', { ascending: false }).limit(20),
+    supabase.from('policy_change_log').select('*').order('created_at', { ascending: false }).limit(20),
+    supabase.from('geo_hierarchy').select('id, name, level').in('level', ['state', 'district', 'region', 'zone', 'sector']).order('level').order('name'),
   ])
 
   const adminUserId = user.id
@@ -78,7 +82,8 @@ export default async function AdminPolicyPage() {
           paymentPolicies={(payment ?? []) as PaymentPolicy[]}
           complianceConfigs={(compliance ?? []) as ComplianceConfig[]}
           businessRules={(rules ?? []) as BusinessRule[]}
-          policyChangeLogs={(logs ?? []) as PolicyChangeLog[]}
+          geoOptions={(geoRows ?? []) as GeoOption[]}
+          policyChangeLogs={((logs ?? []) as unknown as Parameters<typeof toAdminLogRow>[0][]).map(toAdminLogRow) as PolicyChangeLog[]}
           adminUserId={adminUserId}
         />
       </main>

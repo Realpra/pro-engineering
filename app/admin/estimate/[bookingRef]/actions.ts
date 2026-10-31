@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { logJobMovement } from '@/lib/jobMovementLog'
+import { CURRENT_BOQ_JOB_TYPE, DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT, lookupContingency, lookupPremium } from '@/lib/policyRepository'
 import { revalidatePath } from 'next/cache'
 
 // ── processClientRemarks ───────────────────────────────────────────────────────
@@ -467,10 +468,23 @@ export async function saveEstimate(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // A changed contingency % goes back for approval (Admin up to the limit, Super Admin above).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: before } = await (supabase as any)
+    .from('boq_generated')
+    .select('contingency_percent')
+    .eq('booking_ref', bookingRef)
+    .maybeSingle()
+  const contingencyChanged = Number(before?.contingency_percent ?? 0) !== Number(totals.contingencyPct)
+  const contingencyReset = contingencyChanged
+    ? { contingency_status: 'proposed', contingency_proposed_by: user.id, contingency_approved_by: null, contingency_approved_at: null }
+    : {}
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('boq_generated')
     .update({
+      ...contingencyReset,
       line_items:              lineItems,
       subtotal_labour:         totals.subtotalLabour,
       subtotal_material:       totals.subtotalMaterial,
@@ -517,6 +531,18 @@ export async function sendToClient(
   const supabase = await createClient()
   const now = new Date().toISOString()
 
+  // Owner, 31 Oct 2026: contingency must be approved (Admin up to the limit, Super Admin
+  // above it) before the estimate reaches the client.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cBoq } = await (supabase as any)
+    .from('boq_generated')
+    .select('contingency_percent, contingency_status')
+    .eq('booking_ref', bookingRef)
+    .maybeSingle()
+  if (Number(cBoq?.contingency_percent ?? 0) > 0 && cBoq?.contingency_status !== 'approved') {
+    return { error: 'Contingency is not yet approved. Approve it (Admin up to the limit, Super Admin above it) before sending to the client.' }
+  }
+
   const [boqResult, enquiryResult] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
@@ -538,51 +564,55 @@ export async function sendToClient(
 // ── getPolicyRate ──────────────────────────────────────────────────────────────
 
 export async function getPolicyRate(
-  vertical: string,
-  jobCategory: string,
-  tier: string,
+  bookingRef: string,
 ): Promise<{
   premiumPct: number
   minDeviationPct: number
   maxDeviationPct: number
   allowedMin: number
   allowedMax: number
-  contingencyMax: number
-  adminApprovalLimit: number
+  policyJobType: string | null
+  repoContingencyPct: number | null
+  adminContingencyLimitPct: number
+  contingencyMessage: string | null
+  premiumMessage: string | null
 }> {
+  // Owner, 31 Oct 2026: every policy value is extracted from Admin's repository using the
+  // estimate's own job type / job category / tier and the job's region.
   const supabase = await createClient()
-
-  const [premiumResult, contingencyResult] = await Promise.all([
+  const [{ data: boq }, { data: job }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
-      .from('platform_premium_policy')
-      .select('premium_pct, min_deviation_pct, max_deviation_pct')
-      .eq('vertical', vertical)
-      .eq('job_category', jobCategory)
-      .eq('tier', tier)
+      .from('boq_generated')
+      .select('tier, job_card_type, policy_job_type')
+      .eq('booking_ref', bookingRef)
       .maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from('contingency_policy')
-      .select('max_contingency_pct, admin_approval_limit_pct')
-      .eq('vertical', vertical)
-      .eq('job_category', jobCategory)
-      .eq('tier', tier)
-      .maybeSingle(),
+    supabase.from('guest_enquiries').select('zone').eq('booking_ref', bookingRef).maybeSingle(),
+  ])
+  const policyJobType: string | null = boq?.policy_job_type ?? CURRENT_BOQ_JOB_TYPE
+  const [premium, contingency] = await Promise.all([
+    lookupPremium(supabase, { jobType: policyJobType, jobCardType: boq?.job_card_type ?? null, tier: boq?.tier ?? null }),
+    lookupContingency(supabase, {
+      jobType: policyJobType, jobCardType: boq?.job_card_type ?? null, tier: boq?.tier ?? null,
+      locationName: (job as { zone?: string | null } | null)?.zone ?? null,
+    }),
   ])
 
-  const premiumPct      = Number(premiumResult.data?.premium_pct ?? 12)
-  const minDeviationPct = Number(premiumResult.data?.min_deviation_pct ?? -5)
-  const maxDeviationPct = Number(premiumResult.data?.max_deviation_pct ?? 10)
+  const premiumPct      = premium.premiumPct ?? 12
+  const minDeviationPct = premium.minDeviationPct ?? -5
+  const maxDeviationPct = premium.maxDeviationPct ?? 10
 
   return {
     premiumPct,
     minDeviationPct,
     maxDeviationPct,
-    allowedMin:          premiumPct + minDeviationPct,
-    allowedMax:          premiumPct + maxDeviationPct,
-    contingencyMax:      Number(contingencyResult.data?.max_contingency_pct ?? 5),
-    adminApprovalLimit:  Number(contingencyResult.data?.admin_approval_limit_pct ?? 10),
+    allowedMin:               premiumPct + minDeviationPct,
+    allowedMax:               premiumPct + maxDeviationPct,
+    policyJobType,
+    repoContingencyPct:       contingency.contingencyPct,
+    adminContingencyLimitPct: contingency.adminLimitPct,
+    contingencyMessage:       contingency.message,
+    premiumMessage:           premium.message,
   }
 }
 
@@ -744,29 +774,23 @@ export async function generateBOQ(
 
   console.log('[generateBOQ] zone from job:', job?.zone, 'district:', job?.district)
 
-  // ── 4b. Fetch platform premium rate from policy ───────────────────────────────
-  const jcMap: Record<string, string> = { L: 'labour-only', M: 'material-supply', LM: 'turnkey' }
-  const policyJobCat = jcMap[jobCardType] ?? 'labour-only'
-  const policyVertical = job?.job_type ?? 'civil-engineering'
-
-  let policyPremiumPct = 12
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: policyRow } = await (supabase as any)
-      .from('platform_premium_policy')
-      .select('premium_pct')
-      .eq('vertical', policyVertical)
-      .eq('job_category', policyJobCat)
-      .eq('tier', tier)
-      .maybeSingle()
-    if (policyRow?.premium_pct != null) {
-      policyPremiumPct = Number(policyRow.premium_pct)
-    }
-  } catch (e) {
-    console.log('[generateBOQ] policy lookup failed, using default 12%:', (e as Error).message)
-  }
-
-  console.log('[generateBOQ] policy premium pct:', policyPremiumPct, 'for', policyVertical, policyJobCat, tier)
+  // ── 4b. Platform premium and contingency from Admin's repository ─────────────
+  // Owner, 31 Oct 2026: these are extracted from the repository by job type (the
+  // catalogue job type this BOQ is built from), job category, tier and -- for
+  // contingency -- the job's region; nothing is typed in by hand. The old lookup
+  // filtered on guest_enquiries.job_type as "vertical" (values like 'renovation' never
+  // match the repository's 'civil-engineering') and ignored job_type, so it always fell
+  // back to a built-in 12%.
+  const policyJobType = CURRENT_BOQ_JOB_TYPE
+  const premiumLookup = await lookupPremium(supabase, { jobType: policyJobType, jobCardType, tier })
+  if (premiumLookup.message) console.log('[generateBOQ] premium lookup:', premiumLookup.message)
+  // 12 is the long-standing fallback kept only for a job with no premium row.
+  const policyPremiumPct = premiumLookup.premiumPct ?? 12
+  const contingencyLookup = await lookupContingency(supabase, {
+    jobType: policyJobType, jobCardType, tier, locationName: job?.zone ?? null,
+  })
+  if (contingencyLookup.message) console.log('[generateBOQ] contingency lookup:', contingencyLookup.message)
+  const repoContingencyPct = contingencyLookup.contingencyPct ?? 0
 
   const zoneName = job?.zone ?? 'Noida Sector 62'
   let finalGeoId = '66666666-0000-0000-0000-000000000001'
@@ -954,7 +978,10 @@ export async function generateBOQ(
   const platformFee = round2((subtotalLabour + subtotalMaterial) * (policyPremiumPct / 100))
   const bocwCess    = round2(subtotalLabour * 0.01)
   const gstAmount   = round2(platformFee * 0.18)
-  const totalAmount = round2(subtotalLabour + subtotalMaterial + subtotalRiskFlags + platformFee + bocwCess + gstAmount)
+  // Contingency for the unforeseen, on the item-quantity-rate value (labour + material),
+  // the same base the Estimate Console and saveEstimate use.
+  const contingencyAmount = round2((subtotalLabour + subtotalMaterial) * (repoContingencyPct / 100))
+  const totalAmount = round2(subtotalLabour + subtotalMaterial + subtotalRiskFlags + platformFee + bocwCess + gstAmount + contingencyAmount)
   const reportId          = r.id as string
 
   // ── 9. Upsert boq_generated (ON CONFLICT booking_ref DO UPDATE) ───────────────
@@ -994,8 +1021,13 @@ export async function generateBOQ(
       bocw_cess_amount:        bocwCess,
       gst_percent:             18,
       gst_amount:              gstAmount,
-      contingency_percent:     0,
-      contingency_amount:      0,
+      contingency_percent:     repoContingencyPct,
+      contingency_amount:      contingencyAmount,
+      contingency_policy_id:   contingencyLookup.row?.id ?? null,
+      contingency_status:      'proposed',
+      contingency_approved_by: null,
+      contingency_approved_at: null,
+      policy_job_type:         policyJobType,
       total_amount:            totalAmount,
       valid_until:             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       updated_at:              new Date().toISOString(),
@@ -1289,6 +1321,33 @@ export async function approveBoqField(
   }
 
   if (field === 'contingency') {
+    // Owner, 31 Oct 2026: Admin approves contingency up to the repository row's
+    // admin_approval_limit_pct (5%); above it only Super Admin approves.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Not authenticated' }
+    const { data: me } = await supabase.from('users').select('platform_role').eq('id', user.id).maybeSingle()
+    const role = me?.platform_role ?? ''
+    if (!['admin', 'super_admin'].includes(role)) return { success: false, error: 'Only Admin or Super Admin can approve contingency.' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: cb } = await (supabase as any)
+      .from('boq_generated')
+      .select('booking_ref, contingency_percent, contingency_policy_id')
+      .eq('id', boqId)
+      .maybeSingle()
+    let limit = DEFAULT_ADMIN_CONTINGENCY_LIMIT_PCT
+    if (cb?.contingency_policy_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pol } = await (supabase as any)
+        .from('contingency_policy')
+        .select('admin_approval_limit_pct')
+        .eq('id', cb.contingency_policy_id)
+        .maybeSingle()
+      if (pol?.admin_approval_limit_pct != null) limit = Number(pol.admin_approval_limit_pct)
+    }
+    if (role === 'admin' && Number(cb?.contingency_percent ?? 0) > limit) {
+      return { success: false, error: `Contingency ${cb?.contingency_percent}% is above Admin's limit of ${limit}%. Super Admin approves it.` }
+    }
+    approvedBy = user.id
     const { error } = await supabase
       .from('boq_generated')
       .update({
@@ -1298,6 +1357,10 @@ export async function approveBoqField(
       })
       .eq('id', boqId)
     if (error) return { success: false, error: error.message }
+    await logJobMovement(supabase, {
+      bookingRef: cb?.booking_ref ?? undefined, stage: 'estimate', action: 'approved', itemType: 'boq_generated', itemId: boqId,
+      remarks: `Contingency ${cb?.contingency_percent ?? 0}% approved by ${role === 'super_admin' ? 'Super Admin' : 'Admin'} (Admin limit ${limit}%)`,
+    })
   }
 
   return { success: true }

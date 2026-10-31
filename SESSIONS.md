@@ -2031,3 +2031,25 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
   `current_role` renamed `holder_role` -- a reserved word). NOT YET RUN.
 - npx tsc --noEmit exit 0. Nothing live-tested. Super Admin login broken (SU-472225) blocks
   deciding objections on jobs >= Rs1L.
+
+
+## Session 73 (cont.) — 31 Oct 2026 — 29 Oct files compared; contingency repository + 5% limit
+- Compared the owner's four "Claude Code Build 29Oct26" files (3 distinct build prompts) with the
+  code and live DB: /admin/scope (3 tabs incl. PI tracker), /admin/milestones (4 tabs), zone pills,
+  client dashboard bypass removal and /client/dashboard list all still exist. Nothing was undone.
+  The policy-column fix was done for Admin's Policy screen only.
+- Live check (read-only): contingency_policy has contingency_pct/min/max_deviation_pct per
+  vertical/job_category/job_type/tier (27 rows), no approval-limit column. getPolicyRate,
+  Super Admin page and actions used max_contingency_pct/admin_approval_limit_pct (non-existent); both
+  premium and contingency lookups filtered vertical on guest_enquiries.job_type and ignored job_type,
+  so they always fell back to built-in 12% / 5%. generateBOQ always wrote contingency 0.
+- Owner decisions D40-D42 (see CLAUDE.md). Built: lib/policyRepository.ts (lookupContingency,
+  lookupPremium, resolveGeoChain); generateBOQ applies repository premium + contingency, records
+  contingency_policy_id and policy_job_type, status 'proposed'; saveEstimate re-proposes a changed %;
+  approveBoqField enforces Admin <= limit, Super Admin above, and logs the movement; sendToClient
+  blocks an unapproved non-zero contingency; Estimate Console shows the repository value and limit,
+  with a Super Admin approve button; /admin/policy "+ ADD VALUE" (job type, category, tier, region,
+  %, deviations, effective date); Super Admin table lists every row (job type + region) and edits
+  only the Admin limit; lib/policyChangeLog.ts fixes the change log (writes/reads live columns).
+- Migration `20261031_contingency_repository_and_admin_limit.sql` tested twice on local Postgres 16;
+  NOT run live. tsc clean; no new lint errors. Local commit only, not pushed.

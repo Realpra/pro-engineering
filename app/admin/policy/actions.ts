@@ -6,6 +6,9 @@ import { revalidatePath } from 'next/cache'
 
 export type PolicyActionResult = { success: true } | { error: string }
 
+import { writePolicyChange } from '@/lib/policyChangeLog'
+
+// Deprecated 31 Oct 2026: kept for reference; logChange now goes through writePolicyChange.
 const LOG_TABLE = 'policy_change_log'
 
 async function logChange(
@@ -20,9 +23,16 @@ async function logChange(
     changed_by: string
   }
 ) {
-  await supabase.from(LOG_TABLE).insert({
-    ...entry,
-    changed_at: new Date().toISOString(),
+  // Fixed 31 Oct 2026: writes the live policy_change_log columns (see lib/policyChangeLog.ts).
+  await writePolicyChange(supabase, {
+    policyType: entry.table_name,
+    recordId: entry.record_id,
+    field: entry.field_name,
+    oldValue: entry.old_value,
+    newValue: entry.new_value,
+    reason: entry.change_reason,
+    changedBy: entry.changed_by,
+    changedByRole: 'admin',
   })
 }
 
@@ -184,6 +194,63 @@ export async function updateContingency(
     })
   }
 
+  revalidatePath('/admin/policy')
+  return { success: true }
+}
+
+// ─── ACTION 4b ───────────────────────────────────────────────────────────────
+// Owner, 31 Oct 2026: contingency is Admin's repository value, different for every type,
+// job and region and evolving with efficiency. Admin adds a row for a job type / category /
+// tier / region with the date it takes effect; estimates pick the most specific row in
+// force (lib/policyRepository.ts). Older rows stay as history.
+export type ContingencyInput = {
+  vertical: string
+  job_category: string
+  job_type: string
+  tier: string
+  contingency_pct: number
+  min_deviation_pct: number | null
+  max_deviation_pct: number | null
+  geo_id: string | null
+  effective_from: string
+  remarks: string
+}
+
+export async function addContingency(adminUserId: string, input: ContingencyInput): Promise<PolicyActionResult> {
+  const supabase: any = await createClient()
+  if (!input.job_type.trim() || !input.job_category || !input.tier) return { error: 'Job type, job category and tier are required.' }
+  if (Number.isNaN(input.contingency_pct) || input.contingency_pct < 0) return { error: 'Give a contingency % of 0 or more.' }
+  if (!input.effective_from) return { error: 'Give the date this value takes effect.' }
+
+  const { data: inserted, error: insErr } = await supabase
+    .from('contingency_policy')
+    .insert({
+      vertical: input.vertical.trim() || null,
+      job_category: input.job_category,
+      job_type: input.job_type.trim(),
+      tier: input.tier,
+      contingency_pct: input.contingency_pct,
+      min_deviation_pct: input.min_deviation_pct,
+      max_deviation_pct: input.max_deviation_pct,
+      geo_id: input.geo_id,
+      effective_from: input.effective_from,
+      remarks: input.remarks.trim() || null,
+      set_by: adminUserId,
+      is_active: true,
+    })
+    .select('id')
+    .single()
+  if (insErr) return { error: insErr.message }
+
+  await logChange(supabase, {
+    table_name: 'contingency_policy',
+    record_id: String(inserted?.id ?? ''),
+    field_name: 'contingency_pct',
+    old_value: 'new',
+    new_value: String(input.contingency_pct),
+    change_reason: input.remarks.trim() || 'New contingency value added',
+    changed_by: adminUserId,
+  })
   revalidatePath('/admin/policy')
   return { success: true }
 }

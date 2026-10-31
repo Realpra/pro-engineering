@@ -8,6 +8,7 @@ import {
   deactivatePlatformPremium,
   addPlatformPremium,
   updateContingency,
+  addContingency,
   deactivateContingency,
   updatePaymentPolicy,
   addComplianceConfig,
@@ -54,8 +55,12 @@ export type ContingencyPolicy = {
   is_active: boolean | null
   created_at: string | null
   updated_at: string | null
+  geo_id?: string | null
+  admin_approval_limit_pct?: number | null
   [key: string]: unknown
 }
+
+export type GeoOption = { id: string; name: string; level: string | null }
 
 export type PaymentPolicy = {
   id: string
@@ -425,7 +430,7 @@ function PlatformPremiumTab({ rows, adminUserId }: { rows: PremiumPolicy[]; admi
 
 // ─── Section 1: Contingency ─────────────────────────────────────────────────
 
-function ContingencyRow({ row, adminUserId }: { row: ContingencyPolicy; adminUserId: string }) {
+function ContingencyRow({ row, adminUserId, geoName }: { row: ContingencyPolicy; adminUserId: string; geoName: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<null | 'edit' | 'deactivate'>(null)
   const [maxPct, setMaxPct] = useState(String(row.contingency_pct ?? ''))
@@ -478,6 +483,8 @@ function ContingencyRow({ row, adminUserId }: { row: ContingencyPolicy; adminUse
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.contingency_pct)}</td>
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.min_deviation_pct)}</td>
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.max_deviation_pct)}</td>
+        <td className="px-3 py-2.5 text-sm text-gray-800">{geoName}</td>
+        <td className="px-3 py-2.5 text-sm text-gray-800">{fmtPct(row.admin_approval_limit_pct ?? 5)}</td>
         <td className="px-3 py-2.5 text-sm text-gray-800">{fmtDate(row.effective_from)}</td>
         <td className="px-3 py-2.5 text-sm">
           <span className={row.is_active ? 'text-green-600 font-semibold' : 'text-gray-400'}>
@@ -506,7 +513,7 @@ function ContingencyRow({ row, adminUserId }: { row: ContingencyPolicy; adminUse
       </tr>
       {mode === 'edit' && (
         <tr className="border-b border-gray-100 bg-gray-50">
-          <td colSpan={10} className="px-3 py-3">
+          <td colSpan={12} className="px-3 py-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Contingency %">
                 <input type="number" className={inputClass} value={maxPct} onChange={(e) => setMaxPct(e.target.value)} />
@@ -537,7 +544,7 @@ function ContingencyRow({ row, adminUserId }: { row: ContingencyPolicy; adminUse
       )}
       {mode === 'deactivate' && (
         <tr className="border-b border-gray-100 bg-red-50">
-          <td colSpan={10} className="px-3 py-3">
+          <td colSpan={12} className="px-3 py-3">
             <p className="text-sm font-semibold text-red-800 mb-2">Deactivate this contingency policy?</p>
             <Field label="Change Reason">
               <input className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -563,9 +570,116 @@ function ContingencyRow({ row, adminUserId }: { row: ContingencyPolicy; adminUse
   )
 }
 
-function ContingencyTab({ rows, adminUserId }: { rows: ContingencyPolicy[]; adminUserId: string }) {
+function AddContingencyForm({ adminUserId, rows, geo, onDone }: { adminUserId: string; rows: ContingencyPolicy[]; geo: GeoOption[]; onDone: () => void }) {
+  const router = useRouter()
+  const jobTypes = Array.from(new Set(rows.map((r) => r.job_type).filter(Boolean))) as string[]
+  const verticals = Array.from(new Set(rows.map((r) => r.vertical).filter(Boolean))) as string[]
+  const [vertical, setVertical] = useState(verticals[0] ?? '')
+  const [jobType, setJobType] = useState(jobTypes[0] ?? '')
+  const [jobCategory, setJobCategory] = useState('labour-only')
+  const [tier, setTier] = useState('budget')
+  const [pct, setPct] = useState('')
+  const [minDev, setMinDev] = useState('')
+  const [maxDev, setMaxDev] = useState('')
+  const [geoId, setGeoId] = useState('')
+  const [from, setFrom] = useState(new Date().toISOString().slice(0, 10))
+  const [remarks, setRemarks] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    setBusy(true)
+    setError(null)
+    const res = await addContingency(adminUserId, {
+      vertical, job_category: jobCategory, job_type: jobType, tier,
+      contingency_pct: Number(pct),
+      min_deviation_pct: minDev === '' ? null : Number(minDev),
+      max_deviation_pct: maxDev === '' ? null : Number(maxDev),
+      geo_id: geoId || null, effective_from: from, remarks,
+    })
+    setBusy(false)
+    if (isErr(res)) { setError(res.error); return }
+    router.refresh()
+    onDone()
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <p className="text-sm font-semibold text-gray-800 mb-2">Add a contingency value</p>
+      <p className="text-xs text-gray-500 mb-3">
+        Estimates take the most specific value in force for the job: its sector, then zone, region, district, state, then &quot;All locations&quot;.
+        Add a new row with a later date to change a value; the earlier row stays as history.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Vertical">
+          <input className={inputClass} list="contingency-verticals" value={vertical} onChange={(e) => setVertical(e.target.value)} />
+          <datalist id="contingency-verticals">{verticals.map((v) => <option key={v} value={v} />)}</datalist>
+        </Field>
+        <Field label="Job Type">
+          <input className={inputClass} list="contingency-job-types" value={jobType} onChange={(e) => setJobType(e.target.value)} />
+          <datalist id="contingency-job-types">{jobTypes.map((j) => <option key={j} value={j} />)}</datalist>
+        </Field>
+        <Field label="Job Category">
+          <select className={inputClass} value={jobCategory} onChange={(e) => setJobCategory(e.target.value)}>
+            <option value="labour-only">labour-only</option>
+            <option value="material-supply">material-supply</option>
+            <option value="turnkey">turnkey</option>
+          </select>
+        </Field>
+        <Field label="Tier">
+          <select className={inputClass} value={tier} onChange={(e) => setTier(e.target.value)}>
+            <option value="budget">budget</option>
+            <option value="premium">premium</option>
+            <option value="luxury">luxury</option>
+          </select>
+        </Field>
+        <Field label="Region">
+          <select className={inputClass} value={geoId} onChange={(e) => setGeoId(e.target.value)}>
+            <option value="">All locations</option>
+            {geo.map((g) => <option key={g.id} value={g.id}>{g.name}{g.level ? ` (${g.level})` : ''}</option>)}
+          </select>
+        </Field>
+        <Field label="Contingency %">
+          <input type="number" step="0.5" className={inputClass} value={pct} onChange={(e) => setPct(e.target.value)} />
+        </Field>
+        <Field label="Min Deviation %">
+          <input type="number" step="0.5" className={inputClass} value={minDev} onChange={(e) => setMinDev(e.target.value)} />
+        </Field>
+        <Field label="Max Deviation %">
+          <input type="number" step="0.5" className={inputClass} value={maxDev} onChange={(e) => setMaxDev(e.target.value)} />
+        </Field>
+        <Field label="Effective From">
+          <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label="Remarks / Reason">
+          <input className={inputClass} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <button type="button" className={primaryBtn} disabled={busy || !jobType.trim() || pct === ''} onClick={save}>
+          {busy ? 'Saving…' : 'ADD'}
+        </button>
+        <button type="button" className={ghostBtn} onClick={onDone}>Cancel</button>
+        <Err msg={error} />
+      </div>
+    </div>
+  )
+}
+
+function ContingencyTab({ rows, adminUserId, geo }: { rows: ContingencyPolicy[]; adminUserId: string; geo: GeoOption[] }) {
+  const [adding, setAdding] = useState(false)
+  const geoName = (id: string | null | undefined) => (id ? geo.find((g) => g.id === id)?.name ?? 'Region' : 'All locations')
   return (
     <div className="overflow-x-auto">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">
+          Admin approves an estimate&apos;s contingency up to the Admin Limit (set by Super Admin, 5%); above it Super Admin approves.
+        </p>
+        {!adding && (
+          <button type="button" className={primaryBtn} onClick={() => setAdding(true)}>+ ADD VALUE</button>
+        )}
+      </div>
+      {adding && <AddContingencyForm adminUserId={adminUserId} rows={rows} geo={geo} onDone={() => setAdding(false)} />}
       <table className="w-full text-left border border-gray-200 rounded-lg">
         <thead>
           <tr className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
@@ -576,6 +690,8 @@ function ContingencyTab({ rows, adminUserId }: { rows: ContingencyPolicy[]; admi
             <th className="px-3 py-2 font-semibold">Contingency %</th>
             <th className="px-3 py-2 font-semibold">Min Deviation %</th>
             <th className="px-3 py-2 font-semibold">Max Deviation %</th>
+            <th className="px-3 py-2 font-semibold">Region</th>
+            <th className="px-3 py-2 font-semibold">Admin Limit %</th>
             <th className="px-3 py-2 font-semibold">Effective From</th>
             <th className="px-3 py-2 font-semibold">Active</th>
             <th className="px-3 py-2 font-semibold">Actions</th>
@@ -583,10 +699,10 @@ function ContingencyTab({ rows, adminUserId }: { rows: ContingencyPolicy[]; admi
         </thead>
         <tbody>
           {rows.length > 0 ? (
-            rows.map((r) => <ContingencyRow key={r.id} row={r} adminUserId={adminUserId} />)
+            rows.map((r) => <ContingencyRow key={r.id} row={r} adminUserId={adminUserId} geoName={geoName(r.geo_id)} />)
           ) : (
             <tr>
-              <td colSpan={10} className="px-3 py-6 text-center text-sm text-gray-400">
+              <td colSpan={12} className="px-3 py-6 text-center text-sm text-gray-400">
                 No data configured
               </td>
             </tr>
@@ -700,11 +816,13 @@ function RatePolicySection({
   contingency,
   payment,
   adminUserId,
+  geo,
 }: {
   premium: PremiumPolicy[]
   contingency: ContingencyPolicy[]
   payment: PaymentPolicy | null
   adminUserId: string
+  geo: GeoOption[]
 }) {
   const [tab, setTab] = useState<'premium' | 'contingency' | 'payment'>('premium')
 
@@ -726,7 +844,7 @@ function RatePolicySection({
           </Pill>
         </div>
         {tab === 'premium' && <PlatformPremiumTab rows={premium} adminUserId={adminUserId} />}
-        {tab === 'contingency' && <ContingencyTab rows={contingency} adminUserId={adminUserId} />}
+        {tab === 'contingency' && <ContingencyTab rows={contingency} adminUserId={adminUserId} geo={geo} />}
         {tab === 'payment' && <PaymentThresholdsTab row={payment} adminUserId={adminUserId} />}
       </div>
     </section>
@@ -1240,6 +1358,7 @@ export default function PolicyTabs({
   businessRules,
   policyChangeLogs,
   adminUserId,
+  geoOptions,
 }: {
   premiumPolicies: PremiumPolicy[]
   contingencyPolicies: ContingencyPolicy[]
@@ -1248,6 +1367,7 @@ export default function PolicyTabs({
   businessRules: BusinessRule[]
   policyChangeLogs: PolicyChangeLog[]
   adminUserId: string
+  geoOptions: GeoOption[]
 }) {
   return (
     <div className="space-y-6">
@@ -1256,6 +1376,7 @@ export default function PolicyTabs({
         contingency={contingencyPolicies}
         payment={paymentPolicies[0] ?? null}
         adminUserId={adminUserId}
+        geo={geoOptions}
       />
       <ComplianceSection configs={complianceConfigs} adminUserId={adminUserId} />
       <BusinessRulesSection rules={businessRules} adminUserId={adminUserId} />

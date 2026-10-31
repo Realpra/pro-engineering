@@ -30,9 +30,13 @@ type ContingencyRow = {
   id: string
   vertical: string
   job_category: string
+  job_type: string | null
   tier: string
-  max_contingency_pct: number
-  admin_approval_limit_pct: number
+  contingency_pct: number | null
+  admin_approval_limit_pct: number | null
+  geo_id: string | null
+  effective_from: string | null
+  is_active: boolean | null
 }
 
 type ApprovalRow = {
@@ -394,11 +398,10 @@ export default function SuperAdminDashboard({
     if (!editReason.trim()) return
     setSaving(true)
     setEditMsg(null)
-    const res = await updateContingencyPolicy(id, Number(editContingencyMax), Number(editContingencyLimit), editReason)
+    const res = await updateContingencyPolicy(id, Number(editContingencyLimit), editReason)
     if (res.success) {
       setContingencyRows(prev => prev.map(r => r.id === id ? {
         ...r,
-        max_contingency_pct: Number(editContingencyMax),
         admin_approval_limit_pct: Number(editContingencyLimit),
       } : r))
       setEditingContingencyId(null)
@@ -743,7 +746,7 @@ export default function SuperAdminDashboard({
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-5 py-3 bg-[#1F3864] text-white">
               <p className="font-bold text-sm">Contingency Policy</p>
-              <p className="text-xs text-blue-200 mt-0.5">Max % without approval · Admin limit %</p>
+              <p className="text-xs text-blue-200 mt-0.5">Contingency % is set by Admin (Policy screen) · Admin approves up to the Admin limit %, Super Admin above it</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -751,38 +754,31 @@ export default function SuperAdminDashboard({
                   <tr className="border-b border-gray-100 bg-gray-50">
                     <th className="text-left px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Vertical</th>
                     <th className="text-left px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Category</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Job Type</th>
                     <th className="text-left px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Tier</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Max %</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Contingency %</th>
                     <th className="text-right px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide">Admin Limit %</th>
                     <th className="px-4 py-2.5"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {VERTICALS.map(v => CATEGORIES.map(c => TIERS.map(t => {
-                    const row = contingencyRows.find(r => r.vertical === v && r.job_category === c && r.tier === t)
-                    if (!row) return null
+                  {contingencyRows.filter(r => r.is_active !== false).map(row => {
+                    // One row per repository entry (job type and region included); the old
+                    // vertical x category x tier grid showed only the first of 3 job types.
+                    const v = row.vertical ?? ''
+                    const c = row.job_category ?? ''
+                    const t = row.tier ?? ''
                     const isEditing = editingContingencyId === row.id
                     return (
                       <tr key={row.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-700 capitalize">{v.replace(/-/g, ' ')}</td>
                         <td className="px-4 py-3 text-gray-700 capitalize">{c.replace(/-/g, ' ')}</td>
+                        <td className="px-4 py-3 text-gray-700 capitalize">{(row.job_type ?? '—').replace(/-/g, ' ')}{row.geo_id ? ' · regional' : ''}</td>
                         <td className="px-4 py-3">
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${TIER_COLORS[t]}`}>{t}</span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-[#1F3864]">
-                          {isEditing ? (
-                            <input
-                              type="number"
-                              min={0}
-                              max={25}
-                              step={0.5}
-                              value={editContingencyMax}
-                              onChange={e => setEditContingencyMax(e.target.value)}
-                              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#2E74B5]/40"
-                            />
-                          ) : (
-                            `${row.max_contingency_pct}%`
-                          )}
+                          {row.contingency_pct == null ? '—' : `${row.contingency_pct}%`}
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-amber-700">
                           {isEditing ? (
@@ -796,7 +792,7 @@ export default function SuperAdminDashboard({
                               className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#2E74B5]/40"
                             />
                           ) : (
-                            `${row.admin_approval_limit_pct}%`
+                            `${row.admin_approval_limit_pct ?? 5}%`
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -832,8 +828,8 @@ export default function SuperAdminDashboard({
                               type="button"
                               onClick={() => {
                                 setEditingContingencyId(row.id)
-                                setEditContingencyMax(String(row.max_contingency_pct))
-                                setEditContingencyLimit(String(row.admin_approval_limit_pct))
+                                setEditContingencyMax(String(row.contingency_pct ?? ''))
+                                setEditContingencyLimit(String(row.admin_approval_limit_pct ?? 5))
                                 setEditReason('')
                               }}
                               className="px-3 py-1 rounded-lg border border-gray-200 text-gray-600 text-xs font-bold hover:bg-gray-50"
@@ -844,7 +840,7 @@ export default function SuperAdminDashboard({
                         </td>
                       </tr>
                     )
-                  })))}
+                  })}
                 </tbody>
               </table>
             </div>
