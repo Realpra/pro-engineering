@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
 
@@ -124,6 +125,10 @@ export async function submitExtraWork(
     }
   }
 
+  await logJobMovement(supabase, {
+    bookingRef: data.booking_ref, stage: 'scope_change', action: 'raised', toRole: 'coordinator',
+    remarks: `${data.trigger_type === 'client_demand' ? 'Client requested' : 'Site demands'}: ${data.description.trim()}`,
+  })
   revalidatePath('/supervisor/extra-works')
   return { success: true }
 }

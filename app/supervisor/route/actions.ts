@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // SA-ROUTE spec (June log line 40012-40016): "Confirm day plan button locks
 // route." route_confirmed/route_locked_at already existed live (migration
@@ -94,6 +95,12 @@ export async function addSlotManually(input: ManualSlotInput): Promise<{ error?:
     report_status: 'pending',
   })
   if (error) return { error: error.message }
+  if (siteId) {
+    await logJobMovement(supabase, {
+      enquiryId: siteId, stage: 'site_visit', action: 'scheduled', toRole: 'supervisor',
+      remarks: `Supervisor added a ${input.slotType} visit on ${input.scheduledDate} ${input.slotStart}-${input.slotEnd}`,
+    })
+  }
   revalidatePath('/supervisor/route/plan')
   revalidatePath('/supervisor/route')
   revalidatePath('/supervisor/dashboard')
@@ -131,6 +138,10 @@ export async function declineSlot(slotId: string, supervisorUserId: string, reas
     })
     .eq('id', slotId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    routeSlotId: slotId, stage: 'site_visit', action: 'declined', fromUserId: supervisorUserId,
+    itemType: 'supervisor_daily_route', itemId: slotId, toRole: 'coordinator', remarks: reason.trim(),
+  })
   revalidatePath('/supervisor/route')
   revalidatePath('/supervisor/route/plan')
   revalidatePath('/coordinator/visit-requests')
@@ -168,6 +179,11 @@ export async function claimPendingSlot(params: {
     .eq('visit_status', 'supervisor_declined')
     .is('override_confirmed_at', null)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    routeSlotId: params.slotId, stage: 'site_visit', action: 'reassigned',
+    itemType: 'supervisor_daily_route', itemId: params.slotId, toRole: 'supervisor',
+    remarks: `Pending visit picked up for ${params.scheduledDate} ${params.slotStart}-${params.slotEnd}`,
+  })
   revalidatePath('/supervisor/route')
   revalidatePath('/supervisor/route/plan')
   return {}

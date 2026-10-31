@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 async function requireAllocator() {
   const supabase = await createClient()
@@ -41,6 +42,10 @@ export async function allocateWorker(params: {
     status: 'assigned',
   })
   if (error) return { error: error.message }
+  await logJobMovement(ctx.supabase, {
+    bookingRef: params.bookingRef, stage: 'deployment', action: 'assigned', fromUserId: ctx.userId,
+    itemType: 'worker', itemId: params.workerId, remarks: `Worker allocated to ${params.substageCode} for ${params.slotDate}`,
+  })
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
   revalidatePath('/coordinator/allocate')
   return {}
@@ -60,6 +65,10 @@ export async function removeAllocation(params: {
     .eq('substage_code', params.substageCode)
     .eq('worker_id', params.workerId)
   if (error) return { error: error.message }
+  await logJobMovement(ctx.supabase, {
+    bookingRef: params.bookingRef, stage: 'deployment', action: 'removed', fromUserId: ctx.userId,
+    itemType: 'worker', itemId: params.workerId, remarks: `Worker removed from ${params.substageCode}`,
+  })
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
   revalidatePath('/coordinator/allocate')
   return {}
@@ -136,6 +145,13 @@ export async function allocateWorkerRange(params: {
     if (error) return { error: error.message }
   }
 
+  if (toInsert.length > 0) {
+    await logJobMovement(ctx.supabase, {
+      bookingRef: params.bookingRef, stage: 'deployment', action: 'assigned', fromUserId: ctx.userId,
+      itemType: 'worker', itemId: params.workerId,
+      remarks: `Worker allocated to ${params.substageCode} for ${toInsert.length} day(s), ${params.startDate} to ${params.endDate}${conflicts.length ? ` (${conflicts.length} day(s) skipped -- booked elsewhere)` : ''}`,
+    })
+  }
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
   revalidatePath('/coordinator/allocate')
   return { booked: toInsert.map(r => r.slot_date), conflicts }
@@ -164,6 +180,11 @@ export async function escalateAllocation(params: {
     status: 'pending',
   })
   if (error) return { error: error.message }
+  await logJobMovement(ctx.supabase, {
+    bookingRef: params.bookingRef, stage: 'deployment', action: 'raised', fromUserId: ctx.userId, toRole: 'admin',
+    itemType: 'job_milestone_substage', itemId: params.substageId,
+    remarks: `No ${params.trade} available in zone -- escalated: ${params.remark}`,
+  })
   revalidatePath(`/coordinator/allocate/${params.bookingRef}`)
   revalidatePath('/coordinator/allocate')
   revalidatePath('/admin/coordinators')

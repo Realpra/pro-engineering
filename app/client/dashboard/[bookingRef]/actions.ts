@@ -437,6 +437,10 @@ export async function submitClientScopeChange(
 
   if (error) return { error: error.message }
 
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'scope_change', action: 'raised', fromRole: 'client', toRole: 'coordinator',
+    remarks: `Client requests: ${data.description}`,
+  })
   revalidatePath(`/client/dashboard/${bookingRef}`)
   return { success: true }
 }

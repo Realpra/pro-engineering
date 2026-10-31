@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
 
@@ -29,6 +30,10 @@ export async function markSiteHeadNotReady(slotId: string): Promise<{ error?: st
     .update({ visit_status: 'site_head_not_ready' })
     .eq('id', slotId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    routeSlotId: slotId, stage: 'incident', action: 'raised', itemType: 'supervisor_daily_route', itemId: slotId,
+    remarks: 'Site Head not ready at the visit',
+  })
   revalidatePath('/supervisor/dashboard')
   return {}
 }
@@ -121,6 +126,12 @@ export async function raiseSOS(params: {
     })),
   )
   if (error) return { error: error.message }
+  if (params.bookingRef) {
+    await logJobMovement(supabase, {
+      bookingRef: params.bookingRef, stage: 'incident', action: 'raised', fromUserId: params.supervisorUserId,
+      toRole: 'admin', remarks: `SOS: ${params.note || 'immediate attention required'}`,
+    })
+  }
   revalidatePath('/supervisor/dashboard')
   return {}
 }

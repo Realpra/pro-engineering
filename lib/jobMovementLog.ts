@@ -8,10 +8,14 @@
 export type MovementStage =
   | 'request' | 'routing' | 'survey' | 'estimate' | 'premium'
   | 'client' | 'execution' | 'milestone' | 'scope_change'
+  // added 31 Oct 2026 (supabase/migrations/20261031_job_movement_log_widen_and_request_decision.sql)
+  | 'site_visit' | 'staff' | 'payment' | 'handover' | 'plan' | 'deployment' | 'incident'
 
 export type MovementAction =
   | 'created' | 'forwarded' | 'approved' | 'returned' | 'rejected' | 'decided'
   | 'client_accepted' | 'client_rejected' | 'client_review'
+  | 'raised' | 'scheduled' | 'rescheduled' | 'declined' | 'reassigned' | 'cancelled' | 'assigned'
+  | 'removed' | 'held' | 'released' | 'completed' | 'recast'
 
 export type MovementInput = {
   bookingRef?: string | null
@@ -22,6 +26,11 @@ export type MovementInput = {
   /** When only a scope change or premium request id is known, the job is looked up from it. */
   scopeChangeRequestId?: string | null
   premiumRequestId?: string | null
+  /** Other look-ups: the job's own id, a supervisor route slot, a site-visit request, a milestone payment row. */
+  enquiryId?: string | null
+  routeSlotId?: string | null
+  visitRequestId?: string | null
+  milestonePaymentId?: string | null
   stage: MovementStage
   action: MovementAction
   itemType?: string | null
@@ -32,13 +41,21 @@ export type MovementInput = {
   toRole?: string | null
   toUserId?: string | null
   remarks?: string | null
+  /** Override the counting rule (e.g. Admin sending an estimate back is never counted). */
+  countsAsReturn?: boolean
 }
 
-// Owner's counting rules: a send-back for correction counts (the first is normal,
-// the second makes the job pending); decisions and client acts never count; a client
+// Owner's counting rules (31 Oct 2026): a send-back for correction counts (the first is
+// normal, the second makes the job pending) -- routing, survey, estimate, milestone/sub-stage,
+// and a rejected milestone payment or handover (the work goes back for correction).
+// Decisions, holds, declines, client acts, deployment and incidents never count. Admin
+// sending an estimate back is not counted (callers pass countsAsReturn: false). A client
 // rejection or request for review re-runs the process and resets the count.
+const COUNTED_RETURN_STAGES: MovementStage[] = ['routing', 'survey', 'estimate', 'milestone', 'payment', 'handover']
+
 function countsAsReturn(stage: MovementStage, action: MovementAction): boolean {
-  return action === 'returned' && (stage === 'survey' || stage === 'estimate' || stage === 'milestone' || stage === 'routing')
+  return (action === 'returned' || (action === 'rejected' && (stage === 'payment' || stage === 'handover')))
+    && COUNTED_RETURN_STAGES.includes(stage)
 }
 
 function resetsCount(stage: MovementStage, action: MovementAction): boolean {
@@ -59,9 +76,21 @@ export async function logJobMovement(supabase: any, m: MovementInput): Promise<v
     for (const [table, id] of [
       ['scope_change_requests', m.scopeChangeRequestId],
       ['premium_approval_requests', m.premiumRequestId],
+      ['site_visit_requests', m.visitRequestId],
+      ['milestone_payment_schedule', m.milestonePaymentId],
     ] as const) {
       if (bookingRef || !id) continue
       const { data } = await supabase.from(table).select('booking_ref').eq('id', id).maybeSingle()
+      bookingRef = data?.booking_ref ?? null
+    }
+    // supervisor_daily_routes.site_id is guest_enquiries.id (not a booking_ref).
+    let enquiryId = m.enquiryId ?? null
+    if (!bookingRef && !enquiryId && m.routeSlotId) {
+      const { data } = await supabase.from('supervisor_daily_routes').select('site_id').eq('id', m.routeSlotId).maybeSingle()
+      enquiryId = data?.site_id ?? null
+    }
+    if (!bookingRef && enquiryId) {
+      const { data } = await supabase.from('guest_enquiries').select('booking_ref').eq('id', enquiryId).maybeSingle()
       bookingRef = data?.booking_ref ?? null
     }
     if (!bookingRef) {
@@ -93,7 +122,7 @@ export async function logJobMovement(supabase: any, m: MovementInput): Promise<v
       booking_ref: bookingRef,
       stage: m.stage,
       action: m.action,
-      counts_as_return: countsAsReturn(m.stage, m.action),
+      counts_as_return: m.countsAsReturn ?? countsAsReturn(m.stage, m.action),
       resets_return_count: resetsCount(m.stage, m.action),
       item_type: m.itemType ?? null,
       item_id: m.itemId ?? null,
@@ -163,10 +192,19 @@ export function isInExecution(status: string | null | undefined, confirmedForExe
   return s.includes('confirm') || s.includes('progress') || s.includes('work_started') || s.includes('milestone')
 }
 
-export type JobClass = 'pending' | 'new' | 'in_execution'
+export type JobClass = 'pending' | 'new' | 'in_execution' | 'rejected'
 
-/** Owner's classification (31 Oct 2026): pending wins; otherwise new until execution. */
-export function classifyJob(isPending: boolean, status: string | null | undefined, confirmedAt: string | null | undefined): JobClass {
+/**
+ * Owner's classification (31 Oct 2026): a request Admin rejected is kept on record only;
+ * otherwise pending wins; otherwise new until execution.
+ */
+export function classifyJob(
+  isPending: boolean,
+  status: string | null | undefined,
+  confirmedAt: string | null | undefined,
+  requestDecision?: string | null,
+): JobClass {
+  if (requestDecision === 'rejected') return 'rejected'
   if (isPending) return 'pending'
   return isInExecution(status, confirmedAt) ? 'in_execution' : 'new'
 }

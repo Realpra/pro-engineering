@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 const SUPABASE_URL = 'https://xhlpdbcrncpznrqpcrht.supabase.co'
 
@@ -192,9 +193,30 @@ export async function submitClientHandover(
       client_signature_url: signatureUrl,
       client_handover_photo_urls: input.handoverPhotoUrls,
       client_handover_at: new Date().toISOString(),
+      // Owner, 31 Oct 2026: Admin decides only when the client objects to the completion.
+      ...(input.satisfied ? {} : { supervisor_flagged_to_admin: true }),
     })
     .eq('id', input.assessmentId)
   if (error) return { error: error.message }
+
+  // Owner, 31 Oct 2026: when the client signs off satisfied, the job is completed. If the client
+  // objects, it goes to Admin to approve, reject or approve with conditions.
+  if (input.satisfied) {
+    const { error: jobErr } = await supabase
+      .from('guest_enquiries').update({ status: 'completed' }).eq('booking_ref', input.bookingRef)
+    if (jobErr) return { error: jobErr.message }
+    await logJobMovement(supabase, {
+      bookingRef: input.bookingRef, stage: 'handover', action: 'completed',
+      itemType: 'pre_delivery_assessment', itemId: input.assessmentId, fromRole: null,
+      remarks: 'Client signed off satisfied -- job completed',
+    })
+  } else {
+    await logJobMovement(supabase, {
+      bookingRef: input.bookingRef, stage: 'handover', action: 'raised',
+      itemType: 'pre_delivery_assessment', itemId: input.assessmentId, toRole: 'admin',
+      remarks: `Client objected at handover: ${input.dissatisfactionCategories.join(', ')}`,
+    })
+  }
 
   // Spec: "Dissatisfaction items routed to Sub-Coordinator attention queue."
   // No dedicated "attention queue" surface exists for Sub-Coordinator

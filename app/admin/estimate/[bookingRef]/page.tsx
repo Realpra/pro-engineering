@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import EstimateConsole from './EstimateConsole'
+import EstimateSendBackPanel from './EstimateSendBackPanel'
 import { generateBOQ } from './actions'
 import { getSectorNamesServedByZones } from '@/lib/zoneCoverage'
 import type { BOQLineItem } from './actions'
@@ -265,6 +266,21 @@ export default async function EstimatePage({
     )
   ).filter((id): id is string => !!id)
 
+  // Latest Admin send-back of the estimate, from the job movement log (owner, 31 Oct 2026).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sendBackRows } = await (supabase as any)
+    .from('job_movement_log')
+    .select('remarks, created_at, from_role')
+    .eq('booking_ref', bookingRef)
+    .eq('stage', 'estimate')
+    .eq('action', 'returned')
+    .in('from_role', ['admin', 'super_admin'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const lastSendBack = (generatedBOQ?.status === 'draft' && sendBackRows?.[0]) ? sendBackRows[0] : null
+  const canSendBack =
+    ['admin', 'super_admin'].includes(userData?.platform_role ?? '') && generatedBOQ?.status === 'admin_review'
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -319,6 +335,8 @@ export default async function EstimatePage({
           </div>
         </div>
       </div>
+
+      <EstimateSendBackPanel bookingRef={bookingRef} canSendBack={canSendBack} lastSendBack={lastSendBack} />
 
       <EstimateConsole
         bookingRef={bookingRef}

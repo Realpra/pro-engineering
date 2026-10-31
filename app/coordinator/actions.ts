@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 export async function assignStaff(formData: FormData): Promise<void> {
   const supabase = await createClient()
@@ -21,6 +22,12 @@ export async function assignStaff(formData: FormData): Promise<void> {
       is_active: true,
     })
     .eq('booking_ref', booking_ref)
+  await logJobMovement(supabase, {
+    bookingRef: booking_ref, stage: 'staff', action: 'assigned',
+    remarks: [supervisor_id ? 'Supervisor assigned' : 'Supervisor cleared',
+      site_incharge_id !== null ? (site_incharge_id ? 'Site Incharge assigned' : 'Site Incharge cleared') : null]
+      .filter(Boolean).join('; '),
+  })
   revalidatePath('/coordinator/jobs')
   revalidatePath('/coordinator/dashboard')
 }

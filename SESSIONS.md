@@ -1970,3 +1970,34 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
 - Then build D22 (split/merge with affected-milestone prompt, for running jobs and templates; one
   revised estimate with done-till-date + balance, balance rescheduled, deployment adjusted).
 - Rest of Package 1 still waits for the owner's agreement.
+
+## SESSION 73 CONTINUED — 31 Oct 2026 — SECOND-ROUND DECISIONS (D26-D35), BATCH 1 BUILT
+- `20261031_job_movement_log.sql` run live by the owner; verified read-only (15 columns, policy,
+  constraints, 0 rows).
+- Gap check of every job-moving write found steps missing from the app and steps not logged; the
+  owner answered each (CLAUDE.md D26-D35).
+- Built (local commits, NOT pushed -- D35):
+  - New SQL `20261031_job_movement_log_widen_and_request_decision.sql` (tested twice locally):
+    widens the log's stage/action lists; adds `guest_enquiries.request_decision/_reason/
+    _decided_at/_decided_by` with a pursue/rejected CHECK. NOT YET RUN -- until it runs, the
+    dashboard's job counts and /admin/job-movements read a column that does not exist yet.
+  - Admin "Send back for correction" on the Estimate page (status admin_review -> draft, reason in
+    the log, not counted); the Coordinator sees the latest reason on the same page.
+  - "Return this job to Admin" for the Coordinator (Jobs page, jobs routed to him) and the
+    Sub-Coordinator (Jobs page): clears the routing, counted as a routing send-back.
+  - Admin "Keep live to pursue" / "Reject request" per job on /admin/job-movements; rejected
+    requests leave the active list and show under "Requests rejected".
+  - Daily execution visit reports no longer reset the job to "survey report submitted".
+  - Handover: client signs off satisfied -> job completed; client objects -> flagged to Admin, whose
+    approve / approve-with-conditions completes the job and reject sends the work back (counted).
+  - Logging added: site-visit request logged/scheduled/declined/override/pending/picked up/
+    cancelled, manual visit added; staff assigned; milestone evidence/Coordinator approval/
+    release and Admin approve/hold/reject/release/Decision 5 rulings; Supervisor sub-stage
+    completion; scope change raised (Supervisor, client) and client's decision; plan saved and
+    day slots created; delay recast; every worker allocation/removal/booking/cancellation/Savior/
+    escalation (Coordinator, Supervisor, Sub-Coordinator, Dynamic Scheduler, Admin->Superadmin);
+    SOS and Site Head not ready.
+- npx tsc --noEmit exit 0. Nothing live-tested.
+- Batch 2, not built: D27 corrective-actions screen; D28 Supervisor-refusal / Site Visit Manager /
+  client next-slot path; D30 invoice-objection chain; D32 Site Head scope-change initiation; then
+  D22 split/merge + revised estimate. Estimate development (D29) waits for its own session.

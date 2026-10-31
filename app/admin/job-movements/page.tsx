@@ -6,6 +6,7 @@ import {
   classifyJob, maxReturnsOnOneItem, PENDING_RETURN_THRESHOLD,
   type JobClass, type MovementRow,
 } from '@/lib/jobMovementLog'
+import RequestDecisionPanel from './RequestDecisionPanel'
 
 // Job Movement Log (owner, 31 Oct 2026): every movement of every job, in time
 // order, with the action taken. Reads job_movement_log
@@ -16,18 +17,21 @@ const FILTERS: { key: 'all' | JobClass; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'pending', label: 'Pending (returned more than once)' },
   { key: 'in_execution', label: 'In execution' },
+  { key: 'rejected', label: 'Requests rejected (on record)' },
 ]
 
 const CLASS_BADGE: Record<JobClass, { label: string; cls: string }> = {
   new: { label: 'New', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
   pending: { label: 'Pending', cls: 'bg-orange-100 text-orange-700 border-orange-300' },
   in_execution: { label: 'In execution', cls: 'bg-green-100 text-green-700 border-green-200' },
+  rejected: { label: 'Request rejected', cls: 'bg-gray-200 text-gray-700 border-gray-300' },
 }
 
 const STAGE_LABEL: Record<string, string> = {
   request: 'Job request', routing: 'Routing', survey: 'Site survey', estimate: 'Estimate',
   premium: 'Premium', client: 'Client', execution: 'Execution', milestone: 'Milestone / sub-stage',
-  scope_change: 'Scope change',
+  scope_change: 'Scope change', site_visit: 'Site visit', staff: 'Staff', payment: 'Milestone payment',
+  handover: 'Handover', plan: 'Plan', deployment: 'Worker deployment', incident: 'Incident',
 }
 
 const ACTION_LABEL: Record<string, { label: string; cls: string }> = {
@@ -40,6 +44,18 @@ const ACTION_LABEL: Record<string, { label: string; cls: string }> = {
   client_accepted: { label: 'Client accepted', cls: 'text-green-700' },
   client_rejected: { label: 'Client rejected', cls: 'text-red-700' },
   client_review: { label: 'Client asked for review', cls: 'text-amber-700' },
+  raised: { label: 'Raised', cls: 'text-gray-700' },
+  scheduled: { label: 'Scheduled', cls: 'text-blue-700' },
+  rescheduled: { label: 'Rescheduled', cls: 'text-amber-700' },
+  declined: { label: 'Declined', cls: 'text-amber-700' },
+  reassigned: { label: 'Reassigned', cls: 'text-blue-700' },
+  cancelled: { label: 'Cancelled', cls: 'text-red-700' },
+  assigned: { label: 'Assigned', cls: 'text-blue-700' },
+  removed: { label: 'Removed', cls: 'text-amber-700' },
+  held: { label: 'On hold', cls: 'text-amber-700' },
+  released: { label: 'Released', cls: 'text-green-700' },
+  completed: { label: 'Completed', cls: 'text-green-700' },
+  recast: { label: 'Recast', cls: 'text-purple-700' },
 }
 
 function roleLabel(role: string | null): string {
@@ -70,8 +86,7 @@ export default async function JobMovementsPage({
 
   const [jobsRes, logRes, usersRes] = await Promise.all([
     sb.from('guest_enquiries')
-      .select('booking_ref, job_title, contact_name, zone, status, is_active, confirmed_for_execution_at, created_at')
-      .eq('is_active', true)
+      .select('booking_ref, job_title, contact_name, zone, status, is_active, confirmed_for_execution_at, created_at, request_decision, request_decision_reason, request_decided_at')
       .order('created_at', { ascending: false }),
     sb.from('job_movement_log').select('*').order('created_at', { ascending: true }),
     sb.from('users').select('id, full_name'),
@@ -89,13 +104,13 @@ export default async function JobMovementsPage({
   const jobs = ((jobsRes.data ?? []) as any[]).map((j) => {
     const list = rowsByJob[j.booking_ref] ?? []
     const returns = maxReturnsOnOneItem(list)
-    const cls = classifyJob(returns >= PENDING_RETURN_THRESHOLD, j.status, j.confirmed_for_execution_at)
+    const cls = classifyJob(returns >= PENDING_RETURN_THRESHOLD, j.status, j.confirmed_for_execution_at, j.request_decision)
     return { ...j, list, returns, cls }
-  })
+  }).filter((j) => j.is_active || j.cls === 'rejected')
 
-  const counts: Record<string, number> = { all: jobs.length, new: 0, pending: 0, in_execution: 0 }
-  for (const j of jobs) counts[j.cls] += 1
-  const shown = filter === 'all' ? jobs : jobs.filter((j) => j.cls === filter)
+  const counts: Record<string, number> = { all: 0, new: 0, pending: 0, in_execution: 0, rejected: 0 }
+  for (const j of jobs) { counts[j.cls] += 1; if (j.cls !== 'rejected') counts.all += 1 }
+  const shown = filter === 'all' ? jobs.filter((j) => j.cls !== 'rejected') : jobs.filter((j) => j.cls === filter)
 
   const who = (id: string | null, role: string | null) => {
     const name = id ? nameById[id] : ''
@@ -124,7 +139,9 @@ export default async function JobMovementsPage({
           <span className="font-semibold text-orange-700"> Pending</span>; the first send-back is normal.
           Decisions (premium, scope change, confirmed for execution) and client acts are shown but never
           counted. A client rejection or request for review re-runs the process and starts the count afresh.
-          Movements before this log went live (31 Oct 2026) were not recorded.
+          Movements before this log went live (31 Oct 2026) were not recorded. For a request that is
+          not moving, Admin can keep it live to pursue or reject it; a rejected request leaves the active
+          list and is kept under &ldquo;Requests rejected&rdquo;.
         </p>
 
         {loadError && (
@@ -203,6 +220,12 @@ export default async function JobMovementsPage({
                         </tbody>
                       </table>
                     </div>
+                  )}
+                  {j.cls !== 'in_execution' && (
+                    <RequestDecisionPanel
+                      bookingRef={j.booking_ref}
+                      current={{ decision: j.request_decision, reason: j.request_decision_reason, decidedAt: j.request_decided_at }}
+                    />
                   )}
                   <Link href={`/admin/estimate/${j.booking_ref}`} className="mt-2 inline-block text-xs font-semibold text-blue-700 hover:underline">
                     Open job →

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { syncMilestonePaymentStatus } from '@/lib/milestones'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -30,6 +31,13 @@ export async function markSubstageComplete(
 
   await syncMilestonePaymentStatus(supabase, updated.booking_ref, updated.milestone_code)
 
+  // Owner, 31 Oct 2026: Site Head reports progress first; Supervisor verifies, corrects or,
+  // if Site Head has not, updates it himself after his visit.
+  await logJobMovement(supabase, {
+    bookingRef: updated.booking_ref, stage: 'milestone', action: 'forwarded',
+    itemType: 'job_milestone_substage', itemId: substageId, toRole: 'sub_coordinator',
+    remarks: 'Sub-stage marked complete by Supervisor',
+  })
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }
 }
@@ -104,6 +112,11 @@ export async function assignWorkerToSubstage(
 
   if (slotErr) return { error: slotErr.message }
 
+  await logJobMovement(supabase, {
+    bookingRef: substage.booking_ref, stage: 'deployment', action: 'assigned',
+    itemType: 'worker', itemId: workerId,
+    remarks: `Worker assigned to ${substage.substage_code} for ${plannedDate}${preInstruction ? ' -- ' + preInstruction : ''}`,
+  })
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }
 }
@@ -146,6 +159,10 @@ export async function removeWorkerFromSubstage(
     .eq('worker_id', workerId)
     .eq('substage_code', substage.substage_code)
 
+  await logJobMovement(supabase, {
+    substageId, stage: 'deployment', action: 'removed',
+    itemType: 'worker', itemId: workerId, remarks: `Worker removed from ${substage.substage_code}`,
+  })
   revalidatePath('/supervisor/milestone-tracker')
   return { success: true }
 }

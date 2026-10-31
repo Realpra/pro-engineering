@@ -136,10 +136,49 @@ token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Pac
   one value: 'pending_admin_approval' (Coordinator's Workers page no longer writes
   'coordinator_approved'; readers still accept it for older rows).
 
+**Decisions of 31 Oct 2026, second round (Session 73)**
+- D26 Admin may send an estimate back to the Coordinator with a reason; Admin's send-back is NOT
+  counted for "pending". A Coordinator/Sub-Coordinator may return a routed job to Admin with a
+  reason (counted as a routing send-back). For a stalled request Admin decides: keep live to
+  pursue, or reject (removed from the active list, kept on record as received-but-rejected).
+- D27 A daily execution visit never sends a job back to the survey stage. Its findings become
+  corrective actions by the Supervisor: quality -> redo/attend directions; resources -> pump in
+  worker deployment; delay -> revise daily actions and deployment (recast). (Status fix built;
+  the actionables screen is NOT built yet.)
+- D28 Site visits: if the client cannot make it, ask for the next slot. If the Supervisor refuses:
+  Coordinator sends another, or assigns the Site Visit Manager, or tells the client of the
+  deferment and asks for a next slot; the Supervisor re-plans his freed time. (Logging built; the
+  Site Visit Manager / client-deferral path is NOT built yet.)
+- D29 Estimate development is still to be built; Coordinator is not the client's front end for
+  cost. Coordinator's review of client observations is an upward action (checks, corrects or
+  remarks, then moves it up to the role assigned to approve); only the approved estimate is
+  conveyed to the client.
+- D30 Client does not "submit payment details". The client may object to a payment invoice at a
+  due stage and seek correction; that objection runs Site Head > Supervisor > Sub-Coordinator >
+  Coordinator > Admin, decided at the role assigned by job value, which revises and replies.
+  (Contradicts the frozen /client/payment UTR flow -- NOT built yet; existing code left in place.)
+- D31 Sub-stage progress is reported daily by the Site Head; the Supervisor verifies and may
+  update, correct or modify, or report it himself after his visit if the Site Head has not.
+- D32 A scope change follows the same process as a job request estimate; Site Head or Supervisor
+  may initiate it as "site demands" or "client requests".
+- D33 Handover: client sign-off completes the job. Admin approves / rejects / approves with
+  conditions only when the client objects at takeover. (Built.)
+- D34 Every delay is documented with its reason (site or client) and the actions taken; the plan,
+  daily work and labour deployment are recast. Worker deployment is the MOST ESSENTIAL task; daily
+  incidents are part of running the job. All of these are recorded in the job movement log
+  (not counted). Counted send-backs: routing, survey, estimate (not Admin's), milestone/sub-stage,
+  a rejected milestone payment, a rejected handover. Not counted: holds, declines, decisions,
+  client acts, deployment, incidents.
+- D35 Pushes: the owner approves pushes once a module or task is complete and ready; until then
+  work stays in local commits.
+
 **State at Session 73 (31 Oct 2026)**: both 20261030 SQL files confirmed run live and verified
 read-only. Commits on the branch NOT YET PUSHED (owner to say): dashboard alerts, worker
-approvals fix, job movement log. SQL PENDING the owner's run:
-`supabase/migrations/20261031_job_movement_log.sql`. Next: D22 build.
+approvals fix, job movement log, second-round decisions (D26-D34 builds). `20261031_job_movement_log.sql`
+RUN LIVE (verified). SQL PENDING the owner's run: `20261031_job_movement_log_widen_and_request_decision.sql`
+(needed before the dashboard/movement-log page read `request_decision`). Not built yet: D27 actionables
+screen, D28 refusal/deferral path, D30 invoice-objection chain, D32 Site Head scope-change initiation,
+D22 split/merge + revised estimate.
 
 **Phase order (owner, 30 Oct 2026)**
 - Phase I: complete the operations (procurement, Sub-Coordinator, milestones and payment decisions,

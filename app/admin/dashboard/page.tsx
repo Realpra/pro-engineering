@@ -156,7 +156,7 @@ export default async function AdminDashboardPage() {
       ),
     ),
     safeSelect(
-      sb.from('guest_enquiries').select('id, booking_ref, job_title, status, job_type, zone, contact_name, is_active, created_at, driving_role, confirmed_for_execution_at'),
+      sb.from('guest_enquiries').select('id, booking_ref, job_title, status, job_type, zone, contact_name, is_active, created_at, driving_role, confirmed_for_execution_at, request_decision'),
     ),
     safeSelect(sb.from('site_instructions').select('id, booking_ref, instruction_type, admin_acknowledged_at, issued_at')),
     safeSelect(sb.from('daily_site_logs').select('id, booking_ref, escalate_to_admin, decision_on_log, log_date')),
@@ -276,9 +276,9 @@ export default async function AdminDashboardPage() {
   // execution, except pending, which also includes jobs in execution.
   const pendingRef = pendingByJob(movementRaw as MovementRow[])
   const activeJobRows = enquiriesRaw.filter((e) => e.is_active && stageForStatus(e.status) !== 'Completed')
-  const pendingJobRequests = activeJobRows.filter((e) => pendingRef[e.booking_ref]).length
+  const pendingJobRequests = activeJobRows.filter((e) => pendingRef[e.booking_ref] && e.request_decision !== 'rejected').length
   const newJobRequests = activeJobRows.filter(
-    (e) => classifyJob(!!pendingRef[e.booking_ref], e.status, e.confirmed_for_execution_at) === 'new',
+    (e) => classifyJob(!!pendingRef[e.booking_ref], e.status, e.confirmed_for_execution_at, e.request_decision) === 'new',
   ).length
 
   // ── labour not deployed ──────────────────────────────────────────────────────

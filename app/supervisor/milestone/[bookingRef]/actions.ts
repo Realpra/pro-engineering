@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 export async function submitMilestoneEvidence({
   bookingRef,
@@ -48,6 +49,10 @@ export async function submitMilestoneEvidence({
     .update({ status: 'milestone_review' })
     .eq('booking_ref', bookingRef)
 
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'payment', action: 'forwarded', itemType: 'milestone_payment_schedule', itemId: milestoneId,
+    toRole: 'coordinator', remarks: `${milestoneCode} evidence submitted${notes ? ': ' + notes : ''}`,
+  })
   return { success: true }
 }
 
@@ -81,6 +86,10 @@ export async function coordinatorApproveMilestone({
     .eq('booking_ref', bookingRef)
 
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'payment', action: 'approved', itemType: 'milestone_payment_schedule', itemId: milestoneId,
+    toRole: 'admin', remarks: 'Milestone evidence approved by Coordinator',
+  })
   return { success: true }
 }
 
@@ -106,5 +115,9 @@ export async function releaseMilestonePayment({
     .eq('booking_ref', bookingRef)
 
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'payment', action: 'released', itemType: 'milestone_payment_schedule', itemId: milestoneId,
+    remarks: 'Milestone payment released',
+  })
   return { success: true }
 }

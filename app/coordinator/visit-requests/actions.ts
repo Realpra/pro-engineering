@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 export type LogVisitRequestInput = {
   bookingRef: string
@@ -41,6 +42,11 @@ export async function logVisitRequest(input: LogVisitRequestInput): Promise<{ er
   })
   if (error) return { error: error.message }
 
+  await logJobMovement(supabase, {
+    bookingRef: input.bookingRef, stage: 'site_visit', action: 'raised',
+    fromUserId: input.loggedByUserId, fromRole: input.loggedByRole,
+    remarks: `Visit request logged (${input.source}) for ${input.requestedDate ?? 'date to fix'}${input.notes ? ': ' + input.notes : ''}`,
+  })
   revalidatePath('/coordinator/visit-requests')
   return {}
 }
@@ -100,6 +106,11 @@ export async function scheduleVisitRequest(input: ScheduleVisitRequestInput): Pr
     .eq('id', input.requestId)
   if (updateErr) return { error: updateErr.message }
 
+  await logJobMovement(supabase, {
+    bookingRef: input.bookingRef, stage: 'site_visit', action: 'scheduled',
+    itemType: 'supervisor_daily_route', itemId: route.id, toRole: 'supervisor',
+    remarks: `${input.visitCategory} on ${input.scheduledDate} ${input.slotStart}-${input.slotEnd}`,
+  })
   revalidatePath('/coordinator/visit-requests')
   revalidatePath('/supervisor/route')
   revalidatePath('/supervisor/route/plan')
@@ -125,6 +136,11 @@ export async function overrideDecline(slotId: string, overriddenByUserId: string
     })
     .eq('id', slotId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    routeSlotId: slotId, stage: 'site_visit', action: 'decided', fromUserId: overriddenByUserId,
+    itemType: 'supervisor_daily_route', itemId: slotId, toRole: 'supervisor',
+    remarks: 'Decline overridden -- visit kept with the same Supervisor',
+  })
   revalidatePath('/coordinator/visit-requests')
   revalidatePath('/supervisor/route')
   revalidatePath('/supervisor/route/plan')
@@ -151,6 +167,11 @@ export async function confirmPending(slotId: string, confirmedByUserId: string):
     })
     .eq('id', slotId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    routeSlotId: slotId, stage: 'site_visit', action: 'decided', fromUserId: confirmedByUserId,
+    itemType: 'supervisor_daily_route', itemId: slotId,
+    remarks: 'Decline accepted -- visit moved to the pending pool for another Supervisor',
+  })
   revalidatePath('/coordinator/visit-requests')
   revalidatePath('/supervisor/route')
   revalidatePath('/supervisor/route/plan')
@@ -165,6 +186,10 @@ export async function cancelVisitRequest(requestId: string): Promise<{ error?: s
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('id', requestId)
   if (error) return { error: error.message }
+  await logJobMovement(supabase, {
+    visitRequestId: requestId, stage: 'site_visit', action: 'cancelled',
+    itemType: 'site_visit_request', itemId: requestId,
+  })
   revalidatePath('/coordinator/visit-requests')
   return {}
 }

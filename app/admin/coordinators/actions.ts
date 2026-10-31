@@ -103,6 +103,11 @@ export async function escalateEscalationToSuperadmin(
     })
     .eq('id', escalationId)
   if (error) return { error: error.message }
+  const { data: esc } = await ctx.supabase.from('worker_allocation_escalations').select('booking_ref').eq('id', escalationId).maybeSingle()
+  await logJobMovement(ctx.supabase, {
+    bookingRef: esc?.booking_ref ?? null, stage: 'deployment', action: 'raised', fromUserId: ctx.userId,
+    toRole: 'super_admin', remarks: `Worker shortage escalated to Superadmin: ${remark}`,
+  })
   revalidatePath('/admin/coordinators')
   revalidatePath('/superadmin/allocation')
   return {}

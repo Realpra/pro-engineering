@@ -177,19 +177,28 @@ export async function submitReport(reportId: string): Promise<{ error?: string }
 
   if (updateErr) return { error: updateErr.message }
 
-  const { error: enquiryErr } = await supabase
-    .from('guest_enquiries')
-    .update({ status: 'scope_report_submitted' })
-    .eq('booking_ref', report.booking_ref)
+  // Owner, 31 Oct 2026: only a site SURVEY moves the job to "survey report submitted". A daily
+  // execution visit on a running job must never send it back to the survey stage -- its
+  // findings become corrective actions instead (redo/attend, more resources, recast).
+  const isDailyExecution = (report as SupabaseAny).report_type === 'daily_execution'
+  if (!isDailyExecution) {
+    const { error: enquiryErr } = await supabase
+      .from('guest_enquiries')
+      .update({ status: 'scope_report_submitted' })
+      .eq('booking_ref', report.booking_ref)
 
-  if (enquiryErr) return { error: enquiryErr.message }
-
-  if ((report as SupabaseAny).report_type !== 'daily_execution') {
-    await logJobMovement(supabase, {
-      bookingRef: report.booking_ref, stage: 'survey', action: 'forwarded',
-      itemType: 'site_visit_report', itemId: reportId, toRole: 'coordinator',
-    })
+    if (enquiryErr) return { error: enquiryErr.message }
   }
+
+  await logJobMovement(supabase, isDailyExecution
+    ? {
+        bookingRef: report.booking_ref, stage: 'site_visit', action: 'completed',
+        itemType: 'site_visit_report', itemId: reportId, remarks: 'Daily execution visit report submitted',
+      }
+    : {
+        bookingRef: report.booking_ref, stage: 'survey', action: 'forwarded',
+        itemType: 'site_visit_report', itemId: reportId, toRole: 'coordinator',
+      })
 
   // supervisor_daily_routes.report_status/report_submitted_at are read by 5
   // files across Supervisor/Coordinator/Sub-Coordinator (dashboard, route

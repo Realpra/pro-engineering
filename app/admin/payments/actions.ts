@@ -3,15 +3,27 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logJobMovement, type MovementAction } from '@/lib/jobMovementLog'
 
 export type PaymentActionResult = { success: true } | { error: string }
 
 const TABLE = 'milestone_payment_schedule'
 
-async function applyUpdate(patch: Record<string, unknown>, paymentId: string): Promise<PaymentActionResult> {
+type PaymentLog = { action: MovementAction; adminUserId: string; remarks: string }
+
+async function applyUpdate(patch: Record<string, unknown>, paymentId: string, log?: PaymentLog): Promise<PaymentActionResult> {
   const supabase: any = await createClient()
   const { error } = await supabase.from(TABLE).update(patch).eq('id', paymentId)
   if (error) return { error: error.message }
+  // Job movement log (owner, 31 Oct 2026). A rejected payment counts as a send-back;
+  // a hold or a Decision 5 ruling does not.
+  if (log) {
+    await logJobMovement(supabase, {
+      milestonePaymentId: paymentId, stage: 'payment', action: log.action,
+      itemType: 'milestone_payment_schedule', itemId: paymentId,
+      fromUserId: log.adminUserId || undefined, remarks: log.remarks,
+    })
+  }
   revalidatePath('/admin/payments')
   return { success: true }
 }
@@ -29,7 +41,8 @@ export async function adminApprovePayment(
       platform_remarks: remarks,
       updated_at: new Date().toISOString(),
     },
-    paymentId
+    paymentId,
+    { action: 'approved', adminUserId, remarks: remarks || 'Payment approved by Admin' }
   )
 }
 
@@ -45,7 +58,8 @@ export async function adminHoldPayment(
       admin_hold_reason: holdReason,
       updated_at: new Date().toISOString(),
     },
-    paymentId
+    paymentId,
+    { action: 'held', adminUserId, remarks: holdReason }
   )
 }
 
@@ -61,7 +75,8 @@ export async function adminRejectPayment(
       admin_rejection_reason: rejectionReason,
       updated_at: new Date().toISOString(),
     },
-    paymentId
+    paymentId,
+    { action: 'rejected', adminUserId, remarks: rejectionReason }
   )
 }
 
@@ -80,7 +95,8 @@ export async function adminConfirmDecision5(
       status: 'decision_5_confirmed',
       updated_at: new Date().toISOString(),
     },
-    paymentId
+    paymentId,
+    { action: 'decided', adminUserId, remarks: `Decision 5 confirmed (cost borne by ${bearsCost})${adminRemarks ? ': ' + adminRemarks : ''}` }
   )
 }
 
@@ -102,7 +118,8 @@ export async function adminOverrideDecision5(
       admin_approved_at: now,
       updated_at: now,
     },
-    paymentId
+    paymentId,
+    { action: 'decided', adminUserId, remarks: `Decision 5 overridden${adminRemarks ? ': ' + adminRemarks : ''}` }
   )
 }
 
@@ -126,7 +143,8 @@ export async function adminPartialAcceptDecision5(
       admin_approved_at: now,
       updated_at: now,
     },
-    paymentId
+    paymentId,
+    { action: 'decided', adminUserId, remarks: `Decision 5 partly accepted${adminRemarks ? ': ' + adminRemarks : ''}` }
   )
 }
 
@@ -148,7 +166,8 @@ export async function adminApproveReworkDeduction(
       admin_approved_at: now,
       updated_at: now,
     },
-    paymentId
+    paymentId,
+    { action: 'decided', adminUserId, remarks: `Rework deduction approved${remarks ? ': ' + remarks : ''}` }
   )
 }
 
@@ -168,7 +187,8 @@ export async function adminModifyReworkDeduction(
       rework_cost_remarks: remarks,
       updated_at: now,
     },
-    paymentId
+    paymentId,
+    { action: 'decided', adminUserId, remarks: `Rework deduction modified${remarks ? ': ' + remarks : ''}` }
   )
 }
 
@@ -187,7 +207,8 @@ export async function adminWaiveReworkDeduction(
       rework_cost_remarks: remarks,
       updated_at: now,
     },
-    paymentId
+    paymentId,
+    { action: 'decided', adminUserId, remarks: `Rework deduction waived${remarks ? ': ' + remarks : ''}` }
   )
 }
 
@@ -202,7 +223,8 @@ export async function adminReleaseFromHold(
       admin_hold_reason: null,
       updated_at: new Date().toISOString(),
     },
-    paymentId
+    paymentId,
+    { action: 'released', adminUserId, remarks: 'Payment released from hold' }
   )
 }
 

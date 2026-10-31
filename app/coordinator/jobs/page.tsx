@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { assignStaff } from '../actions'
+import ReturnJobButton from '@/app/jobs/ReturnJobButton'
 
 export default async function CoordinatorJobsPage() {
   const supabase = await createClient()
@@ -23,7 +24,7 @@ export default async function CoordinatorJobsPage() {
     .select(`id, booking_ref, job_title, job_type, zone, district,
       status, is_active, estimate_total, supervisor_id, site_incharge_id,
       contact_name, contact_phone, preferred_start_date,
-      scope_description, created_at`)
+      scope_description, created_at, driving_role, driving_user_id, confirmed_for_execution_at`)
     .order('created_at', { ascending: false })
 
   const { data: supervisors } = await supabase
@@ -176,6 +177,9 @@ export default async function CoordinatorJobsPage() {
                         </div>
                       </div>
                       <div className="px-5 py-4 space-y-3">
+                        {job.driving_user_id === user.id && !job.confirmed_for_execution_at && (
+                          <ReturnJobButton bookingRef={job.booking_ref} />
+                        )}
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div>
                             <p className="text-gray-400">Job Type</p>

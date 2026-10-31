@@ -55,6 +55,12 @@ export async function adminApproveHandover(
     })
     .eq('id', assessmentId)
   if (error) return { error: error.message }
+  await supabase.from('guest_enquiries').update({ status: 'completed' }).eq('booking_ref', assessment.booking_ref)
+  await logJobMovement(supabase, {
+    bookingRef: assessment.booking_ref, stage: 'handover', action: 'decided',
+    itemType: 'pre_delivery_assessment', itemId: assessmentId, fromUserId: adminUserId,
+    remarks: 'Admin approved handover over client objection -- job completed' + (conditions ? `: ${conditions}` : ''),
+  })
   revalidatePath('/admin/scope')
   return { success: true }
 }
@@ -78,6 +84,12 @@ export async function adminRejectHandover(
     })
     .eq('id', assessmentId)
   if (error) return { error: error.message }
+  const { data: a } = await supabase.from('pre_delivery_assessment').select('booking_ref').eq('id', assessmentId).maybeSingle()
+  await logJobMovement(supabase, {
+    bookingRef: a?.booking_ref ?? null, stage: 'handover', action: 'rejected',
+    itemType: 'pre_delivery_assessment', itemId: assessmentId, fromUserId: adminUserId,
+    remarks: 'Handover rejected -- work back for correction' + (conditions ? `: ${conditions}` : ''),
+  })
   revalidatePath('/admin/scope')
   return { success: true }
 }
@@ -101,6 +113,13 @@ export async function adminConditionalHandover(
     })
     .eq('id', assessmentId)
   if (error) return { error: error.message }
+  const { data: a } = await supabase.from('pre_delivery_assessment').select('booking_ref').eq('id', assessmentId).maybeSingle()
+  if (a?.booking_ref) await supabase.from('guest_enquiries').update({ status: 'completed' }).eq('booking_ref', a.booking_ref)
+  await logJobMovement(supabase, {
+    bookingRef: a?.booking_ref ?? null, stage: 'handover', action: 'decided',
+    itemType: 'pre_delivery_assessment', itemId: assessmentId, fromUserId: adminUserId,
+    remarks: 'Admin approved handover with conditions -- job completed' + (conditions ? `: ${conditions}` : ''),
+  })
   revalidatePath('/admin/scope')
   return { success: true }
 }

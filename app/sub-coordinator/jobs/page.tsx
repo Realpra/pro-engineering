@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import SignOutButton from '../dashboard/SignOutButton'
+import ReturnJobButton from '@/app/jobs/ReturnJobButton'
 
 export default async function JobsPage() {
   const supabase = await createClient()
@@ -167,6 +168,7 @@ export default async function JobsPage() {
                   </div>
 
                   <div className="px-5 py-4 space-y-3">
+                    <ReturnJobButton bookingRef={job.booking_ref} />
                     {/* Stats row */}
                     <div className="grid grid-cols-4 gap-2 text-center text-xs">
                       <div>

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // ── Row types (exact confirmed columns) ─────────────────────────────────────
 
@@ -751,6 +752,10 @@ export async function saveMilestonePlan(
       }).eq('id', s.id)
     ))
   }
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'plan', action: 'created', fromUserId: user.id,
+    remarks: `Milestone plan saved: ${insertRows.length} sub-stage(s)`,
+  })
   return { savedCount: insertRows.length }
 }
 

@@ -266,6 +266,10 @@ export async function assignWorkerToJob(formData: FormData) {
     // one of the two assignment paths.
     current_job_booking_ref: booking_ref,
   }).eq('id', worker_id)
+  await logJobMovement(supabase, {
+    bookingRef: booking_ref, stage: 'deployment', action: 'assigned', fromUserId: user.id,
+    itemType: 'worker', itemId: worker_id, remarks: `Worker scheduled for ${shift_date}${role ? ' as ' + role : ''}`,
+  })
   revalidatePath('/sub-coordinator/workers')
   return { success: true }
 }

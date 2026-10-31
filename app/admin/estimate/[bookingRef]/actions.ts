@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { logJobMovement } from '@/lib/jobMovementLog'
+import { revalidatePath } from 'next/cache'
 
 // ── processClientRemarks ───────────────────────────────────────────────────────
 
@@ -1300,4 +1301,41 @@ export async function approveBoqField(
   }
 
   return { success: true }
+}
+
+// ── sendEstimateBack ───────────────────────────────────────────────────────────
+// Owner, 31 Oct 2026: Admin can send an estimate under review back to the Coordinator for
+// correction, with a reason. Admin's send-back is logged but NOT counted towards a "pending"
+// job. The reason lives in the job movement log (one record of the movement).
+export async function sendEstimateBack(
+  bookingRef: string,
+  reason: string,
+): Promise<{ error?: string }> {
+  if (!reason.trim()) return { error: 'Give the reason for sending the estimate back.' }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const { data: profile } = await supabase.from('users').select('platform_role').eq('id', user.id).maybeSingle()
+  if (!['admin', 'super_admin'].includes(profile?.platform_role ?? '')) {
+    return { error: 'Only Admin can send an estimate back.' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rows, error } = await (supabase as any)
+    .from('boq_generated')
+    .update({ status: 'draft', updated_at: new Date().toISOString() })
+    .eq('booking_ref', bookingRef)
+    .eq('status', 'admin_review')
+    .select('id')
+  if (error) return { error: (error as { message: string }).message }
+  if (!rows || rows.length === 0) return { error: 'This estimate is not waiting for Admin approval.' }
+
+  await logJobMovement(supabase, {
+    bookingRef, stage: 'estimate', action: 'returned', countsAsReturn: false,
+    itemType: 'boq_generated', itemId: rows[0].id,
+    fromUserId: user.id, fromRole: profile?.platform_role ?? null, toRole: 'coordinator',
+    remarks: reason.trim(),
+  })
+  revalidatePath(`/admin/estimate/${bookingRef}`)
+  return {}
 }

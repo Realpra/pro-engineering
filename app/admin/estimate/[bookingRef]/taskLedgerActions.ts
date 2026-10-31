@@ -14,6 +14,7 @@ import { matchSlot, confirmDevianceMatch, listCandidatesForSlot, assignCandidate
 import { recastForDelay, type RecastParams } from '@/lib/scheduling-engine/recast'
 import { fillSlotWithSavior } from '@/lib/scheduling-engine/saviors'
 import { getAvailabilityGrid, type AvailabilityToken } from '@/lib/scheduling-engine/availability'
+import { logJobMovement } from '@/lib/jobMovementLog'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
@@ -165,6 +166,13 @@ export async function materializeSubstage(params: { bookingRef: string; substage
   if (!substage) return { error: 'Sub-stage not found.' }
   try {
     const result = await materializeTaskLedgerForSubstage(ctx.supabase, substage)
+    if ((result.inserted ?? 0) > 0) {
+      await logJobMovement(ctx.supabase, {
+        bookingRef: params.bookingRef, stage: 'plan', action: 'created', fromUserId: ctx.userId,
+        itemType: 'job_milestone_substage', itemId: params.substageId,
+        remarks: `${result.inserted} day slot(s) created for deployment`,
+      })
+    }
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
     return result
   } catch (e) {
@@ -221,6 +229,11 @@ export async function assignCandidate(params: {
       matchScore: params.matchScore,
       decidedByUserId: ctx.userId,
     })
+    await logJobMovement(ctx.supabase, {
+      bookingRef: params.bookingRef, stage: 'deployment', action: 'assigned', fromUserId: ctx.userId,
+      itemType: 'task_ledger', itemId: params.slotId,
+      remarks: `Worker booked on slot (deviance ${params.devianceLevel}, match ${params.matchScore})`,
+    })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
     return {}
   } catch (e) {
@@ -249,6 +262,10 @@ export async function confirmSlotMatch(params: { bookingRef: string; slotId: str
       workerId: params.workerId,
       decidedByUserId: ctx.userId,
       notes: params.notes,
+    })
+    await logJobMovement(ctx.supabase, {
+      bookingRef: params.bookingRef, stage: 'deployment', action: 'assigned', fromUserId: ctx.userId,
+      itemType: 'task_ledger', itemId: params.slotId, remarks: 'Substitute confirmed by Coordinator',
     })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
     return {}
@@ -280,6 +297,11 @@ export async function reportSlotDelay(params: {
       reasonRemarks: params.reasonRemarks,
       loggedByUserId: ctx.userId,
     })
+    await logJobMovement(ctx.supabase, {
+      bookingRef: params.bookingRef, stage: 'plan', action: 'recast', fromUserId: ctx.userId,
+      itemType: 'task_ledger', itemId: params.affectedSlotId,
+      remarks: `Delay (${params.reasonCategory}, ${params.eventType}): ${params.daysLost} day(s) lost; ${result.insertedCount} slot(s) recast${params.reasonRemarks ? ' -- ' + params.reasonRemarks : ''}`,
+    })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
     return { affectedSubstageIds: result.affectedSubstageIds, insertedCount: result.insertedCount }
   } catch (e) {
@@ -295,6 +317,10 @@ export async function cancelSlotBooking(params: { bookingRef: string; slotId: st
   if ('error' in ctx) return ctx
   try {
     await cancelBooking(ctx.supabase, { slotId: params.slotId, cancelledByUserId: ctx.userId, remarks: params.remarks })
+    await logJobMovement(ctx.supabase, {
+      bookingRef: params.bookingRef, stage: 'deployment', action: 'removed', fromUserId: ctx.userId,
+      itemType: 'task_ledger', itemId: params.slotId, remarks: params.remarks ? `Booking cancelled: ${params.remarks}` : 'Booking cancelled',
+    })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
     return {}
   } catch (e) {
@@ -325,6 +351,10 @@ export async function logSaviorForSlot(params: {
       daysAssigned: params.daysAssigned,
       loggedByUserId: ctx.userId,
       remarks: params.remarks,
+    })
+    await logJobMovement(ctx.supabase, {
+      bookingRef: params.bookingRef, stage: 'deployment', action: 'assigned', fromUserId: ctx.userId,
+      itemType: 'task_ledger', itemId: params.slotId, remarks: `Savior (off-system) filled the slot: ${params.fullName}`,
     })
     revalidatePath(`/admin/estimate/${params.bookingRef}`)
     return {}
