@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import LogoutButton from './LogoutButton'
 import PremiumApprovalsPanel from './PremiumApprovalsPanel'
+import { isAwaitingAdmin } from '@/lib/workerApprovalStatus'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -224,7 +225,7 @@ export default async function AdminDashboardPage() {
 
   // ── 1. workers ───────────────────────────────────────────────────────────────
   const totalWorkers = workersRaw.length
-  const pendingAdminApproval = workersRaw.filter((w) => w.approval_status === 'coordinator_approved').length
+  const pendingAdminApproval = workersRaw.filter((w) => isAwaitingAdmin(w.approval_status)).length
   const adminApprovedWorkers = workersRaw.filter((w) => w.approval_status === 'admin_approved').length
   const deployedWorkers = workersRaw.filter((w) => !!w.current_job_booking_ref).length
   // NOTE: skill_level is a 3-tier enum (semi_skilled/skilled/highly_skilled) in the
@@ -358,7 +359,7 @@ export default async function AdminDashboardPage() {
   const activities: Activity[] = []
 
   for (const w of workersRaw) {
-    if (w.approval_status === 'coordinator_approved' && w.created_at) {
+    if (isAwaitingAdmin(w.approval_status) && w.created_at) {
       activities.push({ ts: new Date(w.created_at).getTime(), text: `Worker ${w.full_name} forwarded for admin approval`, bookingRef: null })
     }
   }

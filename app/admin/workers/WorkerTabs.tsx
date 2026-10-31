@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import WorkerCard, { type Worker, type WorkerCardMode } from './WorkerCard'
+import { AWAITING_ADMIN_STATUSES } from '@/lib/workerApprovalStatus'
 
 type TabDef = {
   key: string
@@ -18,7 +19,7 @@ type TabDef = {
 }
 
 const TABS: TabDef[] = [
-  { key: 'pending', label: 'Pending Approval', statuses: ['coordinator_approved'], mode: 'pending', showBadge: true },
+  { key: 'pending', label: 'Pending Approval', statuses: AWAITING_ADMIN_STATUSES, mode: 'pending', showBadge: true },
   { key: 'admin_approved', label: 'Admin Approved', statuses: ['admin_approved'], mode: 'approved', extra: (w) => !w.admin_renewal_flag_reason },
   { key: 'renewal_flagged', label: 'Flagged for Renewal', statuses: ['admin_approved'], mode: 'approved', extra: (w) => !!w.admin_renewal_flag_reason },
   { key: 'returned', label: 'Returned / Rejected', statuses: ['returned_for_correction', 'returned_to_subcoordinator', 'rejected'], mode: 'returned' },

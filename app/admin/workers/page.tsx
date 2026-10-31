@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import WorkerTabs from './WorkerTabs'
 import type { Worker } from './WorkerCard'
+import { AWAITING_ADMIN_STATUSES } from '@/lib/workerApprovalStatus'
 
 export default async function AdminWorkersPage() {
   const supabase = await createClient()
@@ -46,7 +47,7 @@ export default async function AdminWorkersPage() {
   const renewalFlaggedCount = adminApprovedWorkers.filter((w) => !!w.admin_renewal_flag_reason).length
 
   const stats: { label: string; count: number; className: string }[] = [
-    { label: 'Pending Approval', count: countBy(['coordinator_approved']), className: 'text-[#F97316]' },
+    { label: 'Pending Approval', count: countBy(AWAITING_ADMIN_STATUSES), className: 'text-[#F97316]' },
     { label: 'Admin Approved', count: adminApprovedWorkers.length - renewalFlaggedCount, className: 'text-green-600' },
     { label: 'Flagged for Renewal', count: renewalFlaggedCount, className: 'text-teal-600' },
     { label: 'Returned / Rejected', count: countBy(['returned_for_correction', 'returned_to_subcoordinator', 'rejected']), className: 'text-red-600' },
