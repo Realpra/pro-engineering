@@ -208,8 +208,8 @@ token and a Vercel token (see SESSIONS.md, Session 72 closed). Next: rest of Pac
   the estimate lookup used max_contingency_pct / admin_approval_limit_pct, which never existed.
   Also found and fixed: policy_change_log writes used columns that do not exist, so no policy change
   was ever recorded (lib/policyChangeLog.ts now writes the live columns).
-  SQL PENDING the owner's run: `20261031_contingency_repository_and_admin_limit.sql` (must run before
-  the code reaches any deploy: generateBOQ writes its new boq_generated columns).
+  `20261031_contingency_repository_and_admin_limit.sql` RUN LIVE (verified read-only: 4 columns, check,
+  index; all 27 rows at limit 5). Commit 095d7c6 + record awaiting the owner's push go-ahead.
 
 **State at Session 73 (31 Oct 2026)**: both 20261030 SQL files confirmed run live and verified
 read-only. Commits on the branch NOT YET PUSHED (owner to say): dashboard alerts, worker

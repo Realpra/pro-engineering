@@ -2052,4 +2052,5 @@ yet, `master` untouched, owner correcting the site text in PRO_ENGINEERING_SITE_
   %, deviations, effective date); Super Admin table lists every row (job type + region) and edits
   only the Admin limit; lib/policyChangeLog.ts fixes the change log (writes/reads live columns).
 - Migration `20261031_contingency_repository_and_admin_limit.sql` tested twice on local Postgres 16;
-  NOT run live. tsc clean; no new lint errors. Local commit only, not pushed.
+  run live by the owner and verified read-only (4 columns, check, index; 27 rows at limit 5).
+  tsc clean; no new lint errors. Local commits, awaiting push go-ahead.
